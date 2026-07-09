@@ -1,0 +1,74 @@
+# 评分阈值与权重配置 —— 默认：青岛黄海标定
+# 改判断标准只改本文件，不改代码（见 .kiro/steering/structure.md）
+
+meta:
+  region: "Yellow Sea (Qingdao)"
+  calibrated_for: "半封闭海域，fetch ~500km，风涌为主 4-7s"
+  note: "远洋涌浪海域请新建 thresholds-ocean.yaml 并调高周期阈值"
+
+# 综合分权重（须合计 1.0）—— v2 黄金样本口径
+weights:
+  wave_height: 0.30
+  period: 0.25
+  wind: 0.20
+  purity: 0.15
+  tide: 0.10
+
+# 浪高 (m)，外海 Hs。score 为分段上界对应的分值，线性插值
+wave_height:
+  unit: m
+  bands:
+    - { max: 0.30, score: 1, grade: "⛔ 不可冲" }
+    - { max: 0.50, score: 4, grade: "🟡 勉强(长板)" }
+    - { max: 0.80, score: 6, grade: "🟢 适中" }
+    - { max: 1.20, score: 8, grade: "🔵 良好" }
+    - { max: 2.00, score: 9, grade: "🟣 优秀" }
+    - { max: 99.0, score: 7, grade: "🔴 高级(需经验)" }
+  nearshore_factor: 0.75   # 近岸浅水衰减
+  face_factor: 1.4         # 浪面高度倍数（勿与衰减重复放大）
+
+# 波浪周期 (s)，临界线 6s。黄海标准比远洋宽松
+period:
+  unit: s
+  bands:
+    - { max: 4.0, score: 2, grade: "⛔ 极差(风浪chop)" }
+    - { max: 5.0, score: 5, grade: "🟡 短周期风涌" }
+    - { max: 6.0, score: 7, grade: "🟢 急推" }
+    - { max: 7.0, score: 8, grade: "🔵 顺滑推送" }
+    - { max: 10.0, score: 9, grade: "🟣 优秀(罕见)" }
+    - { max: 99.0, score: 10, grade: "🏆 远洋涌" }
+  prefer_peak_period: true   # 优先用 Tp 评分；报告须标注口径
+
+# 风速 (kn)，默认向岸 onshore；离岸放宽一档
+wind:
+  unit: kn
+  onshore_bands:
+    - { max: 3.0, score: 10, grade: "🏆 玻璃面" }
+    - { max: 5.0, score: 8, grade: "🟢 轻风" }
+    - { max: 8.0, score: 6, grade: "🟡 中风(纹理)" }
+    - { max: 12.0, score: 3, grade: "🟠 较强(混乱)" }
+    - { max: 99.0, score: 1, grade: "🔴 大风" }
+  offshore_bonus_band: 1     # 离岸风向上提升的档数
+  spot_facing_deg: 157       # 浪点朝向 SSE，用于判断向岸/离岸
+  gust_ratio_anomaly: 5.0    # 阵风比 > 此值标记数据异常
+
+# 涌浪纯度 (%) = swell/total
+purity:
+  unit: percent
+  bands:
+    - { min: 85, score: 10, grade: "🏆 丝绸面" }
+    - { min: 70, score: 7, grade: "🟢 良好" }
+    - { min: 50, score: 5, grade: "🟡 一般" }
+    - { min: 0, score: 2, grade: "⛔ 差(风浪)" }
+
+# 潮汐 (m，相对 MSL)：理想中潮位，高潮淹浪型
+tide:
+  unit: m
+  ideal_range: [0.3, 1.0]
+  high_tide_penalty_above: 1.2
+  low_tide_penalty_below: 0.3
+
+# 可信度
+confidence:
+  midrange_day_threshold: 5   # D+5 及以上标注降级
+  midrange_height_error: 0.30 # ±30%

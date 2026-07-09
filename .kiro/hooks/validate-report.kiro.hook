@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "name": "Validate Surf Report / Data on Save",
+  "description": "保存报告 Markdown 或前端数据(DAYS/HISTORY)时，依据 domain-knowledge 第九节红线自动事实核查：GMT+8 星期/今天/昨天、月相↔潮型、周期口径、离岸判定、虚构叙事、中期降级、历史与预报日期不重叠。",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": ["**/*冲浪浪报*.md", "**/report*.md", "web/*.html", "out/**/*.md"]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "刚保存的浪报内容有变更。请依据 .kiro/steering/domain-knowledge.md 第九节『数据诚实红线』逐项核查：\n1. 星期/今天/昨天是否按 GMT+8 日历计算正确；\n2. 潮型是否与月相自洽、潮差量级符合海域；\n3. 引用周期是否标注 Tm/Tp 口径且与数据一致；\n4. 每个白天时段的 offshore/cross/onshore 判定是否正确（山东头朝向 157°）；\n5. 是否有用物理机制解释不存在数据的虚构叙事；\n6. D+5+ 是否有 ±30% 降级标注；\n7. 历史区(昨日)与预报区(今天起)日期是否重叠（不应重叠）；\n8. 是否全程标注 GMT+8。\n逐条列出问题与修正建议，不要直接改文件。"
+  }
+}

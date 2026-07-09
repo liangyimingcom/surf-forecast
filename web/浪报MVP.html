@@ -1,0 +1,1097 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0c4a6e">
+<title>🏄 浪报 · 青岛山东头 7日冲浪窗口</title>
+<!--
+  浪报MVP.html —— 动态浪报网站「会员视图」效果样板
+  ============================================================
+  布局：移动端优先（max-width 480 居中），浅色海洋主题。
+  设计：小白/高手双模式 · 日期条 · Hero · SVG 图表(浪高+周期双口径/风+潮/生命周期) · 五维评分。
+  数据：内嵌已核验的 2026-06-19~25 青岛山东头最新 ECMWF 数据（API 实时拉取）。
+  说明：纯前端单文件；会员门禁=前端口令占位；位置查询=UI 占位；
+       生产版数据由后端 API 喂入（结构见 DAYS 注释 / spec DATA CONTRACT）。
+-->
+<style>
+  :root{
+    --c-good:#10b981; --c-rec:#3b82f6; --c-ok:#f59e0b; --c-poor:#f97316; --c-flat:#94a3b8;
+    --ink:#0f172a; --ink2:#475569; --ink3:#94a3b8;
+    --bg:#eef6fb; --card:#ffffff; --line:#e2e8f0;
+    --sea1:#0c4a6e; --sea2:#0369a1; --accent:#0ea5e9;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    background:#dbeafe;color:var(--ink);font-size:15px;line-height:1.55}
+  .wrap{max-width:480px;margin:0 auto;background:var(--bg);min-height:100vh;box-shadow:0 0 30px rgba(2,60,100,.15)}
+
+  /* ───── 会员门禁占位 ───── */
+  #gate{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;
+    background:linear-gradient(160deg,#0c4a6e,#0369a1 55%,#0ea5e9)}
+  #gate .waveBg{position:absolute;bottom:0;left:0;width:100%;opacity:.5}
+  #gate .box{position:relative;background:#fff;border-radius:22px;padding:32px 24px;width:min(380px,100%);
+    text-align:center;box-shadow:0 16px 50px rgba(2,40,70,.4)}
+  #gate .surf{font-size:46px;animation:bob 3s ease-in-out infinite}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+  #gate h2{font-size:21px;margin:6px 0 4px;color:var(--sea1)}
+  #gate p{color:var(--ink2);font-size:13px;margin-bottom:18px}
+  #gate input{width:100%;padding:14px 16px;border-radius:14px;border:1.5px solid #cbd5e1;
+    background:#f8fafc;color:var(--ink);font-size:16px;margin-bottom:12px;outline:none}
+  #gate input:focus{border-color:var(--accent)}
+  .gbtn{width:100%;padding:14px;border:none;border-radius:14px;cursor:pointer;font-size:16px;font-weight:700;
+    color:#fff;background:linear-gradient(90deg,var(--sea2),var(--accent));box-shadow:0 6px 16px rgba(3,105,161,.3)}
+  .gbtn:active{transform:translateY(1px)}
+  #gate .hint{margin-top:14px;font-size:12px;color:var(--ink2)}
+  #gate .hint code{background:#f1f5f9;padding:2px 7px;border-radius:6px;color:var(--sea2)}
+  #gate .gbadge{display:inline-block;margin-top:12px;font-size:11px;color:var(--c-poor);
+    border:1px solid var(--c-poor);border-radius:20px;padding:3px 11px}
+  .gerr{color:#dc2626;font-size:13px;min-height:18px;margin-bottom:4px}
+
+  /* ───── header ───── */
+  header{background:linear-gradient(135deg,var(--sea1),var(--sea2));color:#fff;padding:18px 16px 14px;position:relative;overflow:hidden}
+  header .wave-deco{position:absolute;right:-10px;top:-18px;font-size:90px;opacity:.12;transform:rotate(-12deg)}
+  header h1{font-size:21px;letter-spacing:.5px;display:flex;align-items:center;gap:8px}
+  header h1 small{font-size:12px;font-weight:400;opacity:.75;letter-spacing:0}
+  .spot{margin-top:5px;font-size:12.5px;opacity:.9;display:flex;gap:9px;flex-wrap:wrap}
+  .spot span{display:inline-flex;align-items:center;gap:3px}
+
+  /* ───── 位置查询栏（UI 占位） ───── */
+  .query{background:rgba(255,255,255,.14);border-radius:14px;padding:10px;margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
+  .query .qf{flex:1;min-width:120px}
+  .query label{font-size:10.5px;opacity:.8;display:block;margin-bottom:3px}
+  .query select,.query input{width:100%;padding:9px 10px;border-radius:10px;border:0;background:#fff;color:var(--ink);font-size:13.5px;outline:none}
+  .query .qbtn{border:0;border-radius:10px;background:#fff;color:var(--sea1);font-weight:700;font-size:13.5px;padding:9px 16px;cursor:pointer}
+  .query .qnote{flex-basis:100%;font-size:10.5px;opacity:.78;line-height:1.5}
+
+  /* ───── mode toggle ───── */
+  .mode{display:flex;background:rgba(255,255,255,.16);border-radius:999px;padding:3px;margin-top:11px}
+  .mode button{flex:1;border:0;background:transparent;color:#fff;padding:8px 0;border-radius:999px;font-size:14px;font-weight:600;transition:all .25s;cursor:pointer}
+  .mode button.on{background:#fff;color:var(--sea1);box-shadow:0 2px 8px rgba(0,0,0,.18)}
+  .mode button small{display:block;font-size:10px;font-weight:400;opacity:.7;margin-top:1px}
+
+  /* ───── day strip ───── */
+  .strip{display:flex;gap:6px;padding:10px 12px;background:var(--card);position:sticky;top:0;z-index:50;
+    border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:none}
+  .strip::-webkit-scrollbar{display:none}
+  .dchip{flex:1;min-width:54px;text-align:center;border-radius:12px;padding:7px 2px 6px;cursor:pointer;border:2px solid transparent;transition:transform .15s}
+  .dchip:active{transform:scale(.94)}
+  .dchip .wk{font-size:11px;color:var(--ink2)}
+  .dchip .dt{font-size:12px;font-weight:700;margin:1px 0}
+  .dchip .sc{font-size:13px;font-weight:800;color:#fff;border-radius:8px;padding:1px 0;margin-top:2px}
+  .dchip.today{border-color:var(--accent);background:#f0f9ff}
+  .dchip .today-tag{font-size:9px;color:var(--accent);font-weight:700}
+
+  /* ───── hero ───── */
+  .hero{margin:12px;border-radius:16px;background:linear-gradient(135deg,#065f46,#10b981);color:#fff;padding:15px 16px;box-shadow:0 6px 18px rgba(16,185,129,.25)}
+  .hero .lab{font-size:11px;opacity:.85;letter-spacing:1px}
+  .hero .main{display:flex;align-items:baseline;gap:8px;margin-top:3px;flex-wrap:wrap}
+  .hero .main b{font-size:22px}
+  .hero .main .scbig{font-size:26px;font-weight:900}
+  .hero .win{margin-top:6px;font-size:13.5px;background:rgba(255,255,255,.18);display:inline-block;padding:3px 10px;border-radius:999px}
+  .hero .today-line{margin-top:10px;padding-top:9px;border-top:1px dashed rgba(255,255,255,.35);font-size:12.5px;opacity:.92}
+  .story{margin:0 12px 4px;background:#fff;border-radius:12px;padding:10px 14px;font-size:12.5px;color:var(--ink2);border:1px solid var(--line)}
+  .story b{color:var(--ink)}
+
+  /* ───── 昨日回看 · 准确度校验 ───── */
+  .verify{margin:12px;border-radius:16px;background:linear-gradient(135deg,#ecfeff,#f0f9ff);border:1px solid #bae6fd;overflow:hidden}
+  .verify .vh{padding:12px 14px 10px;display:flex;align-items:center;gap:10px;background:#e0f2fe;border-bottom:1px solid #bae6fd}
+  .verify .vh .vicon{font-size:22px}
+  .verify .vh .vt{flex:1}
+  .verify .vh .vt b{font-size:14px;color:var(--sea1);display:block}
+  .verify .vh .vt small{font-size:11px;color:var(--ink2)}
+  .verify .vh .vsc{width:44px;height:44px;border-radius:12px;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0}
+  .verify .vh .vsc b{font-size:17px;line-height:1}
+  .verify .vh .vsc span{font-size:8px;opacity:.9;margin-top:1px}
+  .verify .vbody{padding:11px 14px 13px}
+  .verify .vpred{font-size:13px;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:10px;padding:9px 12px;line-height:1.6}
+  .verify .vpred .pk{display:inline-block;font-size:11px;color:var(--sea2);background:#eff6ff;border-radius:6px;padding:1px 7px;margin:2px 4px 2px 0}
+  .verify .vask{font-size:12.5px;color:var(--ink2);margin:11px 0 7px;font-weight:600}
+  .verify .vrate{display:flex;gap:7px}
+  .verify .vrate button{flex:1;border:1.5px solid var(--line);background:#fff;border-radius:11px;padding:9px 4px;cursor:pointer;
+    font-size:12px;color:var(--ink2);transition:all .15s;line-height:1.35}
+  .verify .vrate button .em{font-size:17px;display:block;margin-bottom:1px}
+  .verify .vrate button:active{transform:scale(.96)}
+  .verify .vrate button.sel{border-color:var(--accent);background:#e0f2fe;color:var(--sea1);font-weight:700;box-shadow:0 2px 8px rgba(14,165,233,.18)}
+  .verify .vresult{margin-top:10px;font-size:12.5px;line-height:1.6;padding:10px 12px;border-radius:10px;display:none}
+  .verify .vresult.show{display:block}
+  .verify .vmore{margin-top:8px;width:100%;border:1px dashed #bae6fd;background:#f0f9ff;color:#0369a1;font-size:12px;font-weight:600;padding:7px;border-radius:9px;cursor:pointer}
+  body.expert .verify .vmore{display:none}
+  .verify .vexpert{display:none}
+  body.expert .verify .vexpert{display:block}
+
+  /* ───── day cards ───── */
+  .card{margin:12px;border-radius:16px;background:var(--card);border:1px solid var(--line);overflow:hidden;scroll-margin-top:78px}
+  .card-hd{display:flex;align-items:center;gap:12px;padding:14px 14px 10px}
+  .badge{width:52px;height:52px;border-radius:14px;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0}
+  .badge b{font-size:19px;line-height:1}
+  .badge span{font-size:9px;opacity:.85;margin-top:2px}
+  .card-hd .ttl{flex:1;min-width:0}
+  .card-hd .ttl .d1{font-size:16px;font-weight:800;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+  .tagchip{font-size:10.5px;font-weight:600;padding:1.5px 8px;border-radius:999px;color:#fff}
+  .card-hd .ttl .stars{font-size:12px;color:#f59e0b;letter-spacing:1px;margin-top:2px}
+  .card-hd .ttl .stars i{color:#cbd5e1;font-style:normal}
+
+  .novice-box{padding:0 14px 13px}
+  .winrow{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:9px}
+  .chip{font-size:12px;padding:4px 10px;border-radius:999px;background:#f1f5f9;color:var(--ink2);display:inline-flex;gap:4px;align-items:center}
+  .chip.hot{background:#ecfdf5;color:#047857;font-weight:700}
+  .oneline{font-size:14.5px;line-height:1.65;background:#f8fafc;border-left:3px solid var(--accent);padding:9px 12px;border-radius:0 10px 10px 0}
+  .whybtn{margin-top:10px;width:100%;border:1.5px dashed #bae6fd;background:#f0f9ff;color:#0369a1;font-size:13px;font-weight:600;padding:8px;border-radius:10px;cursor:pointer}
+  body.expert .whybtn{display:none}
+
+  /* ───── expert section ───── */
+  .expert-sec{display:none;border-top:1px dashed var(--line);padding:13px 14px 15px;background:#fbfdff}
+  body.expert .expert-sec{display:block}
+  .sec-t{font-size:12px;font-weight:800;color:var(--sea2);letter-spacing:1.5px;margin:14px 0 8px;display:flex;align-items:center;gap:6px}
+  .sec-t:first-child{margin-top:0}
+  .sec-t::after{content:"";flex:1;height:1px;background:var(--line)}
+
+  .dims{display:flex;flex-direction:column;gap:6px}
+  .dim{display:flex;align-items:center;gap:8px;font-size:12px}
+  .dim .dl{width:62px;color:var(--ink2);flex-shrink:0}
+  .dim .track{flex:1;height:8px;background:#eef2f7;border-radius:99px;overflow:hidden}
+  .dim .fill{height:100%;border-radius:99px}
+  .dim .dv{width:34px;text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+
+  .chartbox{background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px 6px 4px;margin-top:4px}
+  .chartbox .cap{font-size:11px;color:var(--ink3);text-align:center;padding:4px 8px 4px;line-height:1.5}
+  svg{display:block;width:100%;height:auto}
+
+  /* ───── HTML 图例（替代拥挤的 SVG 内嵌文字）───── */
+  .legend{display:flex;flex-wrap:wrap;gap:4px 12px;justify-content:center;padding:6px 8px 2px;font-size:10.5px;color:var(--ink2)}
+  .legend .lg{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+  .legend .sw{width:13px;height:9px;border-radius:2px;flex-shrink:0}
+  .legend .ln{width:15px;height:0;border-top-width:2.4px;border-top-style:solid;flex-shrink:0}
+  .legend .ln.dash{border-top-style:dashed}
+  .legend .dot{width:9px;height:9px;border-radius:50%;border:2px solid;background:#fff;flex-shrink:0}
+
+  /* ───── 离岸/向岸 风质条 ───── */
+  .windq{display:flex;gap:3px;margin:6px 6px 2px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
+  .windq .seg{flex:0 0 auto;min-width:42px;text-align:center;border-radius:7px;padding:5px 3px 4px;color:#fff;line-height:1.25;white-space:nowrap}
+  .windq .seg .wq-ar{font-size:13px;display:block}
+  .windq .seg .wq-h{font-size:9.5px;opacity:.95}
+  .windq .seg .wq-k{font-size:10.5px;font-weight:800;font-variant-numeric:tabular-nums}
+  .windq-key{display:flex;flex-wrap:wrap;gap:3px 10px;justify-content:center;font-size:10px;color:var(--ink2);padding:3px 8px 2px}
+  .windq-key b{display:inline-flex;align-items:center;gap:3px}
+  .windq-key i{width:10px;height:10px;border-radius:3px;font-style:normal;display:inline-block}
+
+  .pa{display:flex;flex-direction:column;gap:8px}
+  .pa .item{font-size:13px;color:var(--ink2);line-height:1.6}
+  .pa .item b.k{color:var(--ink);background:#eef6ff;padding:0 6px;border-radius:6px;margin-right:4px;font-size:12px}
+  .pa .item .pscore{font-size:11px;font-weight:800;margin-left:2px}
+
+  .lesson{background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1px solid #fde68a;border-radius:12px;padding:11px 13px;font-size:12.5px;line-height:1.65;color:#713f12}
+  .lesson b.lt{display:block;color:#92400e;font-size:13px;margin-bottom:3px}
+
+  .plan{background:#ecfdf5;border:1px solid #a7f3d0;border-radius:12px;padding:11px 13px;font-size:13px;line-height:1.65;color:#064e3b}
+  .plan b.pt{display:block;color:#047857;margin-bottom:3px;font-size:13px}
+
+  .safe{background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:11px 13px;font-size:12.5px;line-height:1.65;color:#7c2d12;margin-top:10px}
+  .safe b.st{display:block;color:#c2410c;margin-bottom:3px;font-size:13px}
+
+  /* ───── always-visible checklist ───── */
+  .checklist{margin:12px;background:#fff7ed;border:1px solid #fdba74;border-radius:16px;padding:13px 14px}
+  .checklist h3{font-size:14px;color:#c2410c;margin-bottom:7px}
+  .checklist ol{padding-left:18px;font-size:12.5px;color:#7c2d12;line-height:1.75}
+
+  /* ───── expert extras ───── */
+  .extras{display:none;margin:12px;padding:0}
+  body.expert .extras{display:block}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px}
+  .panel h3{font-size:14px;color:var(--sea1);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+  .formula{display:flex;flex-direction:column;gap:7px}
+  .formula .f{font-size:12.5px;background:#f8fafc;border-radius:10px;padding:8px 11px;color:var(--ink2)}
+  .formula .f code{font-family:ui-monospace,Menlo,monospace;color:var(--sea2);font-weight:700;font-size:12px}
+  .vs-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px}
+  .vs-table th,.vs-table td{padding:6px 6px;text-align:center;border-bottom:1px solid var(--line)}
+  .vs-table th{color:var(--ink3);font-weight:600;font-size:11px}
+  .vs-table td:first-child{text-align:left;color:var(--ink2)}
+  .vs-note{font-size:12px;color:var(--ink2);margin-top:9px;line-height:1.6;background:#fef2f2;border-radius:10px;padding:9px 11px;border:1px solid #fecaca}
+
+  footer{padding:18px 16px 40px;font-size:11px;color:var(--ink3);line-height:1.7}
+  footer b{color:var(--ink2)}
+  #miniMap{height:220px;border-radius:10px;margin:8px 0;display:none}
+</style>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body>
+
+<!-- ===== 会员门禁（前端占位，真鉴权待后端版） ===== -->
+<div id="gate" style="display:none">
+  <svg class="waveBg" viewBox="0 0 1440 200" preserveAspectRatio="none" height="160">
+    <path fill="#ffffff" fill-opacity="0.3" d="M0,96 C240,160 480,32 720,80 C960,128 1200,176 1440,112 L1440,200 L0,200 Z"/>
+    <path fill="#ffffff" fill-opacity="0.5" d="M0,128 C240,80 480,176 720,144 C960,112 1200,48 1440,96 L1440,200 L0,200 Z"/>
+  </svg>
+  <div class="box">
+    <div class="surf">🏄‍♂️</div>
+    <h2>浪报 · 会员专享</h2>
+    <p>输入会员口令，查看指定位置的逐日深度浪报</p>
+    <div class="gerr" id="gateErr"></div>
+    <input id="gatePwd" type="password" placeholder="会员口令" autocomplete="off">
+    <button class="gbtn" onclick="tryEnter()">进入</button>
+    <div class="hint">演示口令：<code>surf2026</code></div>
+    <div class="gbadge">⚠ MVP 占位门禁 · 真实账号鉴权由后端版提供</div>
+  </div>
+</div>
+
+<div class="wrap" id="app">
+
+  <header>
+    <div class="wave-deco">🌊</div>
+    <h1>🏄 浪报 <small>7日冲浪窗口 · MVP</small></h1>
+    <div class="spot">
+      <span>📍 青岛 · 山东头</span><span id="metaRange">📅 6/20 – 6/25</span><span>🌅 04:46 / 19:26</span>
+      <span>🌡️ 水温 22–24°C · 2mm</span><span>🌓 6/22 上弦 · 小潮</span>
+      <span id="metaCalib">🕐 校准 2026-06-20 北京时间 GMT+8</span>
+    </div>
+
+    <!-- 位置查询栏（UI 占位，真实取数待后端 API） -->
+    <div class="query">
+      <div class="qf">
+        <label>浪点 / 位置</label>
+        <select id="spotSel" onchange="onSpotChange()">
+          <option value="qd" selected>青岛 · 山东头 (36.09, 120.47)</option>
+          <option value="custom">➕ 新增自定义浪点…</option>
+        </select>
+      </div>
+      <div class="qf" id="latlon" style="display:none">
+        <label>经纬度</label>
+        <input id="coordInput" placeholder="例 36.09, 120.47" inputmode="decimal">
+      </div>
+      <div class="qf" id="nameField" style="display:none">
+        <label>浪点名称</label>
+        <input id="nameInput" placeholder="例 石老人" maxlength="32">
+      </div>
+      <button class="qbtn" onclick="onQuery()">查询</button>
+      <button class="qbtn" id="createBtn" style="display:none" onclick="onCreateSpot()">创建并查询</button>
+      <button class="qbtn" id="renameBtn" style="display:none" onclick="onRenameSpot()">✏️ 重命名</button>
+      <button class="qbtn" id="delBtn" style="display:none" onclick="onDeleteSpot()">🗑 删除</button>
+      <div id="miniMap"></div>
+      <div class="qnote" id="qnote">登录后可自定义经纬度浪点、保存多点并一键切换；未登录展示内置「青岛山东头」样板。新增时可在地图上点选回填坐标。</div>
+    </div>
+
+    <div class="mode">
+      <button id="btnNovice" class="on" onclick="setMode(false)">🐣 小白模式<small>哪天能冲，一句话</small></button>
+      <button id="btnExpert" onclick="setMode(true)">🏄 高手模式<small>为什么好，图解分析</small></button>
+    </div>
+  </header>
+
+  <nav class="strip" id="strip"></nav>
+
+  <section class="hero" id="hero"></section>
+  <div class="story" id="story"></div>
+
+  <main id="cards"></main>
+
+  <section class="verify" id="verify"></section>
+
+  <section class="checklist">
+    <h3>⚠️ 下水前必做的三件事</h3>
+    <ol>
+      <li><b>核对青岛官方潮汐表</b>——本页潮汐为模型推算（±1h）。本周为小潮期，潮流较弱、break 位置稳定，是利好。</li>
+      <li><b>周二晚复核 6/24–6/25 预报</b>——D+5/6 数据误差 ±30%，王者日的浪高/无风窗口请临场确认。</li>
+      <li><b>周三冲大浪（约 1m）</b>：虽是小潮流缓，仍看 5 分钟流向、结伴下水、检查脚绳。</li>
+    </ol>
+  </section>
+
+  <section class="extras" id="extras"></section>
+
+  <footer>
+    <b>数据与免责（最新预报 · 经星期/月相/周期口径/水温核验）</b><br>
+    浪/风：ECMWF WAM &amp; IFS 0.25°，外海格点，近岸实际浪高约打 7~8 折。<br>
+    周期口径：橙线=平均周期 Tm，红虚线=谱峰周期 Tp（已双口径核对）。<br>
+    水温：模型 SST 22.6–24.4°C（夏季升温），防晒衣 / 2mm 即可。<br>
+    ⚠️ 所有时间均为北京时间 GMT+8（Asia/Shanghai）。潮汐为模型推算（误差可达 ±1h），下水前务必核对青岛官方潮汐表。本周上弦月小潮期，潮差较小。<br>
+    ⚠️ 6/24–6/25 为中期预报，浪高误差 ±30%，请每日复核更新。<br>
+    评分权重：浪高30% + 周期25% + 风况20% + 涌浪纯度15% + 潮汐10%（仅评估白天时段）。本页为 MVP 效果样板，会员鉴权与多位置实时查询由后端版提供。
+  </footer>
+</div>
+
+<script>
+/* ================= 数据（DATA CONTRACT：后端 /api/report 应返回同构结构）=================
+   来源：Open-Meteo ECMWF WAM/IFS 实时拉取，2026-06-20 校准（北京时间 GMT+8），青岛山东头 6/20–6/25 预报 + 6/19 历史。
+   tp = 平均周期 Tm（橙实线）；tp2 = 谱峰周期 Tp（红虚线）。 */
+let DAYS = [
+{
+  id:'d20', date:'6/20', week:'周六', today:true, score:6.9, stars:3, tag:'离岸梳面', phase:'离岸梳面', dawnWind:'2.6✨',
+  window:'17:00 / 早场', windows:[[5,8],[16.5,18]], board:'中长板 / 鱼板', level:'全员可冲',
+  novice:'NW 离岸风把浪面梳得很干净。浪从午后慢慢长大，傍晚 17 点风落到 2 节、浪到胸高，是当天最甜的一口。',
+  times:[5,8,11,14,17],
+  hs:[0.60,0.60,0.56,0.74,0.78], swell:[0.36,0.38,0.32,0.30,0.28],
+  tp:[4.2,4.2,4.6,4.0,4.3], tp2:[4.8,5.0,5.0,4.8,4.7],
+  wind:[2.6,5.5,9.0,5.4,2.0], gust:[7,14,22,17,10], wdeg:[318,312,323,322,174],
+  tideEvents:[[2,-1.54],[8,1.66],[15,-0.58],[20,1.41]],
+  tideText:'低潮 02:00（-1.54）→ 高潮 08:00（+1.66）→ 低潮 15:00（-0.58）→ 高潮 20:00（+1.41）',
+  dims:{浪高:6,周期:7,风况:10,纯度:5,潮汐:6},
+  pa:[
+    ['浪高','6/10','0.56–0.78m，傍晚 17:00 升到 0.78m（腰-胸高）。浪在午后逐步长大，是周二周三大浪事件的前哨。'],
+    ['周期','7/10','Tp 4.7–5.0s 中短周期，够用、浪壁能立，但还没到顺滑推送区。'],
+    ['风况','10/10','全天 NW 离岸风（对 SSE 浪点是吹向外海的梳面风）！11:00 一度 9kn 阵风 22 略大，但 05–08 时 2.6–5.5kn、17:00 回落 2.0kn——离岸+弱风=浪面被梳得很干净。'],
+    ['纯度','5/10','51% 偏低——涌 0.28–0.38m 混入本地风浪。离岸风梳面好看，但纯度数字一般。'],
+    ['潮汐','6/10','08:00 高潮 +1.66、17:00 高位回落，傍晚浪高峰值配中潮位，当天最佳叠加。'],
+  ],
+  lesson:['离岸风 (offshore) 为什么是好风','风从陆地吹向海，逆着浪推、把浪面梳直、托住浪壁让它更陡更晚破——冲浪最爱的风向。本周浪点朝 SSE，NW 风正好离岸。只是风太大（>15kn）会吹得起乘困难。'],
+  plan:['🟢 两段式','早场 05:00–08:00：NW 离岸梳面，0.60m 干净腰高，中长板；傍晚 17:00 前后（主推）：浪高峰值 0.78m + 风落 2kn，胸高干净浪。11:00 离岸风一度 9kn 阵风 22，浪面起毛，避开。'],
+},
+{
+  id:'d21', date:'6/21', week:'周日', score:6.3, stars:3, tag:'先行波', phase:'先行波', dawnWind:'3.4✨',
+  window:'05:00-09:00', windows:[[5,9]], board:"9'0 log", level:'长板党最佳',
+  novice:'浪很小但周期偏长——这是大浪要来的预告信号。今天纯长板滑翔日，早上离岸风+干净小涌，玩走板正好。',
+  times:[5,8,11,14,17],
+  hs:[0.42,0.38,0.34,0.34,0.30], swell:[0.22,0.20,0.20,0.22,0.18],
+  tp:[4.8,4.9,5.2,4.7,5.0], tp2:[6.0,5.8,5.8,5.7,5.6],
+  wind:[3.4,4.4,4.7,2.8,2.3], gust:[8,12,14,9,7], wdeg:[336,345,5,16,85],
+  tideEvents:[[3,-1.59],[9,1.48],[16,-0.76],[21,1.09]],
+  tideText:'低潮 03:00（-1.59）→ 高潮 09:00（+1.48）→ 低潮 16:00（-0.76）→ 高潮 21:00（+1.09）',
+  dims:{浪高:4,周期:7,风况:10,纯度:5,潮汐:6},
+  pa:[
+    ['浪高','4/10','0.30–0.42m 全天偏小，近岸腰以下。本周浪高低谷之一，纯长板日。'],
+    ['周期','7/10','Tp 5.6–6.0s 稳定长周期——注意：浪很小但周期偏长，典型的远源先行波(forerunner)，预告周二周三的主涌正在路上。频散先到的总是长波。'],
+    ['风况','10/10','NNW/N 离岸风 2.3–4.7kn，连续第三天弱离岸，浪面极干净。傍晚 17:00 仅 2.3kn。'],
+    ['纯度','5/10','58%，涌 0.18–0.22m，小而尚有形，混着轻风浪。'],
+    ['潮汐','6/10','09:00 高潮 +1.48 前的涨潮中段配小涌最好；小潮潮差小，整天 break 位置稳定。'],
+  ],
+  lesson:['先行波：浪小周期长 = 主涌在路上','长周期波群速更快、先抵达。所以一场大涌到来前 1–2 天，你会先看到「浪很小却 6s+」的怪现象——这是侦察兵。会读这个信号，就能提前一天定闹钟。本周它准确预告了周三的王者日。'],
+  plan:['🟢 长板滑翔 + 读信号','05:00–09:00，9\'0 log，离岸风+Tp 6s 干净小涌，玩走板、nose-ride。0.35m 要靠长板划水抓速度，越大越浮越好。读信号：浪小周期长=主涌在路上，周二周三见真章。'],
+},
+{
+  id:'d22', date:'6/22', week:'周一', score:5.0, stars:2, tag:'过渡低谷', phase:'低谷', dawnWind:'3.6✨',
+  window:'05:00-08:00', windows:[[5,8]], board:'长板 / groveler', level:'建议休息',
+  novice:'青黄不接的一天：先行波过去了、主涌还没到，浪小又乱。建议休息养精蓄锐——周二开始浪起，周三是本周王者。',
+  times:[5,8,11,14,17],
+  hs:[0.36,0.40,0.40,0.44,0.42], swell:[0.14,0.14,0.14,0.14,0.26],
+  tp:[4.0,3.8,3.8,3.5,3.5], tp2:[4.6,3.5,3.8,3.9,3.9],
+  wind:[3.6,3.4,4.7,5.8,4.9], gust:[8,10,14,16,15], wdeg:[103,74,83,76,95],
+  tideEvents:[[4,-1.16],[10,1.54],[17,-0.43],[22,1.26]],
+  tideText:'低潮 04:00（-1.16）→ 高潮 10:00（+1.54）→ 低潮 17:00（-0.43）→ 高潮 22:00（+1.26）',
+  dims:{浪高:4,周期:5,风况:8,纯度:2,潮汐:6},
+  pa:[
+    ['浪高','4/10','0.36–0.44m，与周日相近，仍是小水位，账面没起色。'],
+    ['周期','5/10','Tp 3.5–4.6s 短周期，比周日的 6s 明显回落——先行长波已通过，主涌主体尚未抵达，典型的事件中段低谷(lull)。'],
+    ['风况','8/10','E/ENE 风 3.4–5.8kn，方向偏侧向，弱但开始把浪面吹乱。早晨 3.4kn 较好。'],
+    ['纯度','2/10','41%——本周最低！涌浪只剩 0.14m，大半是本地 E/ENE 风浪。浪面乱、夹心感强。这是先行波过境、主涌未到的青黄不接空档。'],
+    ['潮汐','6/10','10:00 高潮 +1.54 前涨潮中段稍好；但浪小纯度差，潮汐救不回来。'],
+  ],
+  lesson:['频散的代价：先到的也先走','长波跑得快，先到也先离场。周日的先行长波过境后，主涌主体还在路上，中间这段「青黄不接」的低谷(lull)纯度骤降——别被昨天的好周期骗了，今天是过渡日。'],
+  plan:['⚠️ 过渡日，建议休息','真要下水就趁早 05:00–08:00，3.4kn 较干净，长板/groveler。更建议：休息养精蓄锐——周二浪起、周三是本周王者。留意周二晚预报是否提前上修。'],
+},
+{
+  id:'d23', date:'6/23', week:'周二', score:7.1, stars:4, tag:'浪起之日', phase:'浪起', dawnWind:'1.8✨',
+  window:'16:00-18:30', windows:[[16,18.5]], board:'短板 / 鱼板（傍晚）', level:'中级以上',
+  novice:'主涌前锋登陆，浪一整天暴涨！傍晚 16–18:30 退潮配浪高冲顶（近 1 米），短板鱼板的腰胸高好浪。今晚早睡，明天更猛。',
+  times:[5,8,11,14,17],
+  hs:[0.42,0.46,0.54,0.70,0.94], swell:[0.26,0.26,0.26,0.30,0.32],
+  tp:[3.7,3.5,3.5,4.0,4.7], tp2:[4.0,3.9,4.0,4.5,5.5],
+  wind:[1.8,5.3,8.2,8.9,8.3], gust:[4,14,15,18,18], wdeg:[72,126,146,138,123],
+  tideEvents:[[5,-0.70],[11,1.46],[18,-0.58],[23,1.22]],
+  tideText:'低潮 05:00（-0.70）→ 高潮 11:00（+1.46）→ 低潮 18:00（-0.58）→ 高潮 23:00（+1.22）',
+  dims:{浪高:8,周期:7,风况:10,纯度:2,潮汐:6},
+  pa:[
+    ['浪高','8/10','全天暴涨：0.42→0.46→0.54→0.70→0.94m，傍晚 17:00 已近 1 米！主涌前锋登陆，浪在你下班路上长大，夜里还会涨到周三峰值。'],
+    ['周期','7/10','Tp 从早晨 4.0s 单调爬到 17:00 的 5.5s——又一次清晰的频散爬升信号：周期持续上升=主涌主体抵达=明天有大浪。'],
+    ['风况','10/10','清晨 1.8kn 镜面但浪还小；11:00 起 SE 向岸风 8–9kn 阵风 18，午后浪面有纹理。最佳是清晨(浪小)与傍晚(风稍落+浪大)的权衡。'],
+    ['纯度','2/10','49%——白天涌浪只占一半，伴随 SE 海风的风浪。但傍晚涌浪周期拉长到 5.5s，浪壁逐渐成型。'],
+    ['潮汐','6/10','11:00 高潮 +1.46、18:00 低潮 -0.58。16:00–18:30 退潮中段恰逢浪高冲顶，是当天最佳叠加窗口。'],
+  ],
+  lesson:['周期爬升 = 明天有浪（信号弹）','Tp 一整天从 4.0 爬到 5.5s，配合浪高暴涨——这是主涌主体抵达的铁证。读浪报最值钱的一行字：浪高会被本地风虚胖欺骗，周期不会。看到周期单调上升，就该为明天定闹钟。'],
+  plan:['✅ 浪起之日','主推 16:00–18:30：退潮中段+浪高冲顶（0.8–0.94m），短板/鱼板，腰胸高。05:00–07:00 镜面但浪仅 0.42m，仅长板蹭小涌。今晚早睡——明天周三是本周王者，设清晨闹钟。'],
+},
+{
+  id:'d24', date:'6/24', week:'周三', score:7.6, stars:5, tag:'本周王者 🏆', phase:'峰值', best:true, midterm:true, dawnWind:'0.6✨',
+  window:'05:00-10:00', windows:[[5,10]], board:'短板 / 鱼板 / 中长板', level:'全员（请假冲）',
+  novice:'本周王者，请假也值得！早上 5–10 点近 1 米的浪、7 秒长周期、几乎无风的玻璃面——大浪、长周期、镜面、离岸四样齐了，一周难遇。',
+  times:[5,8,11,14,17],
+  hs:[1.08,0.96,0.90,0.90,0.86], swell:[0.48,0.48,0.46,0.44,0.42],
+  tp:[5.7,5.9,6.0,5.8,6.0], tp2:[6.5,6.8,7.0,7.0,6.9],
+  wind:[0.6,1.8,3.3,2.7,3.6], gust:[8,13,15,16,16], wdeg:[72,72,50,98,139],
+  tideEvents:[[6,-0.50],[12,1.38],[19,-0.70]],
+  tideText:'低潮 06:00（-0.50）→ 高潮 12:00（+1.38）→ 低潮 19:00（-0.70）｜小潮，潮差约 1.9m',
+  dims:{浪高:8,周期:9,风况:10,纯度:2,潮汐:6},
+  pa:[
+    ['浪高','8/10','05:00 见顶 1.08m（近岸胸高），全天稳在 0.86–1.08m，本周唯一破 1 米。能量指数 E≈1.08²×7≈8.2，全周推力之王。'],
+    ['周期','9/10','Tp 6.5–7.0s 全周最高！11:00–14:00 稳定 7.0s——波长约 76m，进入「顺滑推送」区，浪壁斜缓、起乘宽容、滑行长。配 1 米浪高，本周质感天花板。'],
+    ['风况','10/10','全天 0.6–3.6kn 几乎无风！05:00 仅 0.6kn 玻璃面，且 ENE/NE/E 偏离岸——大浪+长周期+镜面+离岸，四项同时在线，一周难得一遇。'],
+    ['纯度','2/10','49%——今天唯一短板，涌浪 0.42–0.48m，约一半能量来自伴生风浪，浪面带些纹理。但被其余四项的满分强势压过。'],
+    ['潮汐','6/10','小潮潮差仅约 1.9m，潮位整天平缓（06:00 低 -0.50→12:00 高 +1.38），break 位置稳定，几点下水都不会被潮汐毁掉，自由度极高。'],
+  ],
+  lesson:['四项同框 vs 一项短板','今天浪高/周期/风况/潮汐全在高位，只有纯度 2 分拖后腿——综合分仍登顶 7.6。但记住信条：上限由最差参数决定。纯度 49% 意味着浪面会带纹理、不是丝绸。它赢在「大浪+长周期+无风+离岸」的稀有同框，不是赢在完美。'],
+  plan:['⭐⭐⭐⭐⭐ 本周王者·请假冲','04:50 入水，趁 05:00 浪高峰值 1.08m + 0.6kn 玻璃面。05:00–10:00 黄金 5 小时：1 米+Tp7s+无风+离岸，短板尽情发挥。板型：短板/鱼板抓推力；中长板吃长周期长壁；初学者也可在 0.9m 玻璃面安全练习。'],
+  safety:['安全备忘','浪近 1 米但本周小潮、潮流缓，相对友好；仍要查脚绳、下水前看 5 分钟流向、结伴。⚠️ 本日为 D+5 中期预报，±30% 误差，周二晚务必复核浪高与无风窗口。'],
+},
+{
+  id:'d25', date:'6/25', week:'周四', score:7.2, stars:4, tag:'衰减晨光', phase:'衰减', midterm:true, dawnWind:'2.6✨',
+  window:'05:00-09:00', windows:[[5,9]], board:'中长板 / 鱼板', level:'全员可冲',
+  novice:'周三大浪的余波，早上 5–9 点还有腰高、近镜面的干净浪，长周期滑行感延续。比周三小一号但更好驾驭。',
+  times:[5,8,11,14,17],
+  hs:[0.66,0.60,0.58,0.54,0.50], swell:[0.36,0.34,0.30,0.28,0.26],
+  tp:[6.0,5.9,5.5,5.3,5.8], tp2:[6.2,6.0,5.8,5.5,6.8],
+  wind:[2.6,1.5,1.7,3.7,3.1], gust:[9,10,12,13,14], wdeg:[144,220,144,115,162],
+  tideEvents:[[1,1.26],[7,-0.34],[13,1.26],[19,-0.94]],
+  tideText:'高潮 01:00（+1.26）→ 低潮 07:00（-0.34）→ 高潮 13:00（+1.26）→ 低潮 19:00（-0.94）',
+  dims:{浪高:6,周期:8,风况:10,纯度:5,潮汐:6},
+  pa:[
+    ['浪高','6/10','0.50–0.66m，周三 1 米峰值后的衰减期。05:00 仍 0.66m 腰高，全天缓降。衰减期波列经频散梳理、整齐成组——比同尺寸增长期的浪好冲。'],
+    ['周期','8/10','Tp 5.5–6.8s 维持长周期，17:00 还回升到 6.8s。周三主涌的长波尾巴仍在持续供给，滑行感延续。'],
+    ['风况','10/10','全天 1.5–3.7kn 近镜面！08:00 仅 1.5kn，延续周三的无风格局，浪面干净。'],
+    ['纯度','5/10','53% 中等，涌 0.26–0.36m，比周三略好，浪面尚有形。'],
+    ['潮汐','6/10','07:00 低潮 -0.34、13:00 高潮 +1.26。05–07 时退潮末段配衰减小涌；小潮潮差小，整天稳定。'],
+  ],
+  lesson:['衰减期的浪为什么好冲','增长期海面是风暴现场，各周期各方向杂乱叠加；衰减期波列跑了一天被频散排好队——波峰线长、成组规律、组间有喘息。叠加近镜面晨风，同样 0.6m 比增长期好冲得多。'],
+  plan:['✅ 衰减晨光','05:00–09:00，中长板/鱼板，0.66m 衰减晨光+近镜面，腰高干净浪。周三长波尾巴 Tp 仍 6s+，滑行顺。⚠️ D+6 误差±30%，周三晚查最新预报确认衰减速度。'],
+},
+];
+
+/* ================= 昨日历史（校验锚点）=================
+   目的：用户拿自己昨天的实际下水感受，对照系统的预报，自评这套预报准不准。
+   数据：Open-Meteo ECMWF 历史回算（past_days），2026-06-18 青岛山东头。 */
+let HISTORY = {
+  id:'hist', date:'6/19', week:'周五', score:6.6, scoreWord:'推荐', tag:'晴窗长板',
+  windows:[[5,8]],
+  times:[5,8,11,14,17],
+  hs:[0.44,0.38,0.36,0.36,0.46], swell:[0.26,0.24,0.22,0.22,0.20],
+  tp:[4.5,4.5,4.3,3.9,3.4], tp2:[6.0,6.0,5.8,5.5,3.3],
+  wind:[2.6,5.6,4.3,5.0,4.5], gust:[6,11,12,13,14], wdeg:[167,151,120,101,88],
+  tideEvents:[[1,-1.83],[7,1.71],[14,-0.60],[19,1.76]],
+  tideText:'低潮 01:00（-1.83）→ 高潮 07:00（+1.71）→ 低潮 14:00（-0.60）→ 高潮 19:00（+1.76）',
+  dims:{浪高:4,周期:8,风况:10,纯度:5,潮汐:6},
+  // 预报当时给出的判断（用于让用户对照）
+  predict:{ height:'腰下 0.36–0.46m', period:'清晨长周期 Tp 6.0s（滑行顺）', wind:'清晨 2.6kn 近镜面、弱向岸', best:'05:00–08:00', board:"9'0 长板 / mini-mal", verdict:'小浪但有 6 秒长周期托底、清晨玻璃面——长板滑翔的好日子；傍晚周期掉到 3.3s 浪面转碎' },
+  pa:[
+    ['浪高','4/10','0.36–0.46m 小水位，近岸腰以下。量不大，但有长周期托底，长板能推得动。'],
+    ['周期','8/10','清晨谱峰 Tp 6.0s——长周期小涌，起乘点靠外、滑行顺。但 17:00 跌到 3.3s，傍晚海风把短周期风浪叠上来，质量下滑。'],
+    ['风况','10/10','清晨 2.6kn 近镜面，全天 ≤5.6kn 轻风，浪面干净。'],
+    ['纯度','5/10','58% 中等——涌浪 0.20–0.26m，混着本地小风浪，浪面有形但不算丝绸。'],
+    ['潮汐','6/10','07:00 高潮 +1.71 后开退，05–08 时高位转中位配长周期小涌刚好；小潮期潮差不大。'],
+  ],
+};
+
+/* ================= 实时数据对接（5.1 fetch /api/report；5.2 真鉴权助手）================= */
+const API_BASE = (window.SF_API_BASE || '');        // 同源；可经 window.SF_API_BASE 注入
+let SPOT = { lat: 36.092, lon: 120.468, name: '青岛山东头', days: 3 };
+
+async function loadLive(){
+  try{
+    const qs = `lat=${SPOT.lat}&lon=${SPOT.lon}&spot=${encodeURIComponent(SPOT.name)}&days=${SPOT.days}`;
+    const r = await fetch(`${API_BASE}/api/report?${qs}`, {credentials:'include'});
+    if(!r.ok) throw new Error('report '+r.status);
+    const data = await r.json();
+    if(data && data.days && data.days.length){ DAYS = data.days; if(data.history) HISTORY = data.history; }
+    if(data && data.story) window.__SF_STORY = data.story;   // 数据驱动剧情
+    // 顶部 meta 用实时数据更新（校准时间戳是数据诚实红线，不可停留在内嵌旧值）
+    try{
+      if(data && data.calibratedAt){
+        const c=document.getElementById('metaCalib');
+        if(c) c.textContent='🕐 校准 '+data.calibratedAt+' 北京时间';
+      }
+      if(data && data.days && data.days.length){
+        const f=data.days[0].date, l=data.days[data.days.length-1].date;
+        const md=s=>{const p=(s||'').split('-');return p.length===3?(+p[1])+'/'+(+p[2]):s;};
+        const rg=document.getElementById('metaRange');
+        if(rg) rg.textContent='📅 '+md(f)+' – '+md(l);
+      }
+    }catch(_){}
+    try{
+      const h = await fetch(`${API_BASE}/api/report/history?lat=${SPOT.lat}&lon=${SPOT.lon}&spot=${encodeURIComponent(SPOT.name)}`, {credentials:'include'});
+      if(h.ok){ const hj = await h.json(); if(hj.history) HISTORY = hj.history; }
+    }catch(_){}
+    render();                                         // 用实时数据重渲染
+    return true;
+  }catch(e){
+    console.warn('实时数据加载失败，回退内嵌示例：', e.message);  // 不白屏（R4.3）
+    return false;
+  }
+}
+
+/* 真实登录（5.2：门禁占位 → /api/auth）。控制台/集成可调 SF_LOGIN('email','password')。 */
+async function SF_LOGIN(email, password){
+  const r = await fetch(`${API_BASE}/api/auth/login`, {method:'POST', credentials:'include',
+    headers:{'Content-Type':'application/json'}, body:JSON.stringify({email, password})});
+  if(r.ok){
+    document.getElementById('gate').style.display='none';
+    document.getElementById('app').style.display='block';
+    await loadLive();
+    return true;
+  }
+  return false;
+}
+window.SF_LOGIN = SF_LOGIN;
+
+/* ================= 会员门禁（前端占位） ================= */
+async function demoAuth(){
+  // 演示门禁：后台用固定 demo 账号建立真实会话，使 loadLive 能取实时数据（未注册则先注册）
+  const cred={email:'demo@surf.local', password:'surf2026demo'};
+  const opt={method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body:JSON.stringify(cred)};
+  let r=await fetch(`${API_BASE}/api/auth/login`, opt);
+  if(r.ok) return true;
+  await fetch(`${API_BASE}/api/auth/register`, opt);
+  r=await fetch(`${API_BASE}/api/auth/login`, opt);
+  return r.ok;
+}
+async function tryEnter(){
+  const v=document.getElementById('gatePwd').value.trim();
+  if(v==='surf2026'){
+    document.getElementById('gate').style.display='none';
+    document.getElementById('app').style.display='block';
+    render();
+    try{ if(await demoAuth()) await loadLive(); }catch(e){ console.warn('demo 实时数据加载失败，用内嵌示例：', e.message); }
+    if(location.hash==='#expert') setMode(true);
+  }else{
+    document.getElementById('gateErr').textContent='口令错误（演示口令：surf2026）';
+  }
+}
+document.getElementById('gatePwd').addEventListener('keydown',e=>{if(e.key==='Enter')tryEnter()});
+
+/* ================= 直接进入（跳过登录门禁） =================
+   去掉前端口令门禁，页面加载即用 demo 账号建会话并加载实时数据。
+   后端 /api/auth/login 与 session 机制保留不变；tryEnter/demoAuth 代码留存供未来恢复门禁。*/
+async function bootstrap(){
+  const g=document.getElementById('gate'); if(g) g.style.display='none';
+  document.getElementById('app').style.display='block';
+  render();                                            // 先用内嵌兜底渲染，避免白屏
+  try{ if(await demoAuth()) { await loadLive(); await loadSpots(); } }         // 建会话→拉实时数据重渲染→填充已保存浪点
+  catch(e){ console.warn('实时数据加载失败，使用内嵌示例：', e.message); }
+  if(location.hash==='#expert') setMode(true);
+}
+window.addEventListener('load', bootstrap);            // 延迟到全脚本初始化后，避免 const TDZ
+
+/* ================= 位置查询栏（占位交互） ================= */
+/* ================= 位置查询栏（spotManager，custom-spots R5） ================= */
+let SAVED_SPOTS = [];   // 已保存浪点（来自 /api/spots）
+let _miniMap = null, _mapMarker = null;
+
+function initMiniMap(){
+  const el = document.getElementById('miniMap');
+  if(typeof L === 'undefined'){ return; }   // Leaflet 未加载（离线）→ 跳过，仍可手填坐标
+  el.style.display = 'block';
+  if(_miniMap){ setTimeout(()=>_miniMap.invalidateSize(), 100); return; }
+  _miniMap = L.map(el).setView([36.092, 120.468], 8);   // 默认青岛
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    {maxZoom:18, attribution:'© OpenStreetMap'}).addTo(_miniMap);
+  _miniMap.on('click', e=>{
+    const lat = +e.latlng.lat.toFixed(4), lon = +e.latlng.lng.toFixed(4);
+    document.getElementById('coordInput').value = `${lat}, ${lon}`;
+    if(_mapMarker) _mapMarker.setLatLng(e.latlng); else _mapMarker = L.marker(e.latlng).addTo(_miniMap);
+  });
+  setTimeout(()=>_miniMap.invalidateSize(), 100);
+}
+
+function onSpotChange(){
+  const v = document.getElementById('spotSel').value;
+  const custom = v === 'custom';
+  document.getElementById('latlon').style.display = custom ? 'block' : 'none';
+  document.getElementById('nameField').style.display = custom ? 'block' : 'none';
+  document.getElementById('createBtn').style.display = custom ? 'inline-block' : 'none';
+  document.getElementById('miniMap').style.display = custom ? 'block' : 'none';
+  if(custom) initMiniMap();   // 地图点选回填坐标（阶段B）
+  // 已保存浪点(非 qd/custom)可删除/重命名
+  const isSaved = v !== 'qd' && v !== 'custom';
+  document.getElementById('delBtn').style.display = isSaved ? 'inline-block' : 'none';
+  document.getElementById('renameBtn').style.display = isSaved ? 'inline-block' : 'none';
+}
+
+async function onRenameSpot(){   // 重命名当前选中浪点（slug 不变，PATCH /api/spots/{slug}）
+  const v = document.getElementById('spotSel').value;
+  if(v === 'qd' || v === 'custom') return;
+  const name = (prompt('新名称（1-32 字符）：')||'').trim();
+  if(!name) return;
+  try{
+    const r = await fetch(`${API_BASE}/api/spots/${v}`, {method:'PATCH', credentials:'include',
+      headers:{'Content-Type':'application/json'}, body:JSON.stringify({name})});
+    if(!r.ok){ const e=await r.json(); alert('重命名失败：'+(e.detail||r.status)); return; }
+    await loadSpots();
+  }catch(e){ alert('重命名失败：'+e.message); }
+}
+
+async function loadSpots(){   // 拉取已保存浪点填充下拉（登录后）
+  try{
+    const r = await fetch(`${API_BASE}/api/spots`, {credentials:'include'});
+    if(!r.ok) return;
+    const data = await r.json();
+    SAVED_SPOTS = data.spots || [];
+    const sel = document.getElementById('spotSel');
+    // 移除旧的已保存项（保留 qd / custom）
+    [...sel.querySelectorAll('option[data-saved]')].forEach(o=>o.remove());
+    const customOpt = sel.querySelector('option[value="custom"]');
+    let selected = null;
+    SAVED_SPOTS.forEach(s=>{
+      const o = document.createElement('option');
+      o.value = s.slug; o.dataset.saved = '1';
+      o.textContent = `${s.name} (${(+s.lat).toFixed(2)}, ${(+s.lon).toFixed(2)})`;
+      o.dataset.lat = s.lat; o.dataset.lon = s.lon; o.dataset.name = s.name; o.dataset.days = s.days||3;
+      sel.insertBefore(o, customOpt);
+      if(s.selected) selected = s.slug;
+    });
+    if(selected){ sel.value = selected; onSpotChange(); await switchToSelected(); }
+  }catch(_){/* 未登录/不可用：保留内置样板 */}
+}
+
+async function switchToSelected(){   // 按当前下拉选中切换 SPOT 并 loadLive
+  const opt = document.getElementById('spotSel').selectedOptions[0];
+  if(!opt || !opt.dataset.saved) return;
+  SPOT = { lat:+opt.dataset.lat, lon:+opt.dataset.lon, name:opt.dataset.name, days:+opt.dataset.days };
+  await loadLive();
+  try{ await fetch(`${API_BASE}/api/spots/${opt.value}/select`, {method:'POST', credentials:'include'}); }catch(_){}
+}
+
+async function onQuery(){
+  const v = document.getElementById('spotSel').value;
+  if(v === 'qd'){ SPOT = { lat:36.092, lon:120.468, name:'青岛山东头', days:3 }; await loadLive(); return; }
+  if(v === 'custom'){ alert('请填写经纬度与名称后点「创建并查询」'); return; }
+  await switchToSelected();   // 已保存浪点
+}
+
+async function onCreateSpot(){   // 创建自定义浪点 → 切换 + loadLive
+  const coord = (document.getElementById('coordInput').value||'').split(',').map(s=>parseFloat(s.trim()));
+  const name = (document.getElementById('nameInput').value||'').trim();
+  if(coord.length!==2 || isNaN(coord[0]) || isNaN(coord[1])){ alert('经纬度格式：lat, lon（例 36.09, 120.47）'); return; }
+  if(!name){ alert('请填写浪点名称'); return; }
+  try{
+    const r = await fetch(`${API_BASE}/api/spots`, {method:'POST', credentials:'include',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({name, lat:coord[0], lon:coord[1]})});
+    if(!r.ok){ const e=await r.json(); alert('创建失败：'+(e.detail||r.status)+'（需登录）'); return; }
+    await loadSpots();
+    const o=[...document.getElementById('spotSel').options].find(x=>x.dataset.name===name);
+    if(o){ document.getElementById('spotSel').value=o.value; onSpotChange(); await switchToSelected(); }
+  }catch(e){ alert('创建失败：'+e.message); }
+}
+
+async function onDeleteSpot(){
+  const v = document.getElementById('spotSel').value;
+  if(v==='qd'||v==='custom') return;
+  if(!confirm('删除该浪点？(历史缓存保留至过期)')) return;
+  try{
+    await fetch(`${API_BASE}/api/spots/${v}`, {method:'DELETE', credentials:'include'});
+    document.getElementById('spotSel').value='qd'; onSpotChange();
+    await loadSpots(); await onQuery();
+  }catch(e){ alert('删除失败：'+e.message); }
+}
+
+/* ================= 工具 ================= */
+function scoreColor(s){
+  if(s>=8) return 'var(--c-good)';
+  if(s>=6.5) return 'var(--c-rec)';
+  if(s>=5) return 'var(--c-ok)';
+  if(s>=3) return 'var(--c-poor)';
+  return 'var(--c-flat)';
+}
+function scoreWord(s){
+  if(s>=8) return '必冲'; if(s>=6.5) return '推荐'; if(s>=5) return '可冲'; if(s>=3) return '勉强'; return '休息';
+}
+function stars(n){
+  let h='';
+  for(let i=0;i<5;i++) h += i<n ? '★' : '<i>★</i>';
+  return h + (n===0?' <span style="color:#94a3b8;font-size:11px">不建议下水</span>':'');
+}
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;')}
+
+/* ================= 风向判定：离岸 offshore / 侧岸 cross / 向岸 onshore =================
+   浪点朝向 SSE≈157°（浪从 SSE 来）。风向为“来向”：
+   - 风来向≈浪向 → 向岸风(onshore)，吹乱浪面，差
+   - 风来向≈反向(陆地侧) → 离岸风(offshore)，梳直浪面、托住浪壁，最佳
+   - 介于其间 → 侧岸风(cross) */
+const SPOT_FACING = 157;
+const COMPASS16=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+function dir16(deg){ return COMPASS16[Math.round(deg/22.5)%16]; }
+function windKind(deg){
+  const diff=Math.abs(((deg-SPOT_FACING+180)%360+360)%360-180);
+  if(diff<60) return 'on';
+  if(diff>120) return 'off';
+  return 'cross';
+}
+const WIND_META={
+  off:  {label:'离岸', color:'#0ea5e9', desc:'梳面'},
+  cross:{label:'侧岸', color:'#a78bfa', desc:'尚可'},
+  on:   {label:'向岸', color:'#fb923c', desc:'吹乱'},
+};
+// 风羽箭头：指向风的“去向”（来向+180）；离岸风指向海(上方)
+function windArrow(deg){
+  const to=(deg+180)%360;
+  const arrows=['↑','↗','→','↘','↓','↙','←','↖'];
+  return arrows[Math.round(to/45)%8];
+}
+
+/* ================= SVG：浪高柱 + 周期线(Tm/Tp双口径) + 窗口高亮 ================= */
+function waveChart(d){
+  const W=360,H=200,L=34,R=12,T=18,B=30, HSMAX=1.2, TPMAX=7.6;
+  const X0=Math.min(...d.times)-1.5, X1=Math.max(...d.times)+1.5;
+  const pw=W-L-R, ph=H-T-B;
+  const sx=h=>L+(h-X0)/(X1-X0)*pw;
+  const syH=v=>T+ph-(v/HSMAX)*ph;
+  const syT=v=>T+ph-(v/TPMAX)*ph;
+  let s='';
+  d.windows.forEach(w=>{
+    s+=`<rect x="${sx(w[0])}" y="${T}" width="${sx(w[1])-sx(w[0])}" height="${ph}" fill="#10b981" opacity="0.13" rx="4"/>`;
+    s+=`<text x="${(sx(w[0])+sx(w[1]))/2}" y="${T+11}" font-size="9" fill="#059669" text-anchor="middle" font-weight="700">最佳窗口</text>`;
+  });
+  [0.5,1.0].forEach(g=>{
+    s+=`<line x1="${L}" y1="${syH(g)}" x2="${W-R}" y2="${syH(g)}" stroke="#e2e8f0" stroke-dasharray="3,3"/>`;
+    s+=`<text x="${L-4}" y="${syH(g)+3}" font-size="9" fill="#94a3b8" text-anchor="end">${g.toFixed(1)}m</text>`;
+  });
+  s+=`<line x1="${L}" y1="${T+ph}" x2="${W-R}" y2="${T+ph}" stroke="#cbd5e1"/>`;
+  const bw = d.times.length>5 ? 12 : 15;
+  const LBL = Math.max(1, Math.ceil(d.times.length/7));   // 标签抽稀：全天≈7个标签
+  const showLbl = i => (i % LBL === 0) || (i === d.times.length-1);
+  d.times.forEach((t,i)=>{
+    const x=sx(t)-bw/2;
+    const hTot=ph*(d.hs[i]/HSMAX), hSw=ph*(Math.min(d.swell[i],d.hs[i])/HSMAX);
+    s+=`<rect x="${x}" y="${T+ph-hTot}" width="${bw}" height="${hTot}" fill="#bae6fd" rx="3"/>`;
+    s+=`<rect x="${x}" y="${T+ph-hSw}" width="${bw}" height="${hSw}" fill="#0284c7" rx="3"/>`;
+    if(showLbl(i)) s+=`<text x="${sx(t)}" y="${T+ph-hTot-4}" font-size="9" fill="#0c4a6e" text-anchor="middle" font-weight="700">${d.hs[i]}</text>`;
+    if(showLbl(i)) s+=`<text x="${sx(t)}" y="${H-14}" font-size="9.5" fill="#64748b" text-anchor="middle">${String(t).padStart(2,'0')}时</text>`;
+  });
+  if(d.tp2){
+    const pts2=[];
+    d.times.forEach((t,i)=>{ if(d.tp2[i]!=null) pts2.push([sx(t),syT(d.tp2[i]),d.tp2[i],t,i]); });
+    s+=`<polyline points="${pts2.map(p=>p[0]+','+p[1]).join(' ')}" fill="none" stroke="#dc2626" stroke-width="1.8" stroke-dasharray="5,3"/>`;
+    pts2.forEach(p=>{
+      s+=`<circle cx="${p[0]}" cy="${p[1]}" r="2.8" fill="#fff" stroke="#dc2626" stroke-width="1.8"/>`;
+      if(showLbl(p[4])) s+=`<text x="${p[0]}" y="${p[1]-6}" font-size="8.5" fill="#dc2626" text-anchor="middle" font-weight="700">${p[2]}s</text>`;
+    });
+  }
+  let pts=d.times.map((t,i)=>`${sx(t)},${syT(d.tp[i])}`).join(' ');
+  s+=`<polyline points="${pts}" fill="none" stroke="#f97316" stroke-width="2.2" stroke-linejoin="round"/>`;
+  d.times.forEach((t,i)=>{
+    s+=`<circle cx="${sx(t)}" cy="${syT(d.tp[i])}" r="3.2" fill="#fff" stroke="#f97316" stroke-width="2"/>`;
+    if(showLbl(i)) s+=`<text x="${sx(t)}" y="${syT(d.tp[i])+13}" font-size="8.5" fill="#ea580c" text-anchor="middle" font-weight="600">${d.tp[i]}</text>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">${s}</svg>`;
+}
+/* 浪高图 HTML 图例 */
+function waveLegend(d){
+  return `<div class="legend">
+    <span class="lg"><span class="sw" style="background:#0284c7"></span>涌浪分量</span>
+    <span class="lg"><span class="sw" style="background:#bae6fd"></span>总浪高(m)</span>
+    <span class="lg"><span class="dot" style="border-color:#f97316"></span>平均周期 Tm(s)</span>
+    ${d.tp2?'<span class="lg"><span class="ln dash" style="border-color:#dc2626"></span>谱峰周期 Tp(s)</span>':''}
+    <span class="lg"><span class="sw" style="background:#10b981;opacity:.35"></span>最佳窗口</span>
+  </div>`;
+}
+
+/* ================= 离岸风质条（图示核心新增）=================
+   每个白天时段一格：背景色=风质(离岸蓝/侧岸紫/向岸橙)，箭头=风去向，数字=风速 */
+function windQualityStrip(d){
+  let segs='';
+  d.times.forEach((t,i)=>{
+    const k=windKind(d.wdeg[i]), m=WIND_META[k];
+    segs+=`<div class="seg" style="background:${m.color}">
+      <span class="wq-ar">${windArrow(d.wdeg[i])}</span>
+      <span class="wq-k">${d.wind[i]}<small style="font-weight:400;font-size:8px">kn</small></span>
+      <span class="wq-h">${String(t).padStart(2,'0')}时</span>
+    </div>`;
+  });
+  return `<div class="windq">${segs}</div>
+    <div class="windq-key">
+      <b><i style="background:#0ea5e9"></i>离岸 offshore·梳面(最佳)</b>
+      <b><i style="background:#a78bfa"></i>侧岸 cross·尚可</b>
+      <b><i style="background:#fb923c"></i>向岸 onshore·吹乱</b>
+      <span style="color:var(--ink3)">↑箭头=风吹向（指向海面=离岸）</span>
+    </div>`;
+}
+
+/* ================= SVG：风速 + 潮位（按风质着色，箭头标风向）================= */
+function windTideChart(d){
+  const W=360,H=180,L=30,R=32,T=18,B=24, X0=0, X1=24, WMAX=24, TIDE=2.1;
+  const pw=W-L-R, ph=H-T-B;
+  const sx=h=>L+(h-X0)/(X1-X0)*pw;
+  const syW=v=>T+ph-(v/WMAX)*ph;
+  const syTd=v=>T+ph/2-(v/TIDE)*(ph/2);
+  let s='';
+  d.windows.forEach(w=>{
+    s+=`<rect x="${sx(w[0])}" y="${T}" width="${sx(w[1])-sx(w[0])}" height="${ph}" fill="#10b981" opacity="0.12" rx="4"/>`;
+  });
+  // 网格 + 轴标
+  s+=`<line x1="${L}" y1="${syTd(0)}" x2="${W-R}" y2="${syTd(0)}" stroke="#e2e8f0" stroke-dasharray="3,3"/>`;
+  s+=`<text x="${W-R+4}" y="${syTd(0)+3}" font-size="8.5" fill="#0d9488">0</text>`;
+  s+=`<text x="${W-R+4}" y="${syTd(1.5)+3}" font-size="8.5" fill="#0d9488">+1.5m</text>`;
+  s+=`<text x="${W-R+4}" y="${syTd(-1.5)+3}" font-size="8.5" fill="#0d9488">-1.5m</text>`;
+  s+=`<line x1="${L}" y1="${T+ph}" x2="${W-R}" y2="${T+ph}" stroke="#cbd5e1"/>`;
+  [5,15].forEach(g=>{
+    s+=`<line x1="${L}" y1="${syW(g)}" x2="${W-R}" y2="${syW(g)}" stroke="#f1f5f9"/>`;
+    s+=`<text x="${L-4}" y="${syW(g)+3}" font-size="8.5" fill="#94a3b8" text-anchor="end">${g}</text>`;
+  });
+  // 潮位曲线（余弦插值）
+  const ev=d.tideEvents; let tp=[];
+  for(let i=0;i<ev.length-1;i++){
+    for(let k=0;k<=14;k++){
+      const t=k/14, h=ev[i][0]+(ev[i+1][0]-ev[i][0])*t;
+      const v=ev[i][1]+(ev[i+1][1]-ev[i][1])*(1-Math.cos(Math.PI*t))/2;
+      if(h>=X0&&h<=X1) tp.push(`${sx(h)},${syTd(v)}`);
+    }
+  }
+  s+=`<polyline points="${tp.join(' ')}" fill="none" stroke="#14b8a6" stroke-width="2" opacity="0.8"/>`;
+  ev.forEach(e=>{
+    if(e[0]<X0||e[0]>X1)return;
+    const hi=e[1]>0;
+    s+=`<circle cx="${sx(e[0])}" cy="${syTd(e[1])}" r="2.6" fill="#14b8a6"/>`;
+    s+=`<text x="${sx(e[0])}" y="${syTd(e[1])+(hi?-6:12)}" font-size="8" fill="#0f766e" text-anchor="middle">${hi?'高':'低'}${String(e[0]).padStart(2,'0')}</text>`;
+  });
+  // 阵风虚线（灰）
+  let gp=d.times.map((t,i)=>`${sx(t)},${syW(Math.min(d.gust[i],WMAX))}`).join(' ');
+  s+=`<polyline points="${gp}" fill="none" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="4,3"/>`;
+  // 风速折线（灰）+ 按风质着色的风向点
+  let wp=d.times.map((t,i)=>`${sx(t)},${syW(d.wind[i])}`).join(' ');
+  s+=`<polyline points="${wp}" fill="none" stroke="#94a3b8" stroke-width="1.8" stroke-linejoin="round"/>`;
+  const WPT = Math.max(1, Math.ceil(d.times.length/8));   // 风向点抽稀，避免圆点相接
+  d.times.forEach((t,i)=>{
+    if(i%WPT!==0 && i!==d.times.length-1) return;
+    const k=windKind(d.wdeg[i]), col=WIND_META[k].color, y=syW(d.wind[i]);
+    s+=`<circle cx="${sx(t)}" cy="${y}" r="6" fill="${col}"/>`;
+    s+=`<text x="${sx(t)}" y="${y+3.2}" font-size="8.5" fill="#fff" text-anchor="middle" font-weight="700">${windArrow(d.wdeg[i])}</text>`;
+  });
+  // x 轴
+  [0,6,12,18,24].forEach(t=>{
+    s+=`<text x="${sx(t)}" y="${H-9}" font-size="9" fill="#64748b" text-anchor="middle">${t}时</text>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">${s}</svg>`;
+}
+
+/* ================= SVG：7日涌浪事件生命周期 ================= */
+function lifecycleChart(){
+  const W=360,H=224,L=30,R=10,T=24,B=66, HSMAX=1.2;
+  const pw=W-L-R, ph=H-T-B, n=DAYS.length, slot=pw/n;
+  let s='';
+  [0.5,1.0].forEach(g=>{
+    const y=T+ph-(g/HSMAX)*ph;
+    s+=`<line x1="${L}" y1="${y}" x2="${W-R}" y2="${y}" stroke="#e2e8f0" stroke-dasharray="3,3"/>`;
+    s+=`<text x="${L-4}" y="${y+3}" font-size="9" fill="#94a3b8" text-anchor="end">${g.toFixed(1)}</text>`;
+  });
+  s+=`<line x1="${L}" y1="${T+ph}" x2="${W-R}" y2="${T+ph}" stroke="#cbd5e1"/>`;
+  const colors={'var(--c-good)':'#10b981','var(--c-rec)':'#3b82f6','var(--c-ok)':'#f59e0b','var(--c-poor)':'#f97316','var(--c-flat)':'#94a3b8'};
+  DAYS.forEach((d,i)=>{
+    const hsMax=Math.max(...d.hs);
+    const x=L+slot*i+slot/2, bw=26, bh=ph*(hsMax/HSMAX);
+    const col=colors[scoreColor(d.score)];
+    s+=`<rect x="${x-bw/2}" y="${T+ph-bh}" width="${bw}" height="${bh}" fill="${col}" rx="5" opacity="0.88"/>`;
+    s+=`<text x="${x}" y="${T+ph-bh-5}" font-size="9.5" fill="#0f172a" text-anchor="middle" font-weight="700">${hsMax.toFixed(2)}</text>`;
+    s+=`<text x="${x}" y="${T+ph+13}" font-size="9.5" fill="#334155" text-anchor="middle" font-weight="600">${d.week}</text>`;
+    s+=`<text x="${x}" y="${T+ph+25}" font-size="8.5" fill="#94a3b8" text-anchor="middle">${d.date}</text>`;
+    s+=`<text x="${x}" y="${T+ph+39}" font-size="8.5" fill="#0369a1" text-anchor="middle">${d.phase}</text>`;
+    const tpShow = d.tp2 ? Math.max(...d.tp2.filter(v=>v!=null)) : d.tp[Math.floor(d.tp.length/2)];
+    s+=`<text x="${x}" y="${T+ph+51}" font-size="8.5" fill="${d.tp2?'#dc2626':'#64748b'}" text-anchor="middle">${d.tp2?'Tp ':'Tm '}${tpShow}s</text>`;
+    // 晨风：用清晨时段风质着色（离岸蓝/侧岸紫/向岸橙）
+    const dawnK=windKind(d.wdeg[0]), dawnCol=WIND_META[dawnK].color;
+    s+=`<text x="${x}" y="${T+ph+63}" font-size="8.5" fill="${dawnCol}" text-anchor="middle" font-weight="${dawnK==='off'?'700':'400'}">${windArrow(d.wdeg[0])}${d.wind[0]} ${WIND_META[dawnK].label}</text>`;
+  });
+  s+=`<text x="${L}" y="12" font-size="10" fill="#475569" font-weight="700">日最大浪高 Hs(m) × 阶段 × 周期 × 晨风风质</text>`;
+  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">${s}</svg>`;
+}
+
+/* ================= 渲染 ================= */
+function dimColor(v){ return v>=8?'#10b981':v>=6?'#3b82f6':v>=4?'#f59e0b':'#f97316'; }
+
+function render(){
+  document.getElementById('strip').innerHTML = DAYS.map(d=>`
+    <div class="dchip ${d.today?'today':''}" onclick="document.getElementById('${d.id}').scrollIntoView({behavior:'smooth'})">
+      <div class="wk">${d.week}${d.today?'<span class="today-tag"> 今</span>':''}</div>
+      <div class="dt">${d.date}</div>
+      <div class="sc" style="background:${scoreColor(d.score)}">${d.score.toFixed(1)}</div>
+    </div>`).join('');
+
+  const best = DAYS.find(d=>d.best), today = DAYS.find(d=>d.today);
+  document.getElementById('hero').innerHTML = `
+    <div class="lab">⭐ 本周必冲</div>
+    <div class="main"><b>${best.week} ${best.date}</b><span class="scbig">${best.score.toFixed(1)}</span><span style="font-size:13px;opacity:.9">分 · ${best.tag.replace(' 🏆','')}</span></div>
+    <div class="win">⏰ ${best.window} 早场 · ${best.board}</div>
+    <div class="today-line">今天 ${today.date} ${today.week}：${today.score.toFixed(1)} 分（${scoreWord(today.score)}）— ${today.novice}</div>`;
+
+  document.getElementById('story').innerHTML = window.__SF_STORY ||
+    `<b>一句话剧情：</b>周六~周日 离岸风晴天、干净小涌（长板友好，周日先行波预告大浪）→ 周一 主涌前的青黄不接低谷 → 周二 浪起（周期爬升是信号弹）→ <b>周三 峰值：1 米+7 秒长周期+无风+离岸，四项同框，本周王者</b> → 周四 衰减晨光收尾。`;
+
+  renderVerify();
+
+  document.getElementById('cards').innerHTML = DAYS.map(d=>{
+    const col=scoreColor(d.score);
+    return `
+    <article class="card" id="${d.id}">
+      <div class="card-hd">
+        <div class="badge" style="background:${col}"><b>${d.score.toFixed(1)}</b><span>${scoreWord(d.score)}</span></div>
+        <div class="ttl">
+          <div class="d1">${d.date} ${d.week}${d.today?'·今天':''}
+            <span class="tagchip" style="background:${col}">${d.tag}</span>
+            ${d.midterm?'<span class="tagchip" style="background:#94a3b8">中期预报±30%</span>':''}
+          </div>
+          <div class="stars">${stars(d.stars)}</div>
+        </div>
+      </div>
+
+      <div class="novice-box">
+        <div class="winrow">
+          <span class="chip ${d.windows.length?'hot':''}">⏰ ${d.windows.length?'最佳 '+d.window:'无下水窗口'}</span>
+          <span class="chip">🛹 ${esc(d.board)}</span>
+          <span class="chip">👤 ${d.level}</span>
+        </div>
+        <div class="oneline">${d.novice}</div>
+        <button class="whybtn" onclick="whyClick('${d.id}')">🤔 为什么是 ${d.score.toFixed(1)} 分？看图解分析 →</button>
+      </div>
+
+      <div class="expert-sec">
+        <div class="sec-t">五维评分</div>
+        <div class="dims">${Object.entries(d.dims).map(([k,v])=>`
+          <div class="dim"><span class="dl">${k}</span>
+            <div class="track"><div class="fill" style="width:${v*10}%;background:${dimColor(v)}"></div></div>
+            <span class="dv" style="color:${dimColor(v)}">${v}</span></div>`).join('')}
+        </div>
+
+        <div class="sec-t">浪高 · 涌浪 · 周期${d.tp2?'（Tm/Tp 双口径）':''}</div>
+        <div class="chartbox">${waveChart(d)}${waveLegend(d)}</div>
+
+        <div class="sec-t">风况（离岸/向岸）· 潮汐</div>
+        <div class="chartbox">${windQualityStrip(d)}${windTideChart(d)}
+          <div class="legend">
+            <span class="lg"><span class="dot" style="border-color:#0ea5e9"></span>风向点（颜色=风质，箭头=去向）</span>
+            <span class="lg"><span class="ln" style="border-color:#94a3b8"></span>风速(kn)</span>
+            <span class="lg"><span class="ln dash" style="border-color:#cbd5e1"></span>阵风</span>
+            <span class="lg"><span class="ln" style="border-color:#14b8a6"></span>潮位(m)</span>
+          </div>
+          <div class="cap">${esc(d.tideText)}（模型推算，±1h）</div></div>
+
+        <div class="sec-t">分参数解读</div>
+        <div class="pa">${d.pa.map(p=>`
+          <div class="item"><b class="k">${p[0]}</b><span class="pscore" style="color:${dimColor(parseFloat(p[1]))}">${p[1]}</span> ${p[2]}</div>`).join('')}
+        </div>
+
+        <div class="sec-t">物理小课堂</div>
+        <div class="lesson"><b class="lt">💡 ${d.lesson[0]}</b>${d.lesson[1]}</div>
+
+        <div class="sec-t">实战行动方案</div>
+        <div class="plan"><b class="pt">${d.plan[0]}</b>${d.plan[1]}</div>
+        ${d.safety&&d.safety.length?`<div class="safe"><b class="st">🛟 ${d.safety[0]}</b>${d.safety[1]}</div>`:''}
+      </div>
+    </article>`;
+  }).join('');
+
+  document.getElementById('extras').innerHTML = `
+    <div class="panel">
+      <h3>🌊 涌浪事件完整解剖（7 日生命周期）</h3>
+      <div class="chartbox" style="border:0;padding:0">${lifecycleChart()}
+        <div class="legend">
+          <span class="lg"><span class="sw" style="background:#10b981"></span>必冲</span>
+          <span class="lg"><span class="sw" style="background:#3b82f6"></span>推荐</span>
+          <span class="lg"><span class="sw" style="background:#f59e0b"></span>可冲</span>
+          <span class="lg"><span class="sw" style="background:#f97316"></span>勉强</span>
+          <span class="lg" style="color:#0ea5e9">晨风风质：离岸蓝 / 侧岸紫 / 向岸橙</span>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--ink2);margin-top:8px;line-height:1.7">
+        <b>剧本复盘</b>：周六~周日离岸风晴天、长周期小涌（周日先行波预告主涌）→ 周一青黄不接的低谷 → 周二浪起、周期爬升点燃信号弹 → 周三峰值（1 米+Tp7s+无风+离岸，四项同框的王者）→ 周四衰减晨光。<b>（昨日周五 6/19 已移至页面底部「昨日回看」供你校验准度。）</b>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>⚖️ 为什么周三(7.6) 是本周王者？</h3>
+      <table class="vs-table">
+        <tr><th>参数</th><th>周二 6/23</th><th>周三 6/24 🏆</th><th>周四 6/25</th></tr>
+        <tr><td>浪高峰值</td><td>0.94m</td><td><b>1.08m</b></td><td>0.66m</td></tr>
+        <tr><td>谱峰周期</td><td>5.5s</td><td><b>7.0s</b></td><td>6.8s</td></tr>
+        <tr><td>晨间风速</td><td>1.8kn</td><td><b>0.6kn</b></td><td>2.6kn</td></tr>
+        <tr><td>纯度(短板)</td><td>49%</td><td>49%</td><td><b>53%</b></td></tr>
+        <tr><td>风向</td><td>SE 向岸↑</td><td><b>ENE 离岸</b></td><td>SE/SW 弱</td></tr>
+      </table>
+      <div class="vs-note"><b>周三是「大浪+长周期+几乎无风+离岸」四项同框——一周难遇的稀有重叠，所以登顶。</b>但它纯度仅 49%（唯一短板）：浪面会带纹理、不是丝绸。信条仍成立：上限由最差参数决定，今天的体验上限就卡在纯度。</div>
+    </div>
+
+    <div class="panel">
+      <h3>📐 核心公式速查</h3>
+      <div class="formula">
+        <div class="f"><code>纯度 = 涌浪 ÷ 总浪高</code><br>&gt;85% 才有丝绸面；本周普遍 50% 上下，浪面多带纹理。</div>
+        <div class="f"><code>能量指数 E ∝ Hs² × Tp</code><br>周三 1.08²×7≈8.2，全周推力之王。</div>
+        <div class="f"><code>波长 L ≈ 1.56 × T² (m)</code><br>3.3s→17m 风浪；6s→56m；7s→76m 滑翔毯。看周期比看浪高重要。</div>
+        <div class="f"><code>群速 Cg = gT / 4π</code><br>频散：长波先到（周日先行波）也先走（周一低谷）；周期爬升=涌浪将至（周二）。</div>
+        <div class="f"><code>可冲上限 = min(各参数)</code><br>由最差参数决定——周三虽登顶，体验仍被 49% 纯度封顶。</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>🗓️ 本周行动总纲</h3>
+      <div style="font-size:13px;color:var(--ink2);line-height:1.9">
+        🥇 <b>周三请假冲早场（05:00–10:00）</b>——1 米+7 秒+无风+离岸，本周王者，唯一值得冲到报废的一天<br>
+        🥈 <b>周四衰减晨光（05:00–09:00）</b>——腰高近镜面，长波尾巴，更好驾驭<br>
+        🥉 <b>周二傍晚浪起（16:00–18:30）</b>——退潮配浪高冲顶近 1 米，中级以上<br>
+        🏄 周六~周日长板党的离岸风晴天 ｜ 😴 周一青黄不接，休息蓄力
+      </div>
+    </div>`;
+}
+
+/* ================= 昨日回看 · 准确度校验 ================= */
+function renderVerify(){
+  const h=HISTORY, col=scoreColor(h.score), p=h.predict;
+  const dawnK=windKind(h.wdeg[0]);
+  document.getElementById('verify').innerHTML=`
+    <div class="vh">
+      <span class="vicon">🔍</span>
+      <div class="vt"><b>昨日回看 · 这套预报准不准？</b>
+        <small>${h.week} ${h.date}（北京时间 GMT+8）的预报 vs 你的实际感受——先验证过去，再相信未来</small></div>
+      <div class="vsc" style="background:${col}"><b>${h.score.toFixed(1)}</b><span>${h.scoreWord}</span></div>
+    </div>
+    <div class="vbody">
+      <div class="vpred"><b>📋 系统昨天的预报：</b><br>
+        <span class="pk">浪高 ${p.height}</span><span class="pk">${p.period}</span><span class="pk">风 ${p.wind}</span>
+        <span class="pk">最佳窗口 ${p.best}</span><span class="pk">🛹 ${p.board}</span><br>
+        <span style="color:var(--ink2)">综合判断：${p.verdict}</span>
+      </div>
+
+      <div class="vask">🌊 你昨天下水了吗？实际感受和上面的预报对得上吗？</div>
+      <div class="vrate" id="vrate">
+        <button onclick="rateYesterday('accurate')"><span class="em">🎯</span>挺准的<br>跟描述差不多</button>
+        <button onclick="rateYesterday('optimistic')"><span class="em">📉</span>偏乐观<br>实际没那么好</button>
+        <button onclick="rateYesterday('conservative')"><span class="em">📈</span>偏保守<br>实际比预报好</button>
+        <button onclick="rateYesterday('noidea')"><span class="em">🤷</span>没下水<br>不好说</button>
+      </div>
+      <div class="vresult" id="vresult"></div>
+
+      <button class="vmore" onclick="setMode(true);setTimeout(()=>document.getElementById('verify').scrollIntoView({behavior:'smooth'}),60)">📊 展开昨天的完整数据图表 →</button>
+
+      <div class="vexpert" style="margin-top:11px">
+        <div class="sec-t">昨日五维评分</div>
+        <div class="dims">${Object.entries(h.dims).map(([k,v])=>`
+          <div class="dim"><span class="dl">${k}</span>
+            <div class="track"><div class="fill" style="width:${v*10}%;background:${dimColor(v)}"></div></div>
+            <span class="dv" style="color:${dimColor(v)}">${v}</span></div>`).join('')}
+        </div>
+        <div class="sec-t">浪高 · 涌浪 · 周期（Tm/Tp 双口径）</div>
+        <div class="chartbox">${waveChart(h)}${waveLegend(h)}</div>
+        <div class="sec-t">风况（离岸/向岸）· 潮汐</div>
+        <div class="chartbox">${windQualityStrip(h)}${windTideChart(h)}
+          <div class="legend">
+            <span class="lg"><span class="dot" style="border-color:#0ea5e9"></span>风向点（颜色=风质，箭头=去向）</span>
+            <span class="lg"><span class="ln" style="border-color:#94a3b8"></span>风速(kn)</span>
+            <span class="lg"><span class="ln dash" style="border-color:#cbd5e1"></span>阵风</span>
+            <span class="lg"><span class="ln" style="border-color:#14b8a6"></span>潮位(m)</span>
+          </div>
+          <div class="cap">${esc(h.tideText)}（模型推算，±1h）</div></div>
+        <div class="sec-t">分参数解读</div>
+        <div class="pa">${h.pa.map(pp=>`
+          <div class="item"><b class="k">${pp[0]}</b><span class="pscore" style="color:${dimColor(parseFloat(pp[1]))}">${pp[1]}</span> ${pp[2]}</div>`).join('')}
+        </div>
+      </div>
+    </div>`;
+}
+function rateYesterday(kind){
+  document.querySelectorAll('#vrate button').forEach(b=>b.classList.remove('sel'));
+  event.currentTarget.classList.add('sel');
+  const msg={
+    accurate:['#ecfdf5','#047857','✅ 太好了——预报与你的体感吻合，说明这套评分模型对青岛山东头的标定是可信的。你可以放心参考本周（尤其周三王者日）的预报安排下水。'],
+    optimistic:['#fffbeb','#92400e','📉 收到。预报偏乐观时，常见原因：近岸浅水把外海浪高打了折（本系统已按 7–8 折估算，但浪点地形差异仍在），或风/纯度的体感比数字更敏感。建议本周把各日预期下调半档来用。'],
+    conservative:['#eff6ff','#0369a1','📈 收到。预报偏保守说明实际比模型更好——可能是局地涌浪聚焦或离岸风梳面效果超预期。可把本周评分上调半档参考，但安全margin仍建议保留。'],
+    noidea:['#f1f5f9','#475569','🤷 没关系。下次下水后回来点一下，多积累几天的「预报 vs 体感」对比，就能校准出这套系统在你常去浪点的系统性偏差（偏乐观/保守），让未来的预报越用越准。'],
+  }[kind];
+  const r=document.getElementById('vresult');
+  r.style.background=msg[0]; r.style.color=msg[1];
+  r.innerHTML=msg[2]; r.classList.add('show');
+}
+
+function setMode(expert){
+  document.body.classList.toggle('expert', expert);
+  document.getElementById('btnExpert').classList.toggle('on', expert);
+  document.getElementById('btnNovice').classList.toggle('on', !expert);
+}
+function whyClick(id){
+  setMode(true);
+  setTimeout(()=>document.getElementById(id).scrollIntoView({behavior:'smooth'}),60);
+}
+</script>
+</body>
+</html>

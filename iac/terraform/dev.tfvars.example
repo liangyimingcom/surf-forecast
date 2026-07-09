@@ -1,0 +1,17 @@
+# dev 环境参数示例 —— 复制为 dev.tfvars 后 terraform apply -var-file=dev.tfvars
+region          = "ap-northeast-1"
+env             = "dev"
+project         = "surf-forecast"
+account_id      = "153705321444"
+vpc_cidr        = "10.40.0.0/16"
+az_count        = 2
+spot_facing_deg = 157
+
+# 对外域名：people.aws.dev 为内部域无法对外服务。
+# 留空则暂不创建 Route53/ACM；确定公网域名后填入。
+domain_name = ""
+
+# 公网入口唯一为 CloudFront(HTTPS)；ALB SG 仅放行 CloudFront origin-facing 托管前缀列表。
+# ap-northeast-1 默认 pl-58a04531；如需改区域请用 `aws ec2 describe-managed-prefix-lists \
+#   --filters Name=prefix-list-name,Values=com.amazonaws.global.cloudfront.origin-facing` 查询。
+cloudfront_prefix_list_id = "pl-58a04531"

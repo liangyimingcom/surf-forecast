@@ -1,0 +1,11 @@
+{
+  "enabled": false,
+  "name": "Daily Data Refresh Reminder",
+  "description": "提示按 GMT+8 日界刷新数据：拉取今天起的最新预报 + 昨日历史回算，并核查预报/历史日期边界正确滚动。默认关闭，按需启用或由 cron 触发。",
+  "version": "1",
+  "when": { "type": "manual" },
+  "then": {
+    "type": "askAgent",
+    "prompt": "按 GMT+8 当前日期刷新浪报数据：\n1. 拉取『今天起』的 ECMWF 预报（forecast_days）与『昨天』的历史回算（past_days=1）；\n2. 更新前端 DAYS（今天起）与 HISTORY（昨天），确保两者日期不重叠、星期按 GMT+8 正确；\n3. 重算评分与各时段 offshore/onshore 风质；\n4. 更新可信度声明里的『校准 YYYY-MM-DD 北京时间 GMT+8』时间戳；\n5. 跑 validate 确认无事实红线问题。给出变更摘要。"
+  }
+}

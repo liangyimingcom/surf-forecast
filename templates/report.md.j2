@@ -1,0 +1,31 @@
+{# 报告模板（专业版）—— 见 design.md 第 7 节、requirements 4.x/5.x、Task 6.1.
+   叙事段落渲染前须经 validate.verify_narrative_support（需求 2.4）。
+   本文件为结构骨架，实现 render.py 时按需补全宏与循环。 #}
+# 🏄 {{ ctx.spot }} — {{ ctx.days|length }}日冲浪浪报深度分析
+
+> 📍 {{ ctx.coord[0] }}, {{ ctx.coord[1] }} │ ECMWF WAM + IFS │ {{ ctx.date_range }}
+> ⚖️ 权重：浪高{{ w.wave_height }} 周期{{ w.period }} 风{{ w.wind }} 纯度{{ w.purity }} 潮汐{{ w.tide }}
+
+## 〇、数据可信度声明
+{# 来源星级表 + 星期/月相核验结论 + 中期预报降级标注（需求 5.4, 5.5）#}
+{% for note in ctx.confidence_notes %}- {{ note }}
+{% endfor %}
+
+## 一、速查排名
+{# 按 ctx.ranking 排序：排名 | 日期(正确星期) | 综合分 | 最佳窗口 | 推荐度 | 板型（需求 5.1）#}
+| 排名 | 日期 | 综合分 | 最佳窗口 | 推荐度 | 板型 |
+|---|---|---|---|---|---|
+{% for i in ctx.ranking %}{% set d = ctx.days[i] %}| {{ loop.index }} | {{ d.forecast.weekday }} {{ d.forecast.date }} | {{ d.composite }}/10 | {{ d.best_window }} | {{ d.recommendation }} | {{ d.board }} |
+{% endfor %}
+
+{# 二、逐日深度分析（按日期顺序，需求 5.2 / 4.1-4.4）
+   每天：原始数据表 / 潮汐 / 浪高 / 涌浪纯度 / 周期 / 风速 / 潮汐 / 实战行动方案
+   每段含：阈值标准 + 当日数据 + 对冲浪的具体影响；周期段含波长/能量换算 + 跨日对比 #}
+{% for d in ctx.days %}
+## 📅 {{ d.forecast.date }} {{ d.forecast.weekday }} │ 综合 {{ d.composite }}/10
+{# TODO: 调用各分析宏；短板参数 = {{ d.weakest_param }} #}
+{% endfor %}
+
+## 📚 7日总结
+{# 生命周期 ASCII 图（render_lifecycle_ascii）+ 核心公式 + 阈值如何决定排名（需求 5.3）#}
+{{ ctx.lifecycle_ascii }}
