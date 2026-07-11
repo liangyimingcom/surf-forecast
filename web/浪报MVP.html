@@ -290,6 +290,13 @@
   .cam-empty{color:var(--ink3);font-size:12.5px;padding:8px 2px}
   .cam-video{width:100%;max-height:60vh;background:#000;border-radius:10px;display:block}
   .cam-tip{margin-top:8px;font-size:11.5px;color:var(--ink3)}
+  /* 主标签页导航 */
+  .maintab{max-width:960px;margin:10px auto 0;padding:0 16px;display:flex;gap:8px}
+  .maintab-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:9px 6px;border:1px solid var(--line,#e3e8ef);border-radius:12px;background:#fff;color:var(--ink2);font-size:13.5px;font-weight:700;cursor:pointer}
+  .maintab-btn small{font-weight:500;font-size:10.5px;color:var(--ink3)}
+  .maintab-btn.on{background:#2d7ff9;color:#fff;border-color:#2d7ff9}
+  .maintab-btn.on small{color:rgba(255,255,255,.85)}
+  .tab-off{display:none !important}
   .cat{max-width:960px;margin:12px auto 0;padding:0 16px}
   .cat-hd{font-size:13.5px;font-weight:700;color:var(--ink2);margin:0 2px 8px}
   .cat-count{font-weight:500;color:var(--ink3);font-size:11.5px;margin-left:6px}
@@ -395,8 +402,8 @@
       <span id="metaCalib">🕐 校准 2026-06-20 北京时间 GMT+8</span>
     </div>
 
-    <!-- 位置查询栏（UI 占位，真实取数待后端 API） -->
-    <div class="query">
+    <!-- 位置查询栏：按需求从首页移除(隐藏)；#spotSel 等元素保留供收藏/目录/地图切换逻辑依赖 -->
+    <div class="query" style="display:none" aria-hidden="true">
       <div class="qf">
         <label>浪点 / 位置</label>
         <select id="spotSel" onchange="onSpotChange()">
@@ -420,11 +427,18 @@
       <div class="qnote" id="qnote">登录后可自定义经纬度浪点、保存多点并一键切换；未登录展示内置「青岛山东头」样板。新增时可在地图上点选回填坐标。</div>
     </div>
 
-    <div class="mode">
+    <div class="mode" id="modeBar">
       <button id="btnNovice" class="on" onclick="setMode(false)">🐣 小白模式<small>哪天能冲，一句话</small></button>
       <button id="btnExpert" onclick="setMode(true)">🏄 高手模式<small>为什么好，图解分析</small></button>
     </div>
   </header>
+
+  <!-- 主标签页导航（对应小白/高手模式风格）：实时浪报 / 浪报详情 / 其他 -->
+  <nav class="maintab" id="maintab">
+    <button class="maintab-btn on" data-tab="live" onclick="showTab('live')">🌊 实时浪报<small>全国浪点 · 直播</small></button>
+    <button class="maintab-btn" data-tab="report" onclick="showTab('report')">📊 浪报详情<small>评分 · 图解 · 回看</small></button>
+    <button class="maintab-btn" data-tab="other" onclick="showTab('other')">📋 其他<small>公告 · 社区 · 周边</small></button>
+  </nav>
 
   <!-- R1.1 浪点收藏：★ 星标 + localStorage 持久化 + 收藏置顶（独立容器，render() 不触碰；空/未登录时隐藏） -->
   <section class="spotfav" id="spotFav" style="display:none">
@@ -505,28 +519,7 @@
     <div class="news-list" id="carpoolList"></div>
   </section>
 
-  <!-- R2.6 模块F 排水量计算器：石老人同款公式（体重×水平系数→L，纯前端工具，无上游） -->
-  <section class="vol" id="volume">
-    <div class="vol-hd">🏄 冲浪板排水量计算器 <span class="sample-tag">同款公式</span></div>
-    <div class="vol-form">
-      <div class="vol-row">
-        <label>体重(kg)</label>
-        <input id="volWeight" class="vol-input" type="number" min="30" max="150" step="1" value="70" inputmode="decimal">
-        <label>水平</label>
-        <select id="volLevel" class="vol-input">
-          <option value="0.70">初学者</option>
-          <option value="0.55">初级</option>
-          <option value="0.443" selected>中级</option>
-          <option value="0.38">中高级</option>
-          <option value="0.34">高级</option>
-          <option value="0.30">专业</option>
-        </select>
-        <button class="vol-btn" onclick="calcVolume()">计算</button>
-      </div>
-      <div class="vol-result" id="volResult">推荐排水量约 <b>31.0 L</b>（70kg · 中级）</div>
-      <div class="vol-note">公式：排水量 = 体重(kg) × 水平系数。标定：70kg 中级 ≈ 31L、初学者 ≈ 49L。仅供参考，实际选板还需结合浪况与经验。</div>
-    </div>
-  </section>
+  <!-- R2.6 排水量计算器：按需求移除 -->
 
   <!-- R2.7 模块D 周边推荐：示例商户分类分组（不引外部API；标注示例数据） -->
   <section class="nb" id="nearby">
@@ -550,7 +543,7 @@
 
   <section class="verify" id="verify"></section>
 
-  <section class="checklist">
+  <section class="checklist" id="checklist">
     <h3>⚠️ 下水前必做的三件事</h3>
     <ol>
       <li><b>核对青岛官方潮汐表</b>——本页潮汐为模型推算（±1h）。本周为小潮期，潮流较弱、break 位置稳定，是利好。</li>
@@ -1101,18 +1094,7 @@ window.addEventListener('load', initCarpool);   // R2.5 拼车初始化
 
 /* ================= R2.6 模块F 排水量计算器（石老人同款公式；纯前端工具） =================
    排水量 L = 体重(kg) × 水平系数。系数标定：中级 0.443(70kg→31L)、初学者 0.70(70kg→49L)。*/
-function calcVolume(){
-  const w = parseFloat(document.getElementById('volWeight').value);
-  const sel = document.getElementById('volLevel');
-  const k = parseFloat(sel.value);
-  const out = document.getElementById('volResult');
-  if(!out) return;
-  if(!isFinite(w) || w <= 0){ out.innerHTML = '请输入有效体重(kg)'; return; }
-  const vol = w * k;
-  const levelName = sel.options[sel.selectedIndex].textContent;
-  out.innerHTML = `推荐排水量约 <b>${vol.toFixed(1)} L</b>（${w}kg · ${_favEscape(levelName)}）`;
-}
-window.calcVolume = calcVolume;
+/* R2.6 排水量计算器已按需求移除 */
 
 /* ================= R2.7 模块D 周边推荐（示例商户；按类型分组） =================
    示例 sample 数据（surf-forecast 无对应上游）；分冲浪店/餐厅酒吧/酒店三类。*/
@@ -1238,6 +1220,7 @@ async function pickCatalogSpot(slug){
   const c = CATALOG.find(x=>x.slug===slug); if(!c) return;
   SPOT = { lat:c.lat, lon:c.lon, name:c.name, days:c.days||6 };   // 切到该浪点
   _curSlug = slug; updateLiveEntry(slug);                         // P4 详情直播入口联动
+  showTab('report');                                             // 切到「浪报详情」标签看结果
   window.scrollTo({top:0, behavior:'smooth'});
   await loadLive();                                               // 引擎自算浪报
   try{ if(Array.isArray(DAYS) && DAYS[0] && DAYS[0].score!=null){ _catScores[slug]=DAYS[0].score; renderCatalog(); } }catch(_){}  // 回填已看浪点评分
@@ -1252,6 +1235,26 @@ function updateLiveEntry(slug){
 function openCurrentCam(){ if(_curSlug) openCam(_curSlug); }
 window.openCurrentCam = openCurrentCam;
 window.filterCat = filterCat; window.renderCatalog = renderCatalog; window.pickCatalogSpot = pickCatalogSpot;
+
+/* ================= 主标签页切换：实时浪报 / 浪报详情 / 其他 ================= */
+const TAB_OF = {
+  catalog:'live', livecams:'live',
+  spotFav:'report', modeBar:'report', strip:'report', hero:'report', liveEntry:'report',
+  story:'report', cards:'report', verify:'report', checklist:'report', extras:'report',
+  annc:'other', feedback:'other', about:'other', newswall:'other', carpool:'other', nearby:'other',
+};
+let _curTab = 'live';
+function showTab(tab){
+  _curTab = tab;
+  for(const [id, t] of Object.entries(TAB_OF)){
+    const el = document.getElementById(id);
+    if(el) el.classList.toggle('tab-off', t !== tab);   // 非本页隐藏(!important)；本页交回元素自身显示逻辑
+  }
+  document.querySelectorAll('.maintab-btn').forEach(b=>b.classList.toggle('on', b.dataset.tab === tab));
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+window.showTab = showTab;
+window.addEventListener('load', ()=> showTab('live'));   // 默认「实时浪报」
 // 下拉选项按收藏置顶重排（仅动 data-saved 项，保留 qd / custom 位置）
 function reorderSpotOptions(){
   const sel = document.getElementById('spotSel');
