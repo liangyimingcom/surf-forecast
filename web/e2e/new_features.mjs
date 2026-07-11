@@ -39,6 +39,10 @@ if(await page.locator('#catalog').isVisible()){
   await page.locator('#liveSubnav .livesub-btn', { hasText:'目录' }).click();
   await page.waitForTimeout(300);
   ok('子视图 切回目录', await page.locator('#catalog').isVisible());
+  // 目录排序：有直播优先 → 首项含 LIVE 徽标
+  await page.selectOption('#catSort', 'live'); await page.waitForTimeout(250);
+  ok('目录排序 有直播优先(首项LIVE)', await page.locator('#catList .cat-item').first().locator('.cat-live').count() === 1);
+  await page.selectOption('#catSort', 'default'); await page.waitForTimeout(150);
 } else {
   console.log('  ⏭  #catalog 未显示(未 SF_SEED_SPOTS)，跳过实时浪报断言');
 }
@@ -100,6 +104,67 @@ if(await page.locator('#spotFav').isVisible()){
 } else {
   fail++; console.log('  ❌ R1 建浪点后 #spotFav 未显示');
 }
+
+// ═══════════ 本轮 UI 优化新交互断言（V.1：U1 加载态 / U2 记忆+空态）═══════════
+
+// —— U1 加载态：骨架屏出现/消失 + 顶部 spinner ——
+ok('U1 骨架屏/ spinner 助手已接线', await page.evaluate(()=>
+  typeof _sfSkel==='function' && typeof _sfSkelRows==='function' && typeof _sfLoadBar==='function'));
+await tab('live'); await page.evaluate(()=>window.showLiveView('catalog')); await page.waitForTimeout(150);
+// 目录骨架：手动注入 → 出现；重渲染 → 消失
+await page.evaluate(()=>_sfSkel('catList','cat',8));
+ok('U1 目录骨架屏出现', await page.locator('#catList .sf-skel').count() >= 8);
+await page.evaluate(()=>renderCatalog());
+ok('U1 目录骨架屏消失(渲染后)', await page.locator('#catList .sf-skel').count() === 0);
+// 直播骨架
+await page.evaluate(()=>_sfSkel('camGrid','cam',4));
+ok('U1 直播骨架屏出现', await page.locator('#camGrid .sf-skel').count() >= 4);
+await page.evaluate(()=>renderLivecams());
+ok('U1 直播骨架屏消失(渲染后)', await page.locator('#camGrid .sf-skel').count() === 0);
+// loadLive 顶部细 spinner：显示 → 隐藏
+await page.evaluate(()=>_sfLoadBar(true));
+ok('U1 顶部 spinner 出现', await page.locator('#sfLoadBar').isVisible());
+await page.evaluate(()=>_sfLoadBar(false));
+ok('U1 顶部 spinner 隐藏', !(await page.locator('#sfLoadBar').isVisible()));
+
+// —— U2 tab / 子视图 记忆持久化（localStorage + 刷新恢复 + 脏值回退）——
+await tab('other'); await page.waitForTimeout(150);
+ok('U2 主标签写入 localStorage(other)', (await page.evaluate(()=>localStorage.getItem('sf_tab_v1'))) === 'other');
+await page.reload({ waitUntil:'networkidle' }); await page.waitForTimeout(1600);
+ok('U2 刷新后恢复上次主标签(other)', (await page.locator('.maintab-btn.on').getAttribute('data-tab')) === 'other');
+// 子视图记忆：切到直播 → 写入 → 刷新恢复
+await tab('live'); await page.waitForTimeout(150);
+await page.evaluate(()=>window.showLiveView('cams')); await page.waitForTimeout(150);
+ok('U2 子视图写入 localStorage(cams)', (await page.evaluate(()=>localStorage.getItem('sf_liveview_v1'))) === 'cams');
+await page.reload({ waitUntil:'networkidle' }); await page.waitForTimeout(1600);
+ok('U2 刷新后恢复子视图(直播显/目录隐)', (await page.locator('#livecams').isVisible()) && !(await page.locator('#catalog').isVisible()));
+// 脏值/非法值 → 回退默认（不影响后端契约）
+await page.evaluate(()=>{ localStorage.setItem('sf_tab_v1','__bad__'); localStorage.setItem('sf_liveview_v1','__bad__'); });
+await page.reload({ waitUntil:'networkidle' }); await page.waitForTimeout(1600);
+ok('U2 脏值回退默认主标签(live)', (await page.locator('.maintab-btn.on').getAttribute('data-tab')) === 'live');
+ok('U2 脏值回退默认子视图(目录显)', await page.locator('#catalog').isVisible());
+
+// —— 空态友好提示：目录搜索无结果 / 收藏搜索无结果 ——
+await tab('live'); await page.evaluate(()=>window.showLiveView('catalog')); await page.waitForTimeout(150);
+await page.fill('#catSearch', 'zzz不存在的浪点xyz'); await page.waitForTimeout(200);
+ok('空态 目录无结果提示渲染', (await page.locator('#catList .cat-empty').count()) === 1
+  && (await page.locator('#catList .cat-empty').innerText()).includes('没有匹配'));
+await page.fill('#catSearch', ''); await page.waitForTimeout(150);
+await tab('report'); await page.waitForTimeout(150);
+if(await page.locator('#spotFav').isVisible()){
+  await page.fill('#spotSearch', 'zzz不存在xyz'); await page.waitForTimeout(200);
+  ok('空态 收藏无匹配提示渲染', (await page.locator('#spotFavEmpty').isVisible())
+    && (await page.locator('#spotFavEmpty').innerText()).includes('没有匹配'));
+  await page.fill('#spotSearch', ''); await page.waitForTimeout(150);
+} else {
+  fail++; console.log('  ❌ 空态 收藏面板 #spotFav 未显示，无法验证收藏空态');
+}
+
+// —— 深色模式切换 ——
+await page.click('#themeToggle'); await page.waitForTimeout(200);
+ok('深色模式 开启(body.dark)', await page.locator('body.dark').count() === 1);
+await page.click('#themeToggle'); await page.waitForTimeout(200);
+ok('深色模式 关闭', await page.locator('body.dark').count() === 0);
 
 // —— 0 JS 报错（排除资源404/favicon/直播流HLS）——
 const jsErrors = errors.filter(e => !/favicon|Failed to load resource|net::ERR|m3u8|hls|manifest|frag|level|buffer|mediaError/i.test(e));
