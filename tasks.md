@@ -35,6 +35,8 @@
 ## P6 测试(部署前)
 - [x] P6.1 pytest 新增契约测试 ✅ tests/test_formc.py 8项(seed纯函数shape/缺坐标跳过/catalog+cams+scores 401/catalog列举/cams仅含live_src/scores无缓存)；**全量 118→126 passed**（基线增长零倒退）
 - [x] P6.2 Playwright 汇总 E2E ✅ **30/30 全绿 + 0 JS报错**（web/e2e/new_features.mjs 扩形态C：58目录/区域chips/直播卡片(hls)/详情直播入口横幅/直播弹层；修过时 R2.8 占位断言→真实cams；直播流HLS错误纳入排除）
+- [x] P6.3 (Task8 深化) pytest 契约扩充 ✅ tests/test_formc_task8.py **19 项**（A: spot_registry 58+真实快照导入/8官方区域齐全/区域分布固定(广东22..国外7)/live_src=42/**float→Decimal 红线**钉死；B: /api/cams 数量=42+免责非空含研究/只读 POST-PUT-DELETE-PATCH→405/Decimal 坐标下发 float/未登录 401；C: 引擎 wdeg 必含+双周期 tp≠tp2 全日数字契约+离岸 off / 向岸 on 编码；D: /api/catalog 携带 region+has_live 供 8 区筛选、has_live 集合==cams、朝向待校准）；全量 **126→145 passed** 零倒退
+- [x] P6.4 (Task8 深化) 专项 E2E ✅ web/e2e/formc.mjs **22/22 全绿 + 0 JS报错**（C1 列表58/C2 地区chips9+海南筛选15+全部复位/C3 搜索/C4 直播弹层含&lt;video#camVideo&gt;+来源免责/C5 详情融合含「离岸」「双周期」+直播入口开弹层/C6 多浪点切换+昨日回看重算）；new_features.mjs 30/30 未倒退（SF_SEED_SPOTS 灌 58 浪点后运行）
 
 ## P7 部署+部署后E2E+截图+文档
 - [x] P7.1 部署门禁 ✅ pytest 126 passed
@@ -43,8 +45,29 @@
 - [x] P7.4 部署后线上 E2E ✅ CloudFront: 注册/登录200 · /api/catalog=58(8区域全含) · /api/cams=42 · 三亚取报3天含wdeg+calibratedAt 2026-07-11 21:11 GMT+8 · 前端含catalog/cams/livecams
 - [x] P7.5 headless Chrome 截图 ✅ 17张 → docs/screenshots/*.png（含形态C新界面：12-catalog全国目录/13-catalog-hainan区域筛选/14-livecams直播列表/15-live-entry详情直播入口/16-live-modal直播弹层）
 - [x] P7.6 3 文档 ✅ docs/形态C-01-功能介绍.md / 形态C-02-交互操作指南.md / 形态C-03-教学教程.md（引用截图，含架构/代码地图/扩展模式/踩坑/红线合规/测试产物）
-- [ ] P7.7 若需基建变更 → 停下发 blocker 等人工审批，禁 -auto-approve
-- [ ] P7.8 README/功能矩阵更新 + 验收结论
+- [x] P7.7 无基建变更(纯 web + 注册表数据)，未跑 terraform apply ✅（新表/资源/SG 未动，仅 DynamoDB 数据写入 + 镜像滚动）
+- [x] P7.8 README 功能矩阵更新 + 验收结论 ✅（README 加「形态C整合」矩阵；PR #3 github.com/liangyimingcom/surf-forecast/pull/3；验收：58浪点+直播+目录+详情+回看全线上可用，pytest126/E2E30-30，红线与合规零违反）
 
 ## 完成定义
 见 north_star.md DoD：58+浪点(引擎自算预报)+真实直播+列表/详情融合评分离岸风双周期+昨日回看 + pytest增长 + 部署前后E2E全绿 + 自动部署上线 + 截图 + 3文档，红线与合规零违反。
+
+## P8 最终验证 + 收尾 (Task 11/11)
+- [x] P8.1 STOP_LOOP 前置检查 ✅ 起始时不存在（未误停）
+- [x] P8.2 pytest 全量回归 ✅ **145 passed / 0 failed**（118 基线 → +27，零倒退；1 warning=starlette httpx 弃用提示，无关）
+- [x] P8.3 Playwright 专项 E2E 回归（对**已提交的 tracked HTML** taskrunner_main/web/浪报MVP.html 起服）✅ **formc.mjs 22/22 全绿 + 0 JS 报错**（SF_SEED_SPOTS 灌 58 浪点、SF_FRONTEND 指向 tracked 副本）
+- [x] P8.4 本地保护接口红线 ✅ /api/cams=401、/api/catalog=401（未登录）；seed 灌入 58 浪点确认
+- [x] P8.5 线上端到端核对（CloudFront d2hmhl7n8yga53）✅ /api/health=200 · /=200 · /api/cams=401 · /api/catalog=401；线上前端 HTML 携形态C全特性（api/cams×2 / api/catalog×2 / hls×7 / catChips×2 / camVideo×3 / 离岸×41）
+- [x] P8.6 tracked 与 runnable 代码一致性 ✅ src/web/app.py / src/web/cams.py / tests/test_formc_task8.py 三者 tracked==runnable 逐字节相同；HTML 特性计数一致（Task4/Task6 review 的“核心代码未落 tracked diff”阻塞已由后续 step 落地解除）
+- [x] P8.7 DoD 8 项全达成 ✅（见下）
+
+### 形态C DoD 8 项最终判定
+1. 58+ 浪点导入注册表（坐标+live_src+facing 待校准标, float→Decimal）— ✅ 58 浪点 seed 灌入验证
+2. 预报统一 surf-forecast 引擎自算（wdeg/双周期）— ✅ 契约测试 test_formc_task8 C 组钉死 + 线上三亚取报含 wdeg
+3. /api/cams 直播目录（只读,401）+ 前端 hls.js 直播弹层（视频直连上游不经后端）— ✅ 本地/线上 401 + E2E camVideo 弹层开关
+4. 列表升级 58+ + 地区筛选（9 chips）+ 引擎评分（缓存）+ 复用收藏/搜索/地图 — ✅ E2E C1-C3
+5. 详情融合（评分/离岸风/双周期/叙事+直播入口）+ 昨日回看多浪点 — ✅ E2E C5-C6
+6. 部署前 pytest（118→145 增长）+ Playwright E2E 全绿 0 报错 — ✅ 145 passed + 22/22
+7. 自动部署 AWS + 线上 E2E（CloudFront 端到端）— ✅ /api/health 200 / 保护接口 401 / 前端含全特性
+8. headless Chrome 截图（17 张）+ 3 文档（功能介绍/交互操作指南/教学教程）— ✅ docs/screenshots/*.png + docs/形态C-0{1,2,3}-*.md
+
+**结论：形态C DoD 8 项全部达成，红线与合规零违反，pytest 与 E2E 全绿无倒退，线上端到端可用。目标达成 → 创建 STOP_LOOP 停止循环。**

@@ -70,3 +70,19 @@ Open-Meteo（同源 ECMWF WAM/IFS，免 key），含 `past_days` 历史回算。
 - **截图**：`docs/screenshots/*.png`（12 张）。
 - **文档**：`docs/移植功能-01~03`（功能介绍 / 交互操作指南 / 教学教程）。
 - **合规**：仅公开只读/前端示例，不做登录态/支付/发布，不引外部内容 API。
+
+## 形态C整合：石老人×surf-forecast 统一后端（2026-07 新增）
+
+按 [docs/石老人整合方案-formC.md](docs/石老人整合方案-formC.md)，把石老人「实时浪报」形态（全国 58+ 浪点 + 真实摄像头直播）整合进 surf-forecast 统一后端；**预报一律引擎自算**，直播前端 hls.js 直连上游。引擎内核零改动，pytest 118→126。
+
+| 能力 | 实现 | 数据 |
+|------|------|------|
+| 全国浪点目录(58) | /api/catalog + 前端区域筛选/搜索/评分徽标 | 石老人导入坐标 + 引擎自算评分 |
+| 真实直播(42) | /api/cams + hls.js 直连上游(不代理) | 石老人 live_src（研究用途·401门禁） |
+| 详情融合 | 引擎评分/离岸风质/双周期/叙事 + 直播入口 | 引擎自算 |
+| 昨日回看多浪点 | /api/report/history 引擎历史模式 | 引擎自算 |
+
+- **导入**：`tools/import_shilaoren_spots.py`(快照) + `tools/load_registry.py`(灌注册表,float→Decimal) + `src/web/seed.py`。
+- **测试**：pytest 126 (含 tests/test_formc.py 8项)；Playwright E2E 30/30 + 0 JS报错。生产验证 catalog=58/cams=42/取报含wdeg+GMT+8。
+- **截图/文档**：docs/screenshots(17张) + docs/形态C-01~03。
+- **合规**：石老人逆向部分仅研究用途；直播 401 门禁；社区示例；浪点朝向 facing 待校准。
