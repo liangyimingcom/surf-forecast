@@ -32,6 +32,13 @@ if(await page.locator('#catalog').isVisible()){
   await page.waitForTimeout(200);
   ok('C 区域筛选生效', await page.locator('#catList .cat-item').count() < before);
   await page.locator('#catChips .cat-chip', { hasText:'全部' }).click();
+  // 子视图切换：目录 <-> 直播（默认目录，直播折叠避免超长）
+  await page.locator('#liveSubnav .livesub-btn', { hasText:'直播' }).click();
+  await page.waitForTimeout(300);
+  ok('子视图 切直播(直播显/目录隐)', (await page.locator('#livecams').isVisible()) && !(await page.locator('#catalog').isVisible()));
+  await page.locator('#liveSubnav .livesub-btn', { hasText:'目录' }).click();
+  await page.waitForTimeout(300);
+  ok('子视图 切回目录', await page.locator('#catalog').isVisible());
 } else {
   console.log('  ⏭  #catalog 未显示(未 SF_SEED_SPOTS)，跳过实时浪报断言');
 }

@@ -299,6 +299,13 @@
   .maintab-btn.on{background:#2d7ff9;color:#fff;border-color:#2d7ff9}
   .maintab-btn.on small{color:rgba(255,255,255,.85)}
   .tab-off{display:none !important}
+  .subview-off{display:none !important}
+  .livesub{max-width:960px;margin:12px auto 0;padding:0 16px;display:flex;gap:8px}
+  .livesub-btn{flex:1;padding:8px 6px;border:1px solid var(--line,#e2e8f0);border-radius:10px;background:#fff;color:var(--ink2);font-size:13px;font-weight:700;cursor:pointer;transition:background .15s}
+  .livesub-btn.on{background:#0ea5e9;color:#fff;border-color:#0ea5e9}
+  .maintab{position:sticky;top:0;z-index:50;background:var(--bg);padding-top:10px;padding-bottom:8px}
+  #toTop{position:fixed;right:16px;bottom:18px;width:44px;height:44px;border-radius:50%;border:none;background:#0369a1;color:#fff;font-size:20px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:opacity .2s;z-index:60}
+  #toTop.show{opacity:.92;pointer-events:auto}
   .cat{max-width:960px;margin:12px auto 0;padding:0 16px}
   .cat-hd{font-size:13.5px;font-weight:700;color:var(--ink2);margin:0 2px 8px}
   .cat-count{font-weight:500;color:var(--ink3);font-size:11.5px;margin-left:6px}
@@ -460,6 +467,12 @@
   </section>
 
   <!-- R2.1 公告：示例数据 · 点击查看富文本详情弹层（不引外部内容 API；不做登录/支付） -->
+  <!-- 实时浪报子视图切换：目录 / 直播（默认只显目录，避免 58 目录+42 直播叠成超长单页） -->
+  <nav class="livesub" id="liveSubnav">
+    <button class="livesub-btn on" data-view="catalog" onclick="showLiveView('catalog')">🌊 全国目录</button>
+    <button class="livesub-btn" data-view="cams" onclick="showLiveView('cams')">📹 浪点直播</button>
+  </nav>
+
   <!-- P3 形态C：全国浪点目录(58+) · 区域筛选 + 搜索 + 点击加载浪报 + LIVE 直播入口 -->
   <section class="cat" id="catalog" style="display:none">
     <div class="cat-hd">🌊 全国浪点目录 <span class="cat-count" id="catCount"></span></div>
@@ -567,6 +580,7 @@
   </footer>
 </div>
 
+<button id="toTop" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="回到顶部" aria-label="回到顶部">↑</button>
 <script>
 /* ================= 数据（DATA CONTRACT：后端 /api/report 应返回同构结构）=================
    来源：Open-Meteo ECMWF WAM/IFS 实时拉取，2026-06-20 校准（北京时间 GMT+8），青岛山东头 6/20–6/25 预报 + 6/19 历史。
@@ -1245,23 +1259,35 @@ window.filterCat = filterCat; window.renderCatalog = renderCatalog; window.pickC
 
 /* ================= 主标签页切换：实时浪报 / 浪报详情 / 其他 ================= */
 const TAB_OF = {
-  catalog:'live', livecams:'live',
+  liveSubnav:'live', catalog:'live', livecams:'live',
   spotFav:'report', modeBar:'report', strip:'report', hero:'report', liveEntry:'report',
   story:'report', cards:'report', verify:'report', checklist:'report', extras:'report',
   annc:'other', feedback:'other', about:'other', newswall:'other', carpool:'other', nearby:'other',
 };
 let _curTab = 'live';
+let _liveView = 'catalog';
+function applyLiveView(){
+  const cat=document.getElementById('catalog'), cam=document.getElementById('livecams');
+  if(cat) cat.classList.toggle('subview-off', _liveView!=='catalog');
+  if(cam) cam.classList.toggle('subview-off', _liveView!=='cams');
+  document.querySelectorAll('#liveSubnav .livesub-btn').forEach(b=>b.classList.toggle('on', b.dataset.view===_liveView));
+}
+function showLiveView(v){ _liveView=v; applyLiveView(); window.scrollTo({top:0,behavior:'smooth'}); }
+window.showLiveView = showLiveView;
 function showTab(tab){
   _curTab = tab;
   for(const [id, t] of Object.entries(TAB_OF)){
     const el = document.getElementById(id);
     if(el) el.classList.toggle('tab-off', t !== tab);   // 非本页隐藏(!important)；本页交回元素自身显示逻辑
   }
+  if(tab==='live') applyLiveView();                     // 回到实时浪报时按子视图只显目录或直播
   document.querySelectorAll('.maintab-btn').forEach(b=>b.classList.toggle('on', b.dataset.tab === tab));
   window.scrollTo({top:0, behavior:'smooth'});
 }
 window.showTab = showTab;
 window.addEventListener('load', ()=> showTab('live'));   // 默认「实时浪报」
+// 回到顶部按钮：滚动超过 400px 显示
+window.addEventListener('scroll', ()=>{ const b=document.getElementById('toTop'); if(b) b.classList.toggle('show', window.scrollY>400); }, {passive:true});
 // 下拉选项按收藏置顶重排（仅动 data-saved 项，保留 qd / custom 位置）
 function reorderSpotOptions(){
   const sel = document.getElementById('spotSel');
