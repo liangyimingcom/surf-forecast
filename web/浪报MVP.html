@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0c4a6e">
-<title>🏄 浪报 · 青岛山东头 7日冲浪窗口</title>
+<title>🏄 浪报 · 全国冲浪预报</title>
 <!--
   浪报MVP.html —— 动态浪报网站「会员视图」效果样板
   ============================================================
@@ -55,6 +55,8 @@
   header h1 small{font-size:12px;font-weight:400;opacity:.75;letter-spacing:0}
   .spot{margin-top:5px;font-size:12.5px;opacity:.9;display:flex;gap:9px;flex-wrap:wrap}
   .spot span{display:inline-flex;align-items:center;gap:3px}
+  .spot-cur{cursor:pointer;font-weight:700;background:rgba(255,255,255,.16);padding:2px 10px;border-radius:999px;transition:background .15s}
+  .spot-cur:hover{background:rgba(255,255,255,.30)}
 
   /* ───── 位置查询栏（UI 占位） ───── */
   .query{background:rgba(255,255,255,.14);border-radius:14px;padding:10px;margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
@@ -395,11 +397,11 @@
 
   <header>
     <div class="wave-deco">🌊</div>
-    <h1>🏄 浪报 <small>7日冲浪窗口 · MVP</small></h1>
+    <h1>🏄 浪报 <small>全国 58 浪点 · 实时冲浪预报</small></h1>
     <div class="spot">
-      <span>📍 青岛 · 山东头</span><span id="metaRange">📅 6/20 – 6/25</span><span>🌅 04:46 / 19:26</span>
-      <span>🌡️ 水温 22–24°C · 2mm</span><span>🌓 6/22 上弦 · 小潮</span>
-      <span id="metaCalib">🕐 校准 2026-06-20 北京时间 GMT+8</span>
+      <span id="metaSpot" class="spot-cur" onclick="showTab('report')" title="查看该浪点浪报详情">📍 青岛 · 山东头 ›</span>
+      <span id="metaRange">📅 —</span>
+      <span id="metaCalib">🕐 校准 —</span>
     </div>
 
     <!-- 位置查询栏：按需求从首页移除(隐藏)；#spotSel 等元素保留供收藏/目录/地图切换逻辑依赖 -->
@@ -728,6 +730,7 @@ const API_BASE = (window.SF_API_BASE || '');        // 同源；可经 window.SF
 let SPOT = { lat: 36.092, lon: 120.468, name: '青岛山东头', days: 3 };
 
 async function loadLive(){
+  try{ const _sp=document.getElementById('metaSpot'); if(_sp) _sp.textContent='📍 '+SPOT.name+' ›'; }catch(_){}
   try{
     const qs = `lat=${SPOT.lat}&lon=${SPOT.lon}&spot=${encodeURIComponent(SPOT.name)}&days=${SPOT.days}`;
     const r = await fetch(`${API_BASE}/api/report?${qs}`, {credentials:'include'});
@@ -735,8 +738,12 @@ async function loadLive(){
     const data = await r.json();
     if(data && data.days && data.days.length){ DAYS = data.days; if(data.history) HISTORY = data.history; }
     if(data && data.story) window.__SF_STORY = data.story;   // 数据驱动剧情
-    // 顶部 meta 用实时数据更新（校准时间戳是数据诚实红线，不可停留在内嵌旧值）
+    // 顶部 meta 用实时数据更新（浪点名/日期区间/校准时间戳随浪点变化——数据诚实红线，不可停留在内嵌旧值）
     try{
+      const nm=(data && data.spot) || SPOT.name;
+      const sp=document.getElementById('metaSpot');
+      if(sp) sp.textContent='📍 '+nm+' ›';
+      document.title='🏄 浪报 · '+nm;
       if(data && data.calibratedAt){
         const c=document.getElementById('metaCalib');
         if(c) c.textContent='🕐 校准 '+data.calibratedAt+' 北京时间';

@@ -86,6 +86,10 @@ if(await page.locator('#spotFav').isVisible()){
   await page.click('#spotsMapBtn'); await page.waitForTimeout(1000);
   ok('R1.3 地图显示', await page.locator('#spotsMap').isVisible());
   ok('R1.3 地图真实标记', await page.locator('#spotsMap .leaflet-marker-icon').count() >= 2);
+  // —— hero 浪点名随选中浪点动态更新（本次修复：不再写死青岛山东头）——
+  await page.click('#spotFavList .spotcard-name >> nth=0'); await page.waitForTimeout(1600);
+  const heroTxt = await page.locator('#metaSpot').innerText();
+  ok('hero 浪点名动态更新(非写死山东头)', /E2E/.test(heroTxt) && !/山东头/.test(heroTxt));
 } else {
   fail++; console.log('  ❌ R1 建浪点后 #spotFav 未显示');
 }
