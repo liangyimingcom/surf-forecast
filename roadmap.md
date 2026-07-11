@@ -1,45 +1,36 @@
-# Roadmap — surf-forecast 移植石老人复刻功能
+# Roadmap — 石老人 × surf-forecast 形态C整合
 
-> 依赖顺序；每阶段后跑 pytest 子集 + Playwright E2E 回归，勿破坏现有 MVP/生产。用 codelens 摸底。
+> 依赖顺序；每阶段跑 pytest 子集 + Playwright E2E 回归，勿破坏现有 MVP/生产。每阶段先 codelens 摸底。
+> 方案详版：docs/石老人整合方案-formC.md
 
-## R0 — 基线核验 + 摸底（先行）
-- 跑 `pytest -q` 确认 118 基线；本地起 web，Playwright 打开 `web/浪报MVP.html` 确认现有功能正常。
-- codelens explain_code/find_symbol 摸清 浪报MVP.html 前端结构（渲染入口/SPOT 列表/弹层模式）+ `/api/spots` 数据形状(lat/lon/facing)。建改动地图。
+## P0 — 摸底 + 基线（先行）
+- pytest 确认 118 基线；codelens 摸清 spot_registry / get_report / db._to_decimal / /api/spots 结构与影响面；守红线（find_route 全401、search wdeg）。建改动地图。
 
-## R1 — 真实浪点增强（地图/收藏/搜索排序，纯前端）
-- ⭐ 收藏（localStorage）+ 🔍 搜索（名称/坐标）+ 排序（评分/浪高/收藏优先），作用于 `/api/spots` 浪点。
-- 🗺️ Leaflet+OSM(零key) 浪点地图：用浪点 lat/lon 标记，点击→加载该点浪报。
+## P1 — 浪点导入（58+）
+- 写 tools/import 脚本：从石老人上游 getCamera + getNewForecast 拉 name/city/坐标/live_src（一次性，可离线快照）；补 facing（默认估算+标"待校准"）。
+- 写入注册表（DynamoDB spot_registry，float→Decimal）；本地内存 store 提供等价 fixture 供测试。
 
-## R2 — 社区/工具（示例 sample，前端 + 轻后端）
-- 公告详情、意见反馈、关于·商务合作：示例内容（静态或 `/api/samples/*`），标注"示例数据"。
-- 活动墙（列表+类型筛选+详情）、冲浪搭子/拼车：示例 sample 数据，脱敏。
-- 【补充模块】F 排水量计算器（石老人同款公式，纯前端工具）、D 周边推荐（示例商户：冲浪店/餐厅/酒店）、A 在线视频直播占位（示例占位卡，无真实 HLS 流）。
+## P2 — 直播 /api/cams + 前端弹层
+- 后端 `/api/cams`（只读，鉴权策略明确）返回 slug→live_src；前端 hls.js 直播弹层，视频直连上游。
 
-## R3 — 后端示例接口（可选，若走 API）
-- 若前端从后端拉示例：加 `/api/samples/{news,carpool,notice}` 只读公开示例端点；否则前端内置示例常量。
-- 新增任何 DynamoDB 写入必过 float→Decimal（本目标预计无写入）。
+## P3 — 列表升级（多浪点 + 地区筛选 + 评分）
+- 前端浪点列表扩为 58+；地区筛选 Tab；每点综合评分（引擎首日值，用缓存避免 58×实时）；复用收藏/搜索/地图（地图标记按评分/离岸风着色）。
 
-## R4 — 测试
-- pytest 新增功能测试（后端示例接口/契约），基线从 118 增长。
-- 扩 Playwright E2E 覆盖新前端路径；循环修复至全绿 + 0 JS 报错。
+## P4 — 详情融合
+- 浪点详情：引擎评分/离岸风质/双周期 Tm-Tp/物理叙事 + 直播入口 + 周边推荐。
 
-## R5 — headless Chrome 截图
-- 各新功能界面截图 → `docs/screenshots/`。
+## P5 — 昨日回看接入多浪点
+- 历史回看校验对任一浪点可用（引擎历史模式）。
 
-## R6 — 文档
-- 功能介绍 / 交互操作指南 / 教学教程（引用截图），存 `docs/`。
+## P6 — 测试（部署前）
+- pytest 新增（注册表导入/cams 契约），基线从 118 增长；Playwright E2E 覆盖新路径，循环至全绿 + 0 JS 报错。
 
-## R7 — 收尾
-- 勾选 tasks.md；pytest + E2E 最终复核；README/功能矩阵更新；验收结论。
-
-## R8 — 自动部署运行（AWS oversea1 / 153705321444 / ap-northeast-1）
-- 前置：R4 E2E 全绿 + pytest 增长且全绿。
-- `./deploy.sh test`（门禁）→ `./deploy.sh frontend`（t4g 云端构建 ARM64 镜像推 ECR + ECS 滚动部署，前端内置镜像）→ `./deploy.sh smoke`（health 200 + 未登录 401）→ CloudFront 端到端复核。
-- 纯 web 层变更**不跑 terraform apply**；若需基建变更（新表/资源/SG）→ 停止发 blocker 等人工审批，禁 `-auto-approve`（红线）。
+## P7 — 自动部署 + 部署后 E2E + 截图 + 文档
+- `AWS_PROFILE=oversea1 ./deploy.sh test→frontend→smoke` + CloudFront 端到端复核；**部署后再跑一次线上 E2E**。
+- headless Chrome 截图 → docs/screenshots/；3 份文档（功能介绍/交互操作指南/教学教程）。
+- 需基建变更（新表/资源/SG）→ 停下发 blocker 等人工审批，禁 -auto-approve。
 
 ## 依赖
 ```
-R0 → R1 ─┐
-    R2 ──┼→ R4 → R5 → R6 → R7 → R8(部署上线)
-    R3 ──┘   (R3 视实现方式，可并入 R2)
+P0 → P1 → P2 → P3 → P4 → P5 → P6(部署前E2E) → P7(部署+部署后E2E+截图+文档)
 ```

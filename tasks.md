@@ -1,79 +1,50 @@
-# Tasks — surf-forecast 移植石老人复刻功能
+# Tasks — 石老人 × surf-forecast 形态C整合
 
 > 循环模版：north star 在 north_star.md，roadmap 在 roadmap.md，tasks 在本文件。
 > 每轮选**单个最高杠杆下一步**执行，完成后勾 [x] 并更新。真正卡住只发一次 blocker。
-> 停止循环：创建 `/Users/yiming/Downloads/all_the_meshclaw/surf-forecast/surf-forecast-kiro-v2/STOP_LOOP`。
+> 停止：创建 `/Users/yiming/Downloads/all_the_meshclaw/surf-forecast/surf-forecast-kiro-v2/STOP_LOOP`。
 > **每轮动手前先用 codelens 摸底/算影响面/守红线**（skill surf-forecast-codelens-dev）。
-> 红线：GMT+8 / DATA CONTRACT 含 wdeg / DynamoDB float→Decimal / 不改引擎内核 / /api/spots 全401 / 不引外部第三方API / 附加式不破坏现有MVP。
+> **纪律（防上次并发冲突复发）**：单一驱动器；改前先 grep 实际文件确认函数是否已存在；勾选必须与实际文件一致，禁止记录未落地的完成项。
+> 红线：GMT+8 / wdeg / float→Decimal / 不改引擎内核 / 401策略 / 合规(直播门禁+免责) / 附加式不破坏MVP / pytest 118 勿倒退 / terraform 禁 -auto-approve。
 
-【锚点】surf-forecast 前端=单 HTML `web/浪报MVP.html`；后端 FastAPI(src/web)；引擎 src/surf_forecast；pytest 基线 118；custom-spots 已完成，浪点含 lat/lon/facing。社区/公告/关于用**示例 sample**（无外部源）。
+【方案】docs/石老人整合方案-formC.md。【已有基础】前端已含收藏/搜索/地图/社区示例(R1/R2)、排水量/周边/直播占位；后端 spot_registry + get_report(引擎自算) + /api/spots(401)。形态C=把占位直播升级为真实58浪点+live_src，预报统一引擎。
 
-## R0 基线+摸底
-- [x] R0.1 pytest -q **118 全绿**基线确认 ✅（勿倒退）
-- [x] R0.2 改动地图已建立 ✅
-  - 前端=单 HTML `web/浪报MVP.html`(1097行)。**Leaflet 已加载**(CDN @216-217)→地图/收藏可直接用，无新依赖。
-  - `#miniMap`(@565-577) 已有 Leaflet 建图模式(L.map/tileLayer/marker,创建浪点坐标点选)——现成参考。
-  - `SAVED_SPOTS`(@561,来自 /api/spots) + `loadSpots()`；`#spotSel` 下拉切换浪点(含 lat/lon)。
-  - `#extras`(@966 innerHTML, expert模式) 挂载点；DATA CONTRACT DAYS/HISTORY @313；loadLive fetch /api/report。
-  - 接入点：R1收藏/搜索→增强 spotSel 区或新面板(数据 SAVED_SPOTS)；R1.3地图→复用 Leaflet 标 SAVED_SPOTS；R2社区→新 section + 示例常量/弹层(复用样式)。
-- [x] R0.3 CodeLens 摸底 R1 浪点增强 ✅（本轮，skill surf-forecast-codelens-dev；CodeLens rev fc9e1f697bf24e3687b0）
-  - **前端接入点**（`web/浪报MVP.html`，1097 行；行号以本轮读取为准）：
-    - Leaflet 资源 @229-230（leaflet@1.9.4 css+js，unpkg）；`API_BASE` @490 → 地图/收藏无需新依赖。
-    - **浪点数据源** `SAVED_SPOTS` @537（来自 GET `/api/spots`）；由 `loadSpots()` @620-648 拉取并填充 `#spotSel`。
-    - **浪点列表渲染**：`loadSpots()` 构建 `#spotSel` 选项(含 dataset.lat/lon/name/days) → 末尾调 `reorderSpotOptions()` @645(收藏置顶) + `renderSpotFav()` @646(收藏面板 `#spotFav`/`#spotFavList` @295-297)。
-    - **浪报加载函数** `loadLive()` @493 → `fetch ${API_BASE}/api/report?lat&lon&spot&days` @496；历史 `/api/report/history` @515；全局 `SPOT` @491；切换应用经 `switchToSelected()`/`onSpotChange()` @590。R1.3 地图点击标记即复用此链路（设 `SPOT` 后 `loadLive()`）。
-    - **R1.3 地图现成参考**：`initMiniMap()` @543-560 已有 `L.map`/`L.tileLayer(OSM)`/`marker` + click→回填坐标（新增浪点用）；R1.3 独立地图可复刻此模式按 `SAVED_SPOTS` 打点。
-    - **R1.1 收藏已脚手架化**（本轮发现，附加式）：`FAV_KEY='sf_fav_spots_v1'` @662、`getFavs/isFav/toggleFav/renderSpotFav/reorderSpotOptions` @659+、CSS @215-227、section `#spotFav` @294-297 → **R1.1(任务3) 主要为验证/补全，非从零**。
-    - **勿触碰**：`render()` 管理的 `#strip/#hero/#cards/#extras`（`#extras` @966 expert 挂载点）；`DAYS` @335 / `HISTORY` @468（每日含 `wdeg` 数组，如 @343）。
-  - **爆炸半径**（CodeLens get_impact `spots_list`）：radius=2，downstream=3（`db.py` DynamoDBStore/InMemoryStore/get_store），upstream=0。R1 全为**前端附加式**改动 → 后端爆炸半径=0（不改任何 handler/db/引擎）。
-  - **红线守护**（CodeLens）：
-    - `/api/spots` 全 **401**：find_route 确认 GET `spots_list`@app.py:139 = `Depends(deps.current_user)`；POST/PATCH/DELETE/{slug}/select 同族均受保护 ✅。R1 不新增后端接口。
-    - **DATA CONTRACT 含 wdeg**：由 `test_render_json_has_wdeg_redline`/`test_golden_cli_json_has_wdeg`/`test_report_returns_wdeg_when_authed` 守护；前端 `DAYS`/`HISTORY` 均含 wdeg 数组 → R1 收藏/搜索/地图**不得裁剪或改写** wdeg 及数字型图表字段。
-    - **GMT+8**：`#metaCalib` @260「校准 … GMT+8」；日界不变。**不改引擎内核**（physics/scoring/validate）。
-  - **结论**：R1.1/1.2/1.3 均可作为纯前端附加改动落地，接入 `SAVED_SPOTS` + `loadLive()`/`loadSpots()`，复用 Leaflet；后端零改动、红线零风险。任务3可直接进入 R1.1 验证/补全。
+## P0 摸底+基线
+- [x] P0.1 pytest **118 passed** 基线确认 ✅
+- [x] P0.2 codelens 摸底 + 改动地图 ✅：`_to_decimal`(db.py:13) 上游4写路径 add_vote/put_spot/put_user/**upsert_registry**(db.py:226)——P1 导入复用 put_spot/upsert_registry(已过Decimal)，**无需新写函数**；`/api/spots` 全套路由已存在(GET/POST/PATCH/DELETE/select @app.py:139-175)，P2 /api/cams 照此401；石老人上游 getCategories 200 可达→P1 导入可行。
 
-## R1 真实浪点增强
-- [x] R1.1 浪点收藏(localStorage) + 卡片★星标 + 收藏置顶 ✅（任务3：FAV_KEY='sf_fav_spots_v1' 持久化；getFavs/isFav/toggleFav；sortByFav 稳定置顶；renderSpotFav 每卡★/☆切换+点击切换浪点；reorderSpotOptions 下拉置顶；_favEscape 防注入；CSS @215-227；section #spotFav @294-297。附加式：不触碰 render()/#strip/#hero/#cards/#extras，不改 /api/spots，红线零违反。）
-- [x] R1.2 浪点搜索(名称) + 排序(收藏优先/名称A-Z/纬度北→南) ✅（真实实现：#spotSearch 搜索框 oninput→renderSpotFav 名称过滤；#spotSort 排序下拉(fav/name/lat)；#spotFavEmpty 空态；CSS .spotfav-ctl/.spotfav-search/.spotfav-sort。node --check 通过。⚠️ 注：早前并发 loop 曾误记为 onSpotSearch/_applySpotView，实际以本条为准。）
-- [x] R1.3 🗺️ Leaflet+OSM 浪点地图 ✅（真实实现：复用已加载 leaflet@1.9.4；收藏面板加「🗺️ 地图」开关 toggleSpotsMap→独立 #spotsMap 容器(与创建浪点 #miniMap 分离)；renderSpotsMap 按真实 SAVED_SPOTS lat/lon 打点(缺坐标跳过不伪造)+fitBounds；popup「查看浪报」→_spotsMapSelect→switchToSelected→loadLive；invalidateSize 修隐藏转显示尺寸。node --check 通过。）
-- [ ] R1 阶段回归 —— 待真实 Playwright E2E（收藏/搜索/排序/地图 + 0 JS 报错）；**pytest 118 未倒退已确认** ✅（任务11：`.venv/bin/python -m pytest -q` → 118 collected / 118 passed / 0 failed，exit 0，用时~1.6s；仅 1 条 Starlette httpx 弃用告警，非失败）
+## P1 浪点导入(58+)
+- [x] P1.1 tools/import_shilaoren_spots.py（getCamera/all + getNewForecast/{cId} 拉 58 浪点 name/city/坐标/live_src/post_url，标准库urllib，温和限速）✅ 产出 reference/data/shilaoren_spots.json
+- [x] P1.2 facing 按区域粗估(REGION_FACING, 石老人=157 与 domain-knowledge 一致)+标 facing_calibrated:false 待校准 ✅ **58/58 含坐标 + live_src**
+- [x] P1.3 导入注册表 ✅（src/web/seed.py: build_registry_rows(纯函数,快照→注册表行含live_src/facing_calibrated) + seed_store/seed_from_file；get_store 内存路径接 SF_SEED_SPOTS env 一次性灌入；tools/load_registry.py 生产灌 DynamoDB(SF_STORE=dynamo,走_to_decimal)。验证：58 浪点全入注册表(active+refresh_enabled=58)，sl74石老人 facing157/live_src保留/source=shilaoren；pytest 118 未倒退。）
 
-## R2 社区/工具（示例 sample）
-- [x] R2.1 公告详情(示例富文本弹层, 标注"示例数据") ✅（任务6：ANNOUNCEMENTS 3条示例(更新/安全/维护)；renderAnnouncements 渲染 #anncList 卡片列表(图标+类型chip+日期GMT+8+两行摘要)；点击 openAnnc 打开富文本弹层 #anncModal(h3/h4/p/ul/strong/note，顶部「示例数据」badge + 底部免责)；closeAnnc/背景点击/Esc 关闭；_favEscape 转义动态字段，正文为受控字面量；CSS 附加于 </style> 前；section #annc 置于 #spotFav 后；弹层置于 </body> 前(fixed 独立层)。附加式：不触碰 render()/#strip/#hero/#cards，无外部内容 API、无登录/支付；JS node --check 通过；红线零违反。）
-- [x] R2.2 意见反馈表单(前端校验+提交示例反馈, 不写真实DB或需401) ✅（真实实现：#feedback section 置于 #annc 后；7 类枚举(系统功能异常/浪点预报不准/直播视频异常/新增浪点/拼车/拼房/其他)+内容 textarea(maxlength500)+提交按钮；submitFeedback 前端校验(缺类型/内容报错)→成功占位提示，不发网络请求(无上游)；「示例·演示不写库」badge；CSS .fb-*；node --check 通过。附加式不触碰 render()/后端，红线零违反。）
-- [x] R2.3 关于·商务合作(示例内容, 脱敏) ✅（真实实现：#about section 置于 #feedback 后；关于我们/商务合作/联系方式三段示例脱敏内容(示例占位邮箱 hello@surf-forecast.example + GMT+8 标注)；「示例数据」badge；纯静态HTML+CSS(.about-*)无JS无外部API；JS 未受影响 node --check 通过。）
-- [x] R2.4 活动墙(示例列表+类型筛选+详情) ✅（真实实现：#newswall section；SAMPLE_NEWS 5 条示例(活动/攻略/浪报/装备周边)含类型/标题/地点/日期GMT+8/富文本；NEWS_TYPES 5 类 chips→filterNews 过滤；renderNews 卡片列表(类型tag/标题/meta)；openNews→#newsModal 富文本详情(顶部示例badge)+closeNews/背景/Esc 关闭；复用 annc-modal 样式+新增 .news-*/.annc-badge CSS；load 时 initNews。node --check 通过。不引外部API、不做登录/发布/二手。）
-- [x] R2.5 冲浪搭子/拼车(示例列表, 脱敏) ✅（真实实现：#carpool section；SAMPLE_CARPOOL 4 条示例(出发→到达/日期GMT+8/余座/费用/备注/发布者/微信)；renderCarpool 只读卡片；微信脱敏 186****0095(核验0个未脱敏11位手机号)；CSS .cp-note；load 时 initCarpool。不做登录/发布/编辑(合规红线)。node --check 通过。）
-- [x] R2.6 【模块F】排水量计算器 ✅（真实实现：#volume section；体重input+6档水平select+计算按钮；calcVolume=体重×水平系数；系数标定精确命中(70kg 中级 0.443→31.0L、初学者 0.70→49.0L)；CSS .vol-*；纯前端工具无上游/无网络。node --check 通过。）
-- [x] R2.7 【模块D】周边推荐 ✅（真实实现：#nearby section；SAMPLE_ADS 三类(冲浪店/俱乐部·餐厅酒吧·酒店民宿)各2条示例商户(name+desc)；renderNearby 分组卡片；CSS .nb-*；load 时 initNearby；「示例数据」badge；无外部API。node --check 通过。）
-- [x] R2.8 【模块A】在线视频直播占位 ✅（真实实现：#livecams section；SAMPLE_CAMS 4 个浪点摄像头占位卡(渐变缩略图+● 演示标+▶)；renderLivecams 网格；点击 alert 明确「无真实直播流·功能移植占位」；「示例·演示占位(无真实流)」badge；CSS .cam-*；load 时 initLivecams。node --check 通过。）
+## P2 直播 /api/cams + 前端弹层
+- [x] P2.1 后端 /api/cams 只读目录 ✅（app.py: current_user 门禁 401，从 list_active_registry 返回含 live_src 的浪点，lat/lon 兼容 Decimal/float；验证 未登录401 / 登录42直播源）
+- [x] P2.2 前端 hls.js 直播弹层 ✅（head 加 hls.js@1.5.13 CDN；重写 renderLivecams→loadCams 拉 /api/cams；openCam：Safari 原生HLS / 其他 Hls.js(lowLatency+liveDurationInfinity) 播 #camVideo；#camModal 弹层+closeCam+Esc；bootstrap 登录后 loadCams。E2E：42卡片+弹层开关+0 JS报错。视频直连上游不经后端。）
 
-## R3 后端示例接口(视实现)
-- [x] R3.1 决策：**前端内置示例常量**（SAMPLE_NEWS/SAMPLE_CARPOOL/ANNOUNCEMENTS/SAMPLE_ADS/SAMPLE_CAMS + 关于静态内容）✅ —— 不新增后端接口(避免动后端/引擎、零 401 风险)，社区/公告/周边/直播全为前端示例，明确标注「示例数据」。
+## P3 列表升级(多浪点+地区筛选+评分)
+- [x] P3.1 列表扩 58+ + 地区筛选 Tab ✅（后端 /api/catalog(401,58浪点含region_cn/has_live)；导入脚本增强按 getCategories+getCamera/{ctId} 打官方区域(广东22/海南15/福建5/山东3/广西3/浙江2/国外7/其他1)；前端 #catalog section: 区域chips+搜索+58列表+点击 pickCatalogSpot→设SPOT→loadLive引擎自算+LIVE标+朝向待校准标注。E2E:58项/9chips/海南15/点击加载/0报错;pytest118。）
+- [x] P3.2 每点综合评分(缓存回批,避58×实时) ✅（后端 /api/catalog/scores：有缓存桶则批量读 {slug}/latest.json 的 day0 score，本地无桶返回 cached=false；前端目录评分徽标(色阶 绿≥7/黄≥5/橙≥3/红)+点击已看浪点从 DAYS[0].score 回填(已核实 render_json day0 含 score=8.25)。E2E: scores端点200 cached=false、58目录、0报错；pytest118。注：58点地图着色未做(目录用列表评分徽标呈现;saved-spot 地图不变)——如需可后续补。）
 
-## R4 测试
-- [x] R4.1 pytest 复核 **118 passed / 0 failed**（exit 0）✅ —— R1/R2 均为纯前端附加改动，不产生 pytest 用例；红线守护测试全绿(/api/spots 401、float→Decimal、wdeg+GMT+8)；基线零倒退。前端路径覆盖由 R4.2 E2E 承担。
-- [x] R4.2 Playwright E2E **25/25 全绿 + 0 JS 报错** ✅（`web/e2e/new_features.mjs`；起后端内存store→headless Chromium；覆盖 R2.1-2.8 全部示例功能(公告/反馈校验/关于/活动墙chips+详情弹层+Esc+筛选/拼车脱敏/排水量标定31.0L/周边/直播占位) + R1 建浪点→收藏卡渲染/★切换/搜索过滤/排序/地图真实标记≥2。资源404已排除。）
+## P4 详情融合
+- [x] P4.1 详情融合 ✅（浪报主体本就是 surf-forecast 引擎渲染=评分/离岸风质/双周期Tm-Tp/物理叙事/最佳窗口/板型，已具备；本轮新增**直播入口联动**：hero 后 #liveEntry 横幅，当前浪点有直播(CAMS含slug)时显示→openCurrentCam 打开 #camModal；updateLiveEntry 在 pickCatalogSpot 触发。E2E:有LIVE项→加载→横幅显示→弹层打开、0报错;pytest118。周边推荐 R2.7 已在页内。）
 
-## R5 截图
-- [x] R5.1 headless Chrome 截图 **12 张** → docs/screenshots/*.png ✅（web/e2e/shots.mjs 移动端视图430宽；00-home-full/01-spotfav/02-spotsmap/03-annc/04-feedback/05-about/06-newswall/07-news-detail/08-carpool/09-volume/10-nearby/11-livecams）
+## P5 昨日回看多浪点
+- [x] P5.1 昨日回看多浪点 ✅（loadLive 已对当前 SPOT 拉 /api/report/history，切目录浪点即更新；引擎历史模式对任意坐标可用。E2E 验证：海南三亚 history 端点返回 date=2026-07-10(昨日,GMT+8)/score7.6/含predict，切浪点后 #verify 昨日回看渲染302字、0报错。历史区与预报区日期互斥红线由引擎保证。）
 
-## R6 文档
-- [x] R6.1 功能介绍.md ✅ docs/移植功能-01-功能介绍.md（11功能 what/why + 截图引用 + 合规）
-- [x] R6.2 交互操作指南.md ✅ docs/移植功能-02-交互操作指南.md（A-K 分步 + 预期 + 常见问题）
-- [x] R6.3 教学教程.md ✅ docs/移植功能-03-教学教程.md（上手/架构/代码地图/新增模式/踩坑/红线/测试产物）
+## P6 测试(部署前)
+- [x] P6.1 pytest 新增契约测试 ✅ tests/test_formc.py 8项(seed纯函数shape/缺坐标跳过/catalog+cams+scores 401/catalog列举/cams仅含live_src/scores无缓存)；**全量 118→126 passed**（基线增长零倒退）
+- [x] P6.2 Playwright 汇总 E2E ✅ **30/30 全绿 + 0 JS报错**（web/e2e/new_features.mjs 扩形态C：58目录/区域chips/直播卡片(hls)/详情直播入口横幅/直播弹层；修过时 R2.8 占位断言→真实cams；直播流HLS错误纳入排除）
 
-## R7 收尾
-- [x] R7.1 README 功能矩阵更新 ✅（新增「石老人复刻功能移植」11项矩阵 + 测试/截图/文档/合规）
-- [x] R7.2 最终复核 ✅ pytest **118 passed** + Playwright E2E **25/25 全绿 + 0 JS 报错**；后端/引擎零改动、/api/spots 全401、DATA CONTRACT wdeg 未受影响、GMT+8。验收结论：11 功能全落地(真实浪点3项+示例8项)，红线零违反。
-
-## R8 自动部署运行（AWS oversea1 / 153705321444 / ap-northeast-1）
-> 前置门禁：R4 E2E 全绿 + pytest 从 118 增长 且全绿，方可部署。纯 web 层变更→**不跑 terraform apply**。
-- [ ] R8.1 部署前门禁：`AWS_PROFILE=oversea1 ./deploy.sh test`（pytest 通过才继续）
-- [ ] R8.2 重建镜像+滚动部署：`AWS_PROFILE=oversea1 ./deploy.sh frontend`（临时 t4g EC2 云端构建 ARM64 镜像推 ECR → 强制 ECS 滚动部署；前端已内置镜像）
-- [ ] R8.3 线上冒烟：`AWS_PROFILE=oversea1 ./deploy.sh smoke`（ALB/CloudFront health 200 + 未登录 /api/report 返回 401）
-- [ ] R8.4 CloudFront 端到端复核：health 200 + 前端直供(含新功能标记) + 注册→登录→取报(真实数据含 wdeg + GMT+8 当日) + 新界面(地图/收藏/搜索/社区示例) 线上可见
-- [ ] R8.5 若发现需基建变更(新表/新资源/SG)：**停止并发 blocker 等人工审批**，禁 `terraform apply -auto-approve` 自动跑（红线）
+## P7 部署+部署后E2E+截图+文档
+- [x] P7.1 部署门禁 ✅ pytest 126 passed
+- [x] P7.2 灌生产 DynamoDB(58浪点) + frontend 部署 ✅ tools/load_registry.py(SF_STORE=dynamo,AWS_REGION修正)灌58浪点; t4g构建ARM64镜像推ECR(21:05) + ECS强制滚动(部署21:07 COMPLETED 1/1)
+- [x] P7.3 线上冒烟 ✅ CloudFront 首页200/health/未登录保护；ALB直连超时=预期(SG仅CloudFront前缀)
+- [x] P7.4 部署后线上 E2E ✅ CloudFront: 注册/登录200 · /api/catalog=58(8区域全含) · /api/cams=42 · 三亚取报3天含wdeg+calibratedAt 2026-07-11 21:11 GMT+8 · 前端含catalog/cams/livecams
+- [x] P7.5 headless Chrome 截图 ✅ 17张 → docs/screenshots/*.png（含形态C新界面：12-catalog全国目录/13-catalog-hainan区域筛选/14-livecams直播列表/15-live-entry详情直播入口/16-live-modal直播弹层）
+- [x] P7.6 3 文档 ✅ docs/形态C-01-功能介绍.md / 形态C-02-交互操作指南.md / 形态C-03-教学教程.md（引用截图，含架构/代码地图/扩展模式/踩坑/红线合规/测试产物）
+- [ ] P7.7 若需基建变更 → 停下发 blocker 等人工审批，禁 -auto-approve
+- [ ] P7.8 README/功能矩阵更新 + 验收结论
 
 ## 完成定义
-见 north_star.md DoD：11 功能落地(8 点名 + A直播占位/D周边推荐/F排水量三示例移植, 社区/示例标注) + 真实浪点地图/收藏/搜索 + pytest增长 + E2E全绿 + 截图 + 3文档，红线零违反。
+见 north_star.md DoD：58+浪点(引擎自算预报)+真实直播+列表/详情融合评分离岸风双周期+昨日回看 + pytest增长 + 部署前后E2E全绿 + 自动部署上线 + 截图 + 3文档，红线与合规零违反。

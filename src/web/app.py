@@ -178,3 +178,50 @@ def spots_select(slug: str, user: dict = Depends(deps.current_user)) -> dict:
         return spots.select_spot(db.get_store(), user, slug)
     except spots.SpotError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.get("/api/catalog")
+def catalog_list(user: dict = Depends(deps.current_user)) -> dict:
+    """P3 形态C：全国浪点目录(58+)。登录可见；从注册表返回基础信息+区域+是否有直播。
+    lat/lon 兼容 Decimal(DynamoDB)/float(内存)。评分留待前端按点取报(用缓存)。"""
+    rows = db.get_store().list_active_registry() or []
+    catalog = []
+    for r in rows:
+        try:
+            lat, lon = float(r["lat"]), float(r["lon"])
+        except (TypeError, ValueError, KeyError):
+            continue
+        catalog.append({
+            "slug": r["slug"], "name": r.get("spot"), "city": r.get("city"),
+            "region": r.get("region_cn", "其他"), "lat": lat, "lon": lon,
+            "facing": float(r.get("spot_facing_deg", 0) or 0),
+            "facing_calibrated": bool(r.get("facing_calibrated", False)),
+            "has_live": bool(r.get("live_src")), "days": int(r.get("days", 6) or 6),
+        })
+    return {"catalog": catalog}
+
+
+@app.get("/api/catalog/scores")
+def catalog_scores(user: dict = Depends(deps.current_user)) -> dict:
+    """P3.2 形态C：批量评分(从每日预算缓存读，避免 58×实时)。
+    无缓存桶(本地/未配置)→ scores 空、cached=False；前端可用点击已看浪点回填徽标兜底。"""
+    reader = deps._cache_reader()
+    if reader is None:
+        return {"scores": {}, "cached": False}
+    rows = db.get_store().list_active_registry() or []
+    scores = {}
+    for r in rows:
+        try:
+            rep = reader.get(f"{r['slug']}/latest.json")
+            if rep and rep.get("days"):
+                scores[r["slug"]] = rep["days"][0].get("score")
+        except Exception:  # noqa: BLE001
+            pass
+    return {"scores": scores, "cached": True}
+
+
+# 直播目录只读接口 /api/cams（形态C Task 4）：权威实现在 web.cams（单一真源），此处挂载。
+# 受保护(401, 同 /api/spots) · 只读(仅GET) · slug→live_src · 视频前端 hls.js 直连上游不经后端 · 附来源免责。
+from .cams import router as cams_router  # noqa: E402
+
+app.include_router(cams_router)

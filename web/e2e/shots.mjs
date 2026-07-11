@@ -30,6 +30,24 @@ await shot('01-spotfav', '#spotFav');
 await page.click('#spotsMapBtn'); await page.waitForTimeout(1200);
 await shot('02-spotsmap', '#spotFav');
 await page.click('#spotsMapBtn'); await page.waitForTimeout(300);
+// 形态C：全国浪点目录 + 直播
+if(await page.locator('#catalog').isVisible()){
+  await shot('12-catalog', '#catalog');
+  await page.locator('#catChips .cat-chip', { hasText:'海南' }).click().catch(()=>{});
+  await page.waitForTimeout(300);
+  await shot('13-catalog-hainan', '#catalog');
+  await page.locator('#catChips .cat-chip', { hasText:'全部' }).click().catch(()=>{});
+  await page.waitForTimeout(200);
+  await shot('14-livecams', '#livecams');
+  const liveItem = page.locator('#catList .cat-item', { has: page.locator('.cat-live') }).first();
+  if(await liveItem.count() > 0){
+    await liveItem.click(); await page.waitForTimeout(3500);
+    if(await page.locator('#liveEntry').isVisible()) await shot('15-live-entry', '#liveEntry');
+    await page.locator('#liveEntry').click().catch(()=>{}); await page.waitForTimeout(1500);
+    await shot('16-live-modal', '#camModal .annc-modal-box');
+    await page.keyboard.press('Escape'); await page.waitForTimeout(300);
+  }
+}
 await shot('03-annc', '#annc');
 await shot('04-feedback', '#feedback');
 await shot('05-about', '#about');

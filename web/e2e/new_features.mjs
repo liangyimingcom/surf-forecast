@@ -24,7 +24,7 @@ ok('R2.4 活动墙卡片渲染', await page.locator('#newsList .news-item').coun
 ok('R2.5 拼车列表渲染', await page.locator('#carpoolList .news-item').count() === 4);
 ok('R2.6 排水量section存在', await page.locator('#volume #volWeight').count() === 1);
 ok('R2.7 周边分组渲染', await page.locator('#nearbyGroups .nb-group').count() === 3);
-ok('R2.8 直播占位卡渲染', await page.locator('#camGrid .cam-card').count() === 4);
+ok('R2.8→C 直播卡片(真实cams, 升级自占位)', await page.locator('#camGrid .cam-card').count() >= 10);
 
 // —— R2.2 反馈校验交互 ——
 await page.click('#feedback .fb-submit');
@@ -94,9 +94,29 @@ if(await page.locator('#spotFav').isVisible()){
   fail++; console.log('  ❌ R1 建浪点后 #spotFav 仍未显示');
 }
 
-// —— 0 JS 报错（排除资源404/favicon）——
-const jsErrors = errors.filter(e => !/favicon|Failed to load resource|net::ERR/i.test(e));
-ok('0 控制台 JS 报错(排除资源404)', jsErrors.length === 0);
+// —— 形态C：58浪点目录 / 直播 / 详情直播入口（需 SF_SEED_SPOTS 灌注册表）——
+if(await page.locator('#catalog').isVisible()){
+  ok('C 全国浪点目录显示', await page.locator('#catList .cat-item').count() >= 40);
+  ok('C 区域筛选chips', await page.locator('#catChips .cat-chip').count() >= 5);
+  ok('C 直播卡片(hls)', await page.locator('#camGrid .cam-card').count() >= 10);
+  // 点一个有 LIVE 的目录项 → 详情直播入口
+  const liveItem = page.locator('#catList .cat-item', { has: page.locator('.cat-live') }).first();
+  if(await liveItem.count() > 0){
+    await liveItem.click();
+    await page.waitForTimeout(3500);
+    ok('C 详情直播入口横幅', await page.locator('#liveEntry').isVisible());
+    await page.locator('#liveEntry').click();
+    await page.waitForTimeout(1000);
+    ok('C 直播弹层打开', await page.locator('#camModal.open').count() === 1);
+    await page.keyboard.press('Escape');
+  } else { console.log('  ⏭  无 LIVE 目录项'); }
+} else {
+  console.log('  ⏭  #catalog 未显示(未 SF_SEED_SPOTS 灌注册表)，跳过形态C断言');
+}
+
+// —— 0 JS 报错（排除资源404/favicon/直播流HLS）——
+const jsErrors = errors.filter(e => !/favicon|Failed to load resource|net::ERR|m3u8|hls|manifest|frag|level|buffer|mediaError/i.test(e));
+ok('0 控制台 JS 报错(排除资源404/直播流)', jsErrors.length === 0);
 if(jsErrors.length) console.log('    JS错误:', jsErrors);
 
 await browser.close();

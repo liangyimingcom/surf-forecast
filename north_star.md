@@ -1,42 +1,41 @@
-# North Star — surf-forecast 移植石老人复刻功能（社区/工具/地图/收藏）+ E2E + 截图教学
+# North Star — 石老人 × surf-forecast 形态C整合（统一后端 + 58浪点 + 直播）
 
 ## 业务目标
-用 skill `surf-forecast-codelens-dev` 的方法论，把「石老人实时浪报复刻版」验收成果的功能**移植/新增到 surf-forecast 项目**（前端 `web/浪报MVP.html` + 必要的 FastAPI 后端），随后 **Playwright E2E 全绿并修复问题**，最后 **headless Chrome 抓新界面截图** + 产出**功能介绍 / 交互操作指南 / 教学文档**。
-
-要新增的功能：
-- **R1 补齐（免登录/示例）**：公告详情、意见反馈、关于·商务合作。
-- **R1+R2 社区只读（示例 sample）**：活动墙（列表+类型筛选+详情）、冲浪搭子/拼车。
-- **新增增强（真实浪点数据）**：🗺️ Leaflet 浪点地图、⭐ 浪点收藏、🔍 搜索/排序。
-- **石老人补充模块（示例移植）**：F 排水量计算器（同款公式，纯前端工具）、D 周边推荐（示例商户）、A 在线视频直播占位（示例占位卡，无真实流）。
-
-## 数据策略（重要）
-- **地图/收藏/搜索/排序**：作用于 surf-forecast **真实浪点**（`/api/spots` + 引擎坐标 lat/lon/facing），是真数据。
-- **活动墙/拼车/公告/关于/商务合作**：surf-forecast **无对应上游数据源** → 全部用**示例 sample 内容**（脱敏、静态或轻量 `/api/samples/*` 后端），明确标注"示例数据"。**不引入任何外部第三方 API**。
-- **字段参考**：`docs/ISURF-功能规格参考.md`（ISURF 小程序功能规格）——构建示例 sample 时按此字段契约结构，保证忠实（值脱敏为示例）。
+按 `docs/石老人整合方案-formC.md`，用 skill `surf-forecast-codelens-dev` 方法论，把石老人「实时浪报」的产品形态（全国 58+ 浪点 + 真实摄像头直播 + 实时列表 + 社区）**整合进 surf-forecast 统一后端**：
+- **预报一律由 surf-forecast 引擎自算**（Open-Meteo），弃用石老人预报值。
+- **真实摄像头直播作为核心保留**（HLS，前端 hls.js 直连上游）。
+- 复用 surf-forecast 深度评分/离岸风质/双周期/昨日回看作为增强。
+- 部署前后 E2E、自动部署到生产（研究目的）、headless Chrome 截图 + 3 份文档。
 
 ## 方法论（surf-forecast × CodeLens）
-每个功能：① codelens explain_code/find_symbol 摸清前端(浪报MVP.html)与后端(app/spots/deps)结构 → ② get_impact 算爆炸半径 → ③ 守红线(find_route 全 401、search wdeg) → ④ 改 spec → ⑤ 实现 → ⑥ pytest 子集 + Playwright E2E → ⑦ 截图 → ⑧ 文档。
+每个功能：① codelens explain_code/find_symbol 摸底 → ② get_impact/find_affected_tests 算爆炸半径 → ③ find_route/search 守红线 → ④ 改 spec → ⑤ 实现 → ⑥ pytest 子集+Playwright E2E → ⑦ 截图 → ⑧ 文档。
 CodeLens MCP: https://d1t9q5qxrql3xj.cloudfront.net/mcp/ package liangyimingcom/surf-forecast。
 
 ## 成功判据（DoD）
-1. 上述 8 个点名功能 + A/D/F 三补充模块（共 11 项）在 `web/浪报MVP.html` 可用；社区/公告/关于/周边/直播用示例数据并标注。
-2. 地图/收藏/搜索/排序作用于真实浪点，收藏 localStorage 持久化。
-3. 新增的后端接口（若有，如 `/api/samples/news`）全 401 保护或明确公开只读示例；不碰引擎内核。
-4. **pytest 从 118 基线增长**（新增功能测试全绿）；新增前端逻辑 `node --check` 通过。
-5. **Playwright E2E 全绿**：真实浪点渲染 + 新功能路径 + 0 控制台 JS 报错（favicon/资源404除外）。
-6. **headless Chrome 截图**：各新功能界面截图存 `web/docs/` 或 `docs/screenshots/`。
-7. 3 份文档：功能介绍 / 交互操作指南 / 教学教程（引用截图）。
-8. **自动部署上线**：R4 全绿后用 `./deploy.sh frontend` 重建镜像滚动部署 + `./deploy.sh smoke` 冒烟 + CloudFront 端到端复核（新界面线上可见、真实数据含 wdeg+GMT+8）。纯 web 层变更不跑 terraform apply；若需基建变更须停止等人工审批。
-   - AWS 鉴权：profile `oversea1`，账号 `153705321444`，region `ap-northeast-1`。
+1. **58+ 浪点导入注册表**：坐标 + `live_src` + `facing`（默认估算+标"待校准"），写 DynamoDB 过 float→Decimal。
+2. **预报统一引擎自算**：58 浪点全部走 `/api/report`，DATA CONTRACT 含 wdeg/双周期/数字字段。
+3. **直播**：`/api/cams` 直播源目录（只读）+ 前端 hls.js 直播弹层，视频流前端直连上游（不经后端代理）。
+4. **列表升级**：多浪点列表 + 地区筛选（广东/海南/福建/广西/浙江/山东/其他/国外）+ 引擎综合评分，复用已有收藏/搜索/地图。
+5. **详情融合**：引擎评分/离岸风质/双周期/物理叙事 + 直播入口。
+6. **昨日回看**接入多浪点。
+7. **不改引擎内核**（physics/scoring/validate）；新增在 web 层 + 注册表导入 + `/api/cams`。
+8. **测试**：pytest 从 118 增长且全绿；**部署前 + 部署后**都跑 Playwright E2E 全绿 + 0 JS 报错。
+9. **自动部署**：`AWS_PROFILE=oversea1 ./deploy.sh test→frontend→smoke` + CloudFront 端到端复核。
+10. **截图 + 3 文档**：功能介绍 / 交互操作指南 / 教学教程（引用截图）。
 
-## 红线（surf-forecast，务必遵守）
-- 全程 **GMT+8**；DATA CONTRACT 引擎 JSON 每日含 **wdeg**，图表字段为数字。
-- DynamoDB 写入必过 **float→Decimal**（`src/web/db.py::_to_decimal`）；**不改引擎内核**（physics/scoring/validate）。
-- `/api/spots` 及受保护接口全 **401**；ALB SG 永不含 0.0.0.0/0；`terraform apply` 禁 -auto-approve。
-- slug 不可变作缓存键；新功能主要在 web 层（前端 + 轻后端），**附加式不破坏现有 MVP 与生产**。
-- 不引入外部第三方 API；社区内容为本地示例 sample。
+## 红线（务必遵守）
+- 全程 GMT+8；DATA CONTRACT 每日含 wdeg，图表字段为数字；预报区与历史区日期互斥。
+- DynamoDB 写入必过 float→Decimal（`src/web/db.py::_to_decimal`）；**不改引擎内核**。
+- 受保护接口全 401；`/api/cams` 鉴权策略明确（直播建议会员/口令门禁，非完全公开）。
+- ALB SG 永不含 0.0.0.0/0；`terraform apply` 禁 -auto-approve；纯 web+数据变更不跑 apply，需基建变更则停下发 blocker 等人工审批。
+- slug 不可变作缓存键；附加式不破坏现有 MVP/生产；pytest 118 基线勿倒退。
+- **合规**：石老人逆向部分仅研究用途；直播/坐标托管加访问控制 + 来源/研究免责；不复刻登录态/支付/社区写入，社区用示例。
+
+## AWS
+profile `oversea1`，账号 `153705321444`，region `ap-northeast-1`。CloudFront `d2hmhl7n8yga53`。
 
 ## 约束
-- 本地开发；`.venv` python3.12；pytest 基线 118。前端 = 单 HTML `web/浪报MVP.html`。
-- 本地起后端：`SF_FRONTEND=web/浪报MVP.html PYTHONPATH=src uvicorn web.app:app --reload`（内存 store）。
+- 本地开发 .venv python3.12；pytest 基线 118。前端=单 HTML `web/浪报MVP.html`。
+- 本地起后端：`SF_FRONTEND=web/浪报MVP.html PYTHONPATH=src uvicorn web.app:app --host 127.0.0.1 --port 8848`。
 - 停止循环：创建 `/Users/yiming/Downloads/all_the_meshclaw/surf-forecast/surf-forecast-kiro-v2/STOP_LOOP`。
+- 方案详版：`docs/石老人整合方案-formC.md`。

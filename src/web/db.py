@@ -293,6 +293,15 @@ def get_store():
         return DynamoDBStore(prefix)
     if _store is None:
         _store = InMemoryStore()
+        # P1.3 形态C：本地/测试可用 SF_SEED_SPOTS 指向快照，一次性灌入 58 浪点注册表
+        seed_path = os.getenv("SF_SEED_SPOTS")
+        if seed_path and os.path.exists(seed_path):
+            try:
+                from . import seed as _seed
+                n = _seed.seed_from_file(_store, seed_path)
+                print(f"[seed] 注册表灌入 {n} 浪点 ← {seed_path}")
+            except Exception as e:  # noqa: BLE001
+                print(f"[seed] 灌入失败(忽略): {e}")
     return _store
 
 
