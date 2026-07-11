@@ -1,45 +1,36 @@
-# Roadmap — Custom Spots 实现 + E2E
+# Roadmap — 石老人 × surf-forecast 形态C整合
 
-> 依赖顺序；纯代码阶段无 AWS 副作用，apply/EC2 构建为人工授权点。对齐 `.kiro/specs/custom-spots/tasks.md`。
+> 依赖顺序；每阶段跑 pytest 子集 + Playwright E2E 回归，勿破坏现有 MVP/生产。每阶段先 codelens 摸底。
+> 方案详版：docs/石老人整合方案-formC.md
 
-## R1 — 数据层与注册表（纯代码）
-- db.py 补 saved_spots 访问 + 新增 spot_registry 模型/访问（upsert/list_active/ref 计数/set_enabled）。
-- slug 生成器（slugify 冲突退化 geo-{lat4}-{lon4}）+ 去重键 + region/facing 推断。
-- moto 离线测试。验证：pytest 增长。
+## P0 — 摸底 + 基线（先行）
+- pytest 确认 118 基线；codelens 摸清 spot_registry / get_report / db._to_decimal / /api/spots 结构与影响面；守红线（find_route 全401、search wdeg）。建改动地图。
 
-## R2 — 浪点 CRUD API（纯代码）
-- spots.py：GET/POST/PATCH/DELETE /api/spots + /select，全 401；坐标/名称校验转义；配额；软删；去重接 registry。
-- app.py 挂载路由。验证：test_spot_crud + test_spots_auth。
+## P1 — 浪点导入（58+）
+- 写 tools/import 脚本：从石老人上游 getCamera + getNewForecast 拉 name/city/坐标/live_src（一次性，可离线快照）；补 facing（默认估算+标"待校准"）。
+- 写入注册表（DynamoDB spot_registry，float→Decimal）；本地内存 store 提供等价 fixture 供测试。
 
-## R3 — 查询切换与缓存读（纯代码）
-- deps.get_report 扩展：按坐标查 registry 命中读缓存，未命中回退引擎；/select 记 last_viewed。
-- 验证：test_select_persist + test_custom_contract（含 wdeg/GMT+8）。
+## P2 — 直播 /api/cams + 前端弹层
+- 后端 `/api/cams`（只读，鉴权策略明确）返回 slug→live_src；前端 hls.js 直播弹层，视频直连上游。
 
-## R4 — 动态刷新编排（纯代码）
-- active_registry_spots 替代硬编码 DEFAULT_SPOTS；即时预算；频率上限 N；冷点回收。
-- 验证：test_registry_refresh + test_instant_budget + test_cold_recycle。
+## P3 — 列表升级（多浪点 + 地区筛选 + 评分）
+- 前端浪点列表扩为 58+；地区筛选 Tab；每点综合评分（引擎首日值，用缓存避免 58×实时）；复用收藏/搜索/地图（地图标记按评分/离岸风着色）。
 
-## R5 — 前端浪点管理（纯代码，附加式）
-- spotManager 下拉/新增面板/切换/管理；未登录/故障回退内嵌不白屏。
-- 验证：node --check JS 语法。
+## P4 — 详情融合
+- 浪点详情：引擎评分/离岸风质/双周期 Tm-Tp/物理叙事 + 直播入口 + 周边推荐。
 
-## R6 — IaC（apply，人工授权）
-- storage 加 spot_registry 表（on-demand/PITR/PK=slug，注意 replace 竞态）+ 后端 IAM 补即时预算权限。
-- tf validate → plan 摘要 → echo yes apply。
+## P5 — 昨日回看接入多浪点
+- 历史回看校验对任一浪点可用（引擎历史模式）。
 
-## R7 — 镜像构建 + 部署（临时 EC2）
-- ./deploy.sh build（t4g EC2 自终止）+ redeploy；refresh 重算缓存。
+## P6 — 测试（部署前）
+- pytest 新增（注册表导入/cams 契约），基线从 118 增长；Playwright E2E 覆盖新路径，循环至全绿 + 0 JS 报错。
 
-## R8 — 端到端 UI 验证（headless Chromium，循环至全绿）
-- CloudFront HTTPS：新建浪点→切换→当日实时数据；控制台 0 SVG NaN/0 JS 报错；默认浪点回归无倒退。
-- 逐一修复，循环直至全绿。
-
-## R9 — 收尾
-- 勾选 spec tasks.md + 根 tasks.md；安全复核（SG 无 0.0.0.0/0、/api/spots 全 401）；成本提示。
+## P7 — 自动部署 + 部署后 E2E + 截图 + 文档
+- `AWS_PROFILE=oversea1 ./deploy.sh test→frontend→smoke` + CloudFront 端到端复核；**部署后再跑一次线上 E2E**。
+- headless Chrome 截图 → docs/screenshots/；3 份文档（功能介绍/交互操作指南/教学教程）。
+- 需基建变更（新表/资源/SG）→ 停下发 blocker 等人工审批，禁 -auto-approve。
 
 ## 依赖
 ```
-R1 ─> R2 ─> R3 ─┐
-       └─> R4 ──┼─> R6(apply) ─> R7(镜像) ─> R8(E2E) ─> R9
-R5(前端,可与R3/R4并行) ───────────┘
+P0 → P1 → P2 → P3 → P4 → P5 → P6(部署前E2E) → P7(部署+部署后E2E+截图+文档)
 ```
