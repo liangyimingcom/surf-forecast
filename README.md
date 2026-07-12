@@ -102,7 +102,13 @@ Open-Meteo（同源 ECMWF WAM/IFS，免 key），含 `past_days` 历史回算。
 | 💀 加载骨架屏 + spinner | 消除首屏/切浪点白屏 |
 | 💾 tab/子视图记忆 | localStorage(sf_tab_v1/sf_liveview_v1) 刷新恢复 + 脏值回退 |
 | 🈳 空态友好提示 | 目录/收藏搜索无结果引导文案 |
+| 🧭 布局重定位 | 浪点名条移到主标签栏下(#spotbar) · 直播入口移到日期条下 |
+| ⭐ 目录卡片直接收藏 | 全国目录卡片 ★ 一键收藏(复用 FAV_KEY，点星不加载) |
+| 🗺️ 地图收藏着色 | 地图标记金=已收藏/蓝=未收藏 + 图例 |
+| ♿ 可达性 | 主标签 ARIA tablist/tab+aria-selected · :focus-visible 焦点态 · 图标 aria-label |
+| 📱 移动端 chips 横滑 | 区域/活动 chips 单行横向滚动(不换行堆叠) |
+| 🔗 分享浪点深链 | 🔗 复制 #spot=lat,lon,name 链接，打开即定位该浪点并进详情 |
 
-- **测试**：pytest **145**；Playwright E2E **47/47** + 0 JS 报错（`web/e2e/new_features.mjs`）。
-- **截图/文档**：`docs/screenshots/`(24 张，含 17-25 新界面) + `docs/UI优化-01~03`（功能介绍/交互操作指南/教学教程）。
+- **测试**：pytest **145**；Playwright E2E **56/56** + 0 JS 报错（`web/e2e/new_features.mjs`）。
+- **截图/文档**：`docs/screenshots/`(28 张，含 26 浪报详情新布局 / 27 目录★收藏 / 02 地图彩色标记) + `docs/UI优化-01~03`（功能介绍/交互操作指南/教学教程，均含第二轮）。
 - **合规**：纯前端附加式；不改引擎内核/后端契约（wdeg/GMT+8/float→Decimal）；受保护接口全 401；社区/直播示例与免责保留。

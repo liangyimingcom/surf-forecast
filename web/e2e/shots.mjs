@@ -47,6 +47,11 @@ if(await clickIf('#spotsMapBtn')){ await page.waitForTimeout(1200); await shot('
 // 形态C：全国浪点目录 + 直播
 if(await page.locator('#catalog').first().isVisible().catch(()=>false)){
   await shot('12-catalog', '#catalog');
+  await page.locator('#catList .cat-fav').first().click().catch(()=>{});   // 收藏首个浪点→★
+  await page.waitForTimeout(300);
+  await shot('27-catalog-fav', '#catalog');
+  await page.locator('#catList .cat-fav').first().click().catch(()=>{});   // 复位
+  await page.waitForTimeout(150);
   await page.locator('#catChips .cat-chip', { hasText:'海南' }).click().catch(()=>{});
   await page.waitForTimeout(300);
   await shot('13-catalog-hainan', '#catalog');

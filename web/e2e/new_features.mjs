@@ -19,6 +19,8 @@ await page.waitForTimeout(2500);
 // —— 主标签页导航 ——
 ok('主标签页 3 个', await page.locator('.maintab .maintab-btn').count() === 3);
 ok('默认 实时浪报 激活', await page.locator('.maintab-btn.on').getAttribute('data-tab') === 'live');
+ok('U-c tablist 角色', await page.locator('#maintab').getAttribute('role') === 'tablist');
+ok('U-c aria-selected 同步激活标签', await page.locator('.maintab-btn[aria-selected="true"]').getAttribute('data-tab') === 'live');
 ok('排水量功能已移除', await page.locator('#volume').count() === 0);
 
 // —— 【实时浪报】tab：全国目录 + 直播 ——
@@ -26,6 +28,7 @@ await tab('live'); await page.waitForTimeout(300);
 if(await page.locator('#catalog').isVisible()){
   ok('C 全国浪点目录显示', await page.locator('#catList .cat-item').count() >= 40);
   ok('C 区域筛选chips', await page.locator('#catChips .cat-chip').count() >= 5);
+  ok('U-d 区域chips横向滚动', (await page.evaluate(()=>getComputedStyle(document.getElementById('catChips')).overflowX)) === 'auto');
   ok('C 直播卡片(hls)', await page.locator('#camGrid .cam-card').count() >= 10);
   const before = await page.locator('#catList .cat-item').count();
   await page.locator('#catChips .cat-chip', { hasText:'海南' }).click();
@@ -43,6 +46,13 @@ if(await page.locator('#catalog').isVisible()){
   await page.selectOption('#catSort', 'live'); await page.waitForTimeout(250);
   ok('目录排序 有直播优先(首项LIVE)', await page.locator('#catList .cat-item').first().locator('.cat-live').count() === 1);
   await page.selectOption('#catSort', 'default'); await page.waitForTimeout(150);
+  // U-a 目录卡片直接收藏（点星切换 + 不触发加载跳转）
+  const _favWasOff = ((await page.locator('#catList .cat-fav').first().getAttribute('class'))||'').includes('off');
+  await page.locator('#catList .cat-fav').first().click(); await page.waitForTimeout(200);
+  const _favNowOff = ((await page.locator('#catList .cat-fav').first().getAttribute('class'))||'').includes('off');
+  ok('U-a 目录收藏点星切换', _favNowOff !== _favWasOff);
+  ok('U-a 点星不跳转(仍在实时浪报)', (await page.locator('.maintab-btn.on').getAttribute('data-tab')) === 'live');
+  await page.locator('#catList .cat-fav').first().click(); await page.waitForTimeout(150);  // 复位
 } else {
   console.log('  ⏭  #catalog 未显示(未 SF_SEED_SPOTS)，跳过实时浪报断言');
 }
@@ -97,6 +107,8 @@ if(await page.locator('#spotFav').isVisible()){
   await page.click('#spotsMapBtn'); await page.waitForTimeout(1000);
   ok('R1.3 地图显示', await page.locator('#spotsMap').isVisible());
   ok('R1.3 地图真实标记', await page.locator('#spotsMap .leaflet-marker-icon').count() >= 2);
+  ok('U-b 地图图例显示', await page.locator('#spotsMapLegend').isVisible());
+  ok('U-b 彩色标记(sf-mk)', await page.locator('#spotsMap .sf-mk').count() >= 2);
   // —— hero 浪点名随选中浪点动态更新（本次修复：不再写死青岛山东头）——
   await page.click('#spotFavList .spotcard-name >> nth=0'); await page.waitForTimeout(1600);
   const heroTxt = await page.locator('#metaSpot').innerText();
@@ -159,6 +171,13 @@ if(await page.locator('#spotFav').isVisible()){
 } else {
   fail++; console.log('  ❌ 空态 收藏面板 #spotFav 未显示，无法验证收藏空态');
 }
+
+// —— U-e 分享深链：#spot 恢复浪点 + 直接进浪报详情 ——
+await page.evaluate(()=>{ location.hash='#spot=30.50,122.10,E2E深链浪点'; });
+await page.reload({ waitUntil:'networkidle' }); await page.waitForTimeout(3500);
+ok('U-e 深链恢复浪点名', ((await page.locator('#metaSpot').innerText().catch(()=>''))||'').includes('深链'));
+ok('U-e 深链进浪报详情', (await page.locator('.maintab-btn.on').getAttribute('data-tab')) === 'report');
+await page.evaluate(()=>{ location.hash=''; });
 
 // —— 深色模式切换 ——
 await page.click('#themeToggle'); await page.waitForTimeout(200);
