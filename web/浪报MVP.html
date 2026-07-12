@@ -57,6 +57,9 @@
   .spot span{display:inline-flex;align-items:center;gap:3px}
   .spot-cur{cursor:pointer;font-weight:700;background:rgba(255,255,255,.16);padding:2px 10px;border-radius:999px;transition:background .15s}
   .spot-cur:hover{background:rgba(255,255,255,.30)}
+  .spotbar{max-width:960px;margin:10px auto 0;padding:0 16px}
+  .spotbar .spot-cur{background:var(--card);color:var(--ink);border:1px solid var(--line);font-size:13.5px;padding:5px 12px;display:inline-flex;align-items:center}
+  body.dark .spotbar .spot-cur{background:var(--card);color:var(--ink);border-color:var(--line)}
 
   /* ───── 位置查询栏（UI 占位） ───── */
   .query{background:rgba(255,255,255,.14);border-radius:14px;padding:10px;margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
@@ -427,7 +430,6 @@
     <button id="themeToggle" onclick="toggleTheme()" title="切换深色/浅色" aria-label="切换主题">🌙</button>
     <h1>🏄 浪报 <small>全国 58 浪点 · 实时冲浪预报</small></h1>
     <div class="spot">
-      <span id="metaSpot" class="spot-cur" onclick="showTab('report')" title="查看该浪点浪报详情">📍 青岛 · 山东头 ›</span>
       <span id="metaRange">📅 —</span>
       <span id="metaCalib">🕐 校准 —</span>
     </div>
@@ -469,6 +471,11 @@
     <button class="maintab-btn" data-tab="report" onclick="showTab('report')">📊 浪报详情<small>评分 · 图解 · 回看</small></button>
     <button class="maintab-btn" data-tab="other" onclick="showTab('other')">📋 其他<small>公告 · 社区 · 周边</small></button>
   </nav>
+
+  <!-- 当前浪点名（从 hero 移到主标签栏下方；浪报详情作用域）-->
+  <div class="spotbar" id="spotbar">
+    <span id="metaSpot" class="spot-cur" onclick="showTab('report')" title="查看该浪点浪报详情">📍 青岛 · 山东头 ›</span>
+  </div>
 
   <!-- R1.1 浪点收藏：★ 星标 + localStorage 持久化 + 收藏置顶（独立容器，render() 不触碰；空/未登录时隐藏） -->
   <section class="spotfav" id="spotFav" style="display:none">
@@ -580,8 +587,9 @@
 
   <nav class="strip" id="strip"></nav>
 
-  <section class="hero" id="hero"></section>
   <div class="live-entry" id="liveEntry" style="display:none" onclick="openCurrentCam()">📹 本浪点有实时直播 · 点击观看 <span class="live-entry-badge">● LIVE</span></div>
+
+  <section class="hero" id="hero"></section>
   <div class="story" id="story"></div>
 
   <main id="cards"></main>
@@ -1327,7 +1335,7 @@ window.filterCat = filterCat; window.renderCatalog = renderCatalog; window.pickC
 /* ================= 主标签页切换：实时浪报 / 浪报详情 / 其他 ================= */
 const TAB_OF = {
   liveSubnav:'live', catalog:'live', livecams:'live',
-  spotFav:'report', modeBar:'report', strip:'report', hero:'report', liveEntry:'report',
+  spotFav:'report', modeBar:'report', strip:'report', hero:'report', liveEntry:'report', spotbar:'report',
   story:'report', cards:'report', verify:'report', checklist:'report', extras:'report',
   annc:'other', feedback:'other', about:'other', newswall:'other', carpool:'other', nearby:'other',
 };

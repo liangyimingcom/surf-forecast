@@ -60,6 +60,8 @@ if(await page.locator('#catalog').first().isVisible().catch(()=>false)){
     await page.locator('#liveEntry').click().catch(()=>{}); await page.waitForTimeout(1500);
     await shot('16-live-modal', '#camModal .annc-modal-box');
     await page.keyboard.press('Escape'); await page.waitForTimeout(300);
+    await setTab('report'); await page.waitForTimeout(600);
+    await shot('26-report-layout', null);   // 新布局：浪点名条在标签栏下 + 直播入口在日期条下
   }
 }
 // 社区/周边等面板在「其他」tab 下
