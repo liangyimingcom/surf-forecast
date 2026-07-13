@@ -32,4 +32,4 @@
 - [x] Y.1 README 更新(+第三轮 4 行 · E2E 56→62 · 截图 30) + 最终复核 ✅ pytest **145** · E2E **62/62** + 0 JS 报错。第三轮 UI 目标达成(V-a/b/c/e + V/W/X)。→ 创建 STOP_LOOP，heartbeat 接手提交+部署。
 
 ## Z 部署（可选, 高风险, 停下等确认）
-- [ ] Z.1 到部署步骤发一次 blocker 等人工确认，禁在 loop 内自动推生产
+- [x] Z.1 人工确认后提交并部署上线 ✅ 2026-07-13: commit a0dafa5(已推origin) · pytest 145 门禁 · t4g镜像09:52推ECR · ECS滚动COMPLETED 1/1 · CloudFront验证(toggleCatFav/spotsMapLegend/tablist/shareSpot/收藏优先/锚点/sf_onboard 全命中 · home 200 · api/health 200 · 未登录 report/catalog/cams=401)
