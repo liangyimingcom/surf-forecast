@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0c4a6e">
-<title>🏄 浪报 · 青岛山东头 7日冲浪窗口</title>
+<title>🏄 浪报 · 全国冲浪预报</title>
 <!--
   浪报MVP.html —— 动态浪报网站「会员视图」效果样板
   ============================================================
@@ -22,6 +22,8 @@
     --sea1:#0c4a6e; --sea2:#0369a1; --accent:#0ea5e9;
   }
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  :focus-visible{outline:2px solid #2d7ff9;outline-offset:2px;border-radius:6px}
+  body.dark :focus-visible{outline-color:#38bdf8}
   body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
     background:#dbeafe;color:var(--ink);font-size:15px;line-height:1.55}
   .wrap{max-width:480px;margin:0 auto;background:var(--bg);min-height:100vh;box-shadow:0 0 30px rgba(2,60,100,.15)}
@@ -55,6 +57,19 @@
   header h1 small{font-size:12px;font-weight:400;opacity:.75;letter-spacing:0}
   .spot{margin-top:5px;font-size:12.5px;opacity:.9;display:flex;gap:9px;flex-wrap:wrap}
   .spot span{display:inline-flex;align-items:center;gap:3px}
+  .spot-cur{cursor:pointer;font-weight:700;background:rgba(255,255,255,.16);padding:2px 10px;border-radius:999px;transition:background .15s}
+  .spot-cur:hover{background:rgba(255,255,255,.30)}
+  .spotbar{max-width:960px;margin:10px auto 0;padding:0 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .spotbar-share{background:var(--card);color:var(--ink2);border:1px solid var(--line);border-radius:999px;font-size:12.5px;padding:5px 12px;cursor:pointer}
+  .spotbar-share:hover{border-color:#7fb0e6}
+  body.dark .spotbar-share{background:var(--card);color:var(--ink2);border-color:var(--line)}
+  .rnav{max-width:960px;margin:8px auto 0;padding:0 16px;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
+  .rnav::-webkit-scrollbar{display:none}
+  .rnav-btn{flex-shrink:0;white-space:nowrap;padding:6px 12px;border:1px solid var(--line,#e3e8ef);border-radius:999px;background:var(--card,#fff);color:var(--ink2);font-size:12.5px;cursor:pointer}
+  .rnav-btn:hover{border-color:#7fb0e6}
+  body.dark .rnav-btn{background:var(--card);color:var(--ink2);border-color:var(--line)}
+  .spotbar .spot-cur{background:var(--card);color:var(--ink);border:1px solid var(--line);font-size:13.5px;padding:5px 12px;display:inline-flex;align-items:center}
+  body.dark .spotbar .spot-cur{background:var(--card);color:var(--ink);border-color:var(--line)}
 
   /* ───── 位置查询栏（UI 占位） ───── */
   .query{background:rgba(255,255,255,.14);border-radius:14px;padding:10px;margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
@@ -224,6 +239,10 @@
   .spotfav-mapbtn{padding:7px 10px;border:1px solid var(--line,#e3e8ef);border-radius:10px;font-size:13px;background:#fff;cursor:pointer;white-space:nowrap}
   .spotfav-mapbtn:hover{border-color:#7fb0e6}
   .spotfav-map{height:320px;margin-top:10px;border-radius:12px;overflow:hidden;border:1px solid var(--line,#e3e8ef)}
+  .sf-map-legend{margin-top:6px;font-size:12px;color:var(--ink3,#94a3b8);display:flex;align-items:center;gap:5px}
+  .sf-map-legend .lg-dot{width:10px;height:10px;border-radius:50%;display:inline-block;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.15)}
+  .sf-map-legend .lg-fav{background:#f0a500}
+  .sf-map-legend .lg-plain{background:#2d7ff9;margin-left:8px}
   .fb{max-width:960px;margin:12px auto 0;padding:0 16px}
   .fb-hd{font-size:13.5px;font-weight:700;color:var(--ink2);margin:0 2px 8px}
   .fb-form{background:#fff;border:1px solid var(--line,#e3e8ef);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px}
@@ -244,8 +263,9 @@
   .about-body a{color:#2d7ff9}
   .news{max-width:960px;margin:12px auto 0;padding:0 16px}
   .news-hd{font-size:13.5px;font-weight:700;color:var(--ink2);margin:0 2px 8px}
-  .news-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
-  .news-chip{padding:5px 12px;border:1px solid var(--line,#e3e8ef);border-radius:999px;background:#fff;font-size:12.5px;cursor:pointer;color:var(--ink2)}
+  .news-chips{display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin-bottom:8px}
+  .news-chips::-webkit-scrollbar{display:none}
+  .news-chip{flex-shrink:0;white-space:nowrap;padding:5px 12px;border:1px solid var(--line,#e3e8ef);border-radius:999px;background:#fff;font-size:12.5px;cursor:pointer;color:var(--ink2)}
   .news-chip.on{background:#2d7ff9;color:#fff;border-color:#2d7ff9}
   .news-list{display:flex;flex-direction:column;gap:8px}
   .news-item{display:flex;flex-direction:column;gap:3px;align-items:flex-start;text-align:left;width:100%;background:#fff;border:1px solid var(--line,#e3e8ef);border-radius:12px;padding:10px 12px;cursor:pointer}
@@ -297,16 +317,45 @@
   .maintab-btn.on{background:#2d7ff9;color:#fff;border-color:#2d7ff9}
   .maintab-btn.on small{color:rgba(255,255,255,.85)}
   .tab-off{display:none !important}
+  .subview-off{display:none !important}
+  .livesub{max-width:960px;margin:12px auto 0;padding:0 16px;display:flex;gap:8px}
+  .livesub-btn{flex:1;padding:8px 6px;border:1px solid var(--line,#e2e8f0);border-radius:10px;background:#fff;color:var(--ink2);font-size:13px;font-weight:700;cursor:pointer;transition:background .15s}
+  .livesub-btn.on{background:#0ea5e9;color:#fff;border-color:#0ea5e9}
+  .maintab{position:sticky;top:0;z-index:50;background:var(--bg);padding-top:10px;padding-bottom:8px}
+  .onboard{max-width:960px;margin:10px auto 0;padding:10px 14px;display:flex;gap:10px;align-items:center;background:#e0f2fe;border:1px solid #7fb0e6;border-radius:12px;font-size:12.5px;color:var(--ink,#0f172a)}
+  .onboard-txt{flex:1}
+  .onboard-x{flex-shrink:0;padding:5px 10px;border:none;border-radius:999px;background:#2d7ff9;color:#fff;font-size:12px;cursor:pointer;white-space:nowrap}
+  body.dark .onboard{background:var(--card);border-color:var(--line);color:var(--ink)}
+  #toTop{position:fixed;right:16px;bottom:18px;width:44px;height:44px;border-radius:50%;border:none;background:#0369a1;color:#fff;font-size:20px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:opacity .2s;z-index:60}
+  #toTop.show{opacity:.92;pointer-events:auto}
+  #themeToggle{position:absolute;right:12px;top:12px;z-index:5;width:34px;height:34px;border:none;border-radius:50%;background:rgba(255,255,255,.18);color:#fff;font-size:16px;cursor:pointer;line-height:1}
+  #themeToggle:hover{background:rgba(255,255,255,.32)}
+  /* ───── 深色模式（body.dark 覆盖 CSS 变量 + 白底面映射）───── */
+  body.dark{--ink:#e8eef6;--ink2:#aebdcf;--ink3:#8294aa;--bg:#0f1b2a;--card:#16273a;--line:#284158;--accent:#38bdf8;background:#0a1420}
+  body.dark .wrap{box-shadow:0 0 30px rgba(0,0,0,.5)}
+  body.dark .cat-item,body.dark .spotcard,body.dark .news-item,body.dark .annc-item,body.dark .nb-group,body.dark .cam-card,body.dark .chartbox,body.dark .story,body.dark .safe,body.dark .checklist,body.dark .about-body,body.dark .fb-form,body.dark .vol-form,body.dark .annc-modal-box,body.dark .verify .vpred,body.dark #gate .box{background:var(--card);color:var(--ink)}
+  body.dark input,body.dark select,body.dark textarea,body.dark .cat-search,body.dark .cat-sort,body.dark .spotfav-search,body.dark .spotfav-sort,body.dark .spotfav-mapbtn,body.dark .maintab-btn,body.dark .livesub-btn,body.dark .cat-chip,body.dark .news-chip,body.dark .fb-type,body.dark .fb-content,body.dark .vol-input{background:var(--card);color:var(--ink);border-color:var(--line)}
+  body.dark .legend .dot{filter:brightness(.9)}
   .cat{max-width:960px;margin:12px auto 0;padding:0 16px}
   .cat-hd{font-size:13.5px;font-weight:700;color:var(--ink2);margin:0 2px 8px}
   .cat-count{font-weight:500;color:var(--ink3);font-size:11.5px;margin-left:6px}
-  .cat-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
-  .cat-chip{padding:5px 12px;border:1px solid var(--line,#e3e8ef);border-radius:999px;background:#fff;font-size:12.5px;cursor:pointer;color:var(--ink2)}
+  .cat-chips{display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin-bottom:8px}
+  .cat-chips::-webkit-scrollbar{display:none}
+  .cat-chip{flex-shrink:0;white-space:nowrap;padding:5px 12px;border:1px solid var(--line,#e3e8ef);border-radius:999px;background:#fff;font-size:12.5px;cursor:pointer;color:var(--ink2)}
   .cat-chip.on{background:#2d7ff9;color:#fff;border-color:#2d7ff9}
   .cat-search{width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--line,#e3e8ef);border-radius:10px;font-size:13px;margin-bottom:8px}
+  .cat-ctl{display:flex;gap:8px;align-items:center}
+  .cat-ctl .cat-search{flex:1;margin-bottom:8px}
+  .cat-sort{padding:8px 10px;border:1px solid var(--line,#e3e8ef);border-radius:10px;font-size:13px;background:#fff;margin-bottom:8px;cursor:pointer}
+  .cat-liveonly{padding:8px 10px;border:1px solid var(--line,#e3e8ef);border-radius:10px;font-size:13px;background:#fff;margin-bottom:8px;cursor:pointer;white-space:nowrap;color:var(--ink2)}
+  .cat-liveonly.on{background:#d9534f;color:#fff;border-color:#d9534f}
+  body.dark .cat-liveonly{background:var(--card);color:var(--ink2);border-color:var(--line)}
+  body.dark .cat-liveonly.on{background:#d9534f;color:#fff;border-color:#d9534f}
   .cat-list{display:flex;flex-direction:column;gap:6px;max-height:420px;overflow-y:auto}
-  .cat-item{display:flex;flex-direction:column;gap:2px;background:#fff;border:1px solid var(--line,#e3e8ef);border-radius:10px;padding:8px 12px;cursor:pointer}
+  .cat-item{display:flex;flex-direction:column;gap:2px;background:#fff;border:1px solid var(--line,#e3e8ef);border-radius:10px;padding:8px 34px 8px 12px;cursor:pointer;position:relative}
   .cat-item:hover{border-color:#7fb0e6}
+  .cat-fav{position:absolute;right:8px;top:7px;background:none;border:none;font-size:18px;line-height:1;cursor:pointer;color:#f0a500;padding:2px}
+  .cat-fav.off{color:var(--ink3,#94a3b8)}
   .cat-name{font-size:14px;font-weight:600;color:var(--ink1,#1a2734)}
   .cat-live{font-size:10px;font-weight:700;color:#d9534f;margin-left:4px}
   .cat-score{display:inline-block;min-width:26px;text-align:center;color:#fff;font-weight:700;font-size:11px;border-radius:6px;padding:1px 5px;margin-right:6px}
@@ -315,6 +364,15 @@
   .live-entry-badge{font-size:11px;background:rgba(217,83,79,.95);border-radius:6px;padding:1px 7px;margin-left:6px}
   .cat-meta{font-size:11.5px;color:var(--ink3)}
   .cat-empty{color:var(--ink3);font-size:12.5px;padding:8px 2px}
+  /* ───── U1 加载态：骨架屏 / spinner（纯前端附加式；请求期间占位，避免白屏/空列表）───── */
+  @keyframes sf-shimmer{0%{background-position:-320px 0}100%{background-position:320px 0}}
+  .sf-skel{position:relative;overflow:hidden;background:#eef2f7;background-image:linear-gradient(90deg,#eef2f7 0px,#f6f9fc 160px,#eef2f7 320px);background-size:640px 100%;animation:sf-shimmer 1.1s linear infinite;border-radius:8px}
+  .sk-cat{height:44px;margin:0}
+  .sk-cam{height:96px;border-radius:12px}
+  .sf-loading{display:flex;align-items:center;gap:8px;color:var(--ink3);font-size:12.5px;padding:8px 2px}
+  .sf-spinner{width:15px;height:15px;border:2px solid #cdd7e3;border-top-color:#2a6ff0;border-radius:50%;animation:sf-spin .7s linear infinite;flex:0 0 auto}
+  @keyframes sf-spin{to{transform:rotate(360deg)}}
+  body.dark .sf-skel{background:#243040;background-image:linear-gradient(90deg,#243040 0px,#2c3a4d 160px,#243040 320px)}
   .spotcard{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line,#e3e8ef);border-radius:12px;padding:8px 12px;cursor:pointer;transition:box-shadow .15s,border-color .15s}
   .spotcard:hover{box-shadow:0 2px 10px rgba(0,0,0,.08);border-color:var(--sea1,#2a6ff0)}
   .spotcard.sel{border-color:var(--sea1,#2a6ff0);box-shadow:0 0 0 2px rgba(42,111,240,.18)}
@@ -395,11 +453,11 @@
 
   <header>
     <div class="wave-deco">🌊</div>
-    <h1>🏄 浪报 <small>7日冲浪窗口 · MVP</small></h1>
+    <button id="themeToggle" onclick="toggleTheme()" title="切换深色/浅色" aria-label="切换主题">🌙</button>
+    <h1>🏄 浪报 <small>全国 58 浪点 · 实时冲浪预报</small></h1>
     <div class="spot">
-      <span>📍 青岛 · 山东头</span><span id="metaRange">📅 6/20 – 6/25</span><span>🌅 04:46 / 19:26</span>
-      <span>🌡️ 水温 22–24°C · 2mm</span><span>🌓 6/22 上弦 · 小潮</span>
-      <span id="metaCalib">🕐 校准 2026-06-20 北京时间 GMT+8</span>
+      <span id="metaRange">📅 —</span>
+      <span id="metaCalib">🕐 校准 —</span>
     </div>
 
     <!-- 位置查询栏：按需求从首页移除(隐藏)；#spotSel 等元素保留供收藏/目录/地图切换逻辑依赖 -->
@@ -434,10 +492,30 @@
   </header>
 
   <!-- 主标签页导航（对应小白/高手模式风格）：实时浪报 / 浪报详情 / 其他 -->
-  <nav class="maintab" id="maintab">
-    <button class="maintab-btn on" data-tab="live" onclick="showTab('live')">🌊 实时浪报<small>全国浪点 · 直播</small></button>
-    <button class="maintab-btn" data-tab="report" onclick="showTab('report')">📊 浪报详情<small>评分 · 图解 · 回看</small></button>
-    <button class="maintab-btn" data-tab="other" onclick="showTab('other')">📋 其他<small>公告 · 社区 · 周边</small></button>
+  <!-- V-e 首访引导提示（一次性；localStorage sf_onboarded_v1）-->
+  <div class="onboard" id="onboard" style="display:none">
+    <span class="onboard-txt">👋 欢迎！顶部 <b>三标签页</b>切换实时浪报/详情/其他；全国目录卡片 <b>★</b> 一键收藏；详情页 <b>🔗 分享</b> 可复制浪点链接。</span>
+    <button class="onboard-x" onclick="dismissOnboard()" aria-label="知道了，关闭引导">知道了 ✕</button>
+  </div>
+
+  <nav class="maintab" id="maintab" role="tablist" aria-label="主视图切换">
+    <button class="maintab-btn on" role="tab" aria-selected="true" data-tab="live" onclick="showTab('live')">🌊 实时浪报<small>全国浪点 · 直播</small></button>
+    <button class="maintab-btn" role="tab" aria-selected="false" data-tab="report" onclick="showTab('report')">📊 浪报详情<small>评分 · 图解 · 回看</small></button>
+    <button class="maintab-btn" role="tab" aria-selected="false" data-tab="other" onclick="showTab('other')">📋 其他<small>公告 · 社区 · 周边</small></button>
+  </nav>
+
+  <!-- 当前浪点名（从 hero 移到主标签栏下方；浪报详情作用域）-->
+  <div class="spotbar" id="spotbar">
+    <span id="metaSpot" class="spot-cur" onclick="showTab('report')" title="查看该浪点浪报详情">📍 青岛 · 山东头 ›</span>
+    <button id="shareSpotBtn" class="spotbar-share" onclick="shareSpot()" title="复制该浪点分享链接" aria-label="复制分享链接">🔗 分享</button>
+  </div>
+
+  <!-- V-c 浪报详情锚点快捷条：跳转 评分/图表/昨日回看/直播 -->
+  <nav class="rnav" id="reportNav" aria-label="浪报详情快捷跳转">
+    <button class="rnav-btn" onclick="scrollToEl('hero')">📊 评分</button>
+    <button class="rnav-btn" onclick="scrollToEl('cards')">📈 图表</button>
+    <button class="rnav-btn" onclick="scrollToEl('verify')">🔁 昨日回看</button>
+    <button class="rnav-btn" onclick="scrollToEl('liveEntry')">📹 直播</button>
   </nav>
 
   <!-- R1.1 浪点收藏：★ 星标 + localStorage 持久化 + 收藏置顶（独立容器，render() 不触碰；空/未登录时隐藏） -->
@@ -455,14 +533,32 @@
     <div class="spotfav-list" id="spotFavList"></div>
     <div class="spotfav-empty" id="spotFavEmpty" style="display:none">无匹配浪点</div>
     <div id="spotsMap" class="spotfav-map" style="display:none"></div>
+    <div id="spotsMapLegend" class="sf-map-legend" style="display:none"><span class="lg-dot lg-fav"></span>已收藏 <span class="lg-dot lg-plain"></span>未收藏</div>
   </section>
 
   <!-- R2.1 公告：示例数据 · 点击查看富文本详情弹层（不引外部内容 API；不做登录/支付） -->
+  <!-- 实时浪报子视图切换：目录 / 直播（默认只显目录，避免 58 目录+42 直播叠成超长单页） -->
+  <nav class="livesub" id="liveSubnav">
+    <button class="livesub-btn on" data-view="catalog" onclick="showLiveView('catalog')">🌊 全国目录</button>
+    <button class="livesub-btn" data-view="cams" onclick="showLiveView('cams')">📹 浪点直播</button>
+  </nav>
+
   <!-- P3 形态C：全国浪点目录(58+) · 区域筛选 + 搜索 + 点击加载浪报 + LIVE 直播入口 -->
   <section class="cat" id="catalog" style="display:none">
     <div class="cat-hd">🌊 全国浪点目录 <span class="cat-count" id="catCount"></span></div>
     <div class="cat-chips" id="catChips"></div>
-    <input id="catSearch" class="cat-search" placeholder="🔍 搜索浪点名称/城市…" oninput="renderCatalog()">
+    <div class="cat-ctl">
+      <input id="catSearch" class="cat-search" placeholder="🔍 搜索浪点名称/城市…" oninput="renderCatalog()">
+      <select id="catSort" class="cat-sort" onchange="onCatSort()">
+        <option value="default">推荐排序</option>
+        <option value="fav">收藏优先</option>
+        <option value="score">综合评分 ↓</option>
+        <option value="live">有直播优先</option>
+        <option value="name">名称</option>
+        <option value="region">地区</option>
+      </select>
+      <button id="catLiveBtn" class="cat-liveonly" aria-pressed="false" onclick="toggleCatLive()" title="仅看有直播的浪点">📹 仅直播</button>
+    </div>
     <div class="cat-list" id="catList"></div>
   </section>
 
@@ -535,8 +631,9 @@
 
   <nav class="strip" id="strip"></nav>
 
-  <section class="hero" id="hero"></section>
   <div class="live-entry" id="liveEntry" style="display:none" onclick="openCurrentCam()">📹 本浪点有实时直播 · 点击观看 <span class="live-entry-badge">● LIVE</span></div>
+
+  <section class="hero" id="hero"></section>
   <div class="story" id="story"></div>
 
   <main id="cards"></main>
@@ -565,6 +662,7 @@
   </footer>
 </div>
 
+<button id="toTop" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="回到顶部" aria-label="回到顶部">↑</button>
 <script>
 /* ================= 数据（DATA CONTRACT：后端 /api/report 应返回同构结构）=================
    来源：Open-Meteo ECMWF WAM/IFS 实时拉取，2026-06-20 校准（北京时间 GMT+8），青岛山东头 6/20–6/25 预报 + 6/19 历史。
@@ -726,8 +824,42 @@ let HISTORY = {
 /* ================= 实时数据对接（5.1 fetch /api/report；5.2 真鉴权助手）================= */
 const API_BASE = (window.SF_API_BASE || '');        // 同源；可经 window.SF_API_BASE 注入
 let SPOT = { lat: 36.092, lon: 120.468, name: '青岛山东头', days: 3 };
+// U-e 分享/深链：#spot=lat,lon,name
+function _parseSpotHash(){
+  try{ const m=(location.hash||'').match(/spot=([^&]+)/); if(!m) return null;
+    const p=decodeURIComponent(m[1]).split(','); const lat=+p[0], lon=+p[1], name=p.slice(2).join(',')||'分享浪点';
+    if(!isFinite(lat)||!isFinite(lon)) return null; return {lat, lon, name, days:6};
+  }catch(_){ return null; }
+}
+async function shareSpot(){
+  const url = `${location.origin}${location.pathname}#spot=${SPOT.lat},${SPOT.lon},${encodeURIComponent(SPOT.name)}`;
+  try{ await navigator.clipboard.writeText(url); alert('已复制分享链接：\n'+url); }
+  catch(_){ prompt('复制此浪点分享链接：', url); }
+}
+window.shareSpot = shareSpot;
+
+/* ───── U1 加载态助手（纯前端附加式；请求期间占位，避免白屏/空列表）───── */
+function _sfSkelRows(kind, n){                 // 生成 n 行骨架屏 HTML
+  const cls = kind==='cam' ? 'sf-skel sk-cam' : 'sf-skel sk-cat';
+  let s=''; for(let i=0;i<(n||6);i++) s+='<div class="'+cls+'"></div>';
+  return s;
+}
+function _sfSkel(id, kind, n){                  // 往容器塞骨架屏
+  const el=document.getElementById(id); if(el) el.innerHTML=_sfSkelRows(kind,n);
+}
+function _sfLoadBar(on){                         // loadLive 顶部细 spinner（不触碰报告 DOM）
+  let bar=document.getElementById('sfLoadBar');
+  if(on){
+    if(!bar){ bar=document.createElement('div'); bar.id='sfLoadBar'; bar.className='sf-loading';
+      bar.style.cssText='position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:9999;background:rgba(255,255,255,.94);box-shadow:0 2px 10px rgba(0,0,0,.12);border-radius:999px;padding:6px 14px';
+      bar.innerHTML='<span class="sf-spinner"></span><span>加载浪报中…</span>'; document.body.appendChild(bar); }
+    bar.style.display='flex';
+  }else if(bar){ bar.style.display='none'; }
+}
 
 async function loadLive(){
+  _sfLoadBar(true);
+  try{ const _sp=document.getElementById('metaSpot'); if(_sp) _sp.textContent='📍 '+SPOT.name+' ›'; }catch(_){}
   try{
     const qs = `lat=${SPOT.lat}&lon=${SPOT.lon}&spot=${encodeURIComponent(SPOT.name)}&days=${SPOT.days}`;
     const r = await fetch(`${API_BASE}/api/report?${qs}`, {credentials:'include'});
@@ -735,8 +867,12 @@ async function loadLive(){
     const data = await r.json();
     if(data && data.days && data.days.length){ DAYS = data.days; if(data.history) HISTORY = data.history; }
     if(data && data.story) window.__SF_STORY = data.story;   // 数据驱动剧情
-    // 顶部 meta 用实时数据更新（校准时间戳是数据诚实红线，不可停留在内嵌旧值）
+    // 顶部 meta 用实时数据更新（浪点名/日期区间/校准时间戳随浪点变化——数据诚实红线，不可停留在内嵌旧值）
     try{
+      const nm=(data && data.spot) || SPOT.name;
+      const sp=document.getElementById('metaSpot');
+      if(sp) sp.textContent='📍 '+nm+' ›';
+      document.title='🏄 浪报 · '+nm;
       if(data && data.calibratedAt){
         const c=document.getElementById('metaCalib');
         if(c) c.textContent='🕐 校准 '+data.calibratedAt+' 北京时间';
@@ -753,9 +889,11 @@ async function loadLive(){
       if(h.ok){ const hj = await h.json(); if(hj.history) HISTORY = hj.history; }
     }catch(_){}
     render();                                         // 用实时数据重渲染
+    _sfLoadBar(false);
     return true;
   }catch(e){
     console.warn('实时数据加载失败，回退内嵌示例：', e.message);  // 不白屏（R4.3）
+    _sfLoadBar(false);
     return false;
   }
 }
@@ -806,7 +944,7 @@ async function bootstrap(){
   const g=document.getElementById('gate'); if(g) g.style.display='none';
   document.getElementById('app').style.display='block';
   render();                                            // 先用内嵌兜底渲染，避免白屏
-  try{ if(await demoAuth()) { await loadLive(); await loadSpots(); await loadCams(); await loadCatalog(); } }         // 建会话→拉实时数据重渲染→填充已保存浪点→直播源→全国浪点目录
+  try{ if(await demoAuth()) { await loadSpots(); await loadCams(); await loadCatalog(); const _hs=_parseSpotHash(); if(_hs) SPOT=_hs; await loadLive(); } }         // 建会话→填充浪点/直播/目录→(深链浪点覆盖)→loadLive 末位渲染，避免 loadSpots 自动选点覆盖深链
   catch(e){ console.warn('实时数据加载失败，使用内嵌示例：', e.message); }
   if(location.hash==='#expert') setMode(true);
 }
@@ -935,7 +1073,7 @@ function renderSpotFav(){
   else if(mode === 'lat') rows.sort((a,b)=>(+b.lat)-(+a.lat));
   else rows = sortByFav(rows);   // 收藏优先(默认)
   const empty = document.getElementById('spotFavEmpty');
-  if(empty) empty.style.display = rows.length ? 'none' : 'block';
+  if(empty){ empty.style.display = rows.length ? 'none' : 'block'; if(!rows.length) empty.textContent = q ? ('没有匹配「'+q+'」的浪点') : '暂无浪点'; }
   const ordered = rows;
   list.innerHTML = ordered.map(s=>{
     const fav = isFav(s.slug);
@@ -968,8 +1106,14 @@ function toggleSpotsMap(){
   if(typeof L === 'undefined'){ alert('地图库未加载（可能离线），请稍后重试'); return; }
   const show = box.style.display === 'none';
   box.style.display = show ? 'block' : 'none';
+  const lg = document.getElementById('spotsMapLegend'); if(lg) lg.style.display = show ? 'flex' : 'none';
   document.getElementById('spotsMapBtn').textContent = show ? '🗺️ 收起' : '🗺️ 地图';
   if(show) renderSpotsMap();
+}
+function _spotIcon(fav){
+  const c = fav ? '#f0a500' : '#2d7ff9';   // 金=已收藏 / 蓝=未收藏
+  return L.divIcon({className:'sf-mk', iconSize:[18,18], iconAnchor:[9,9],
+    html:`<div style="width:14px;height:14px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${c};border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4)"></div>`});
 }
 function renderSpotsMap(){
   const box = document.getElementById('spotsMap');
@@ -986,7 +1130,7 @@ function renderSpotsMap(){
     const lat = +s.lat, lon = +s.lon;
     if(!isFinite(lat) || !isFinite(lon)) return;   // 缺坐标跳过，不伪造
     pts.push([lat, lon]);
-    const m = L.marker([lat, lon]).addTo(_spotsLayer);
+    const m = L.marker([lat, lon], {icon:_spotIcon(isFav(s.slug))}).addTo(_spotsLayer);
     const nm = _favEscape(s.name), sg = _favEscape(s.slug);
     m.bindPopup(`<b>${nm}</b><br>${lat.toFixed(3)}, ${lon.toFixed(3)}<br>`
       + `<button onclick="_spotsMapSelect('${sg}')" style="margin-top:6px;padding:4px 8px;border:0;border-radius:6px;background:#2d7ff9;color:#fff;cursor:pointer">查看浪报</button>`);
@@ -1137,12 +1281,13 @@ function renderLivecams(){
     + `</div>`).join('');
 }
 async function loadCams(){
+  _sfSkel('camGrid','cam',4);                 // 加载态骨架屏
   try{
     const r = await fetch(`${API_BASE}/api/cams`, {credentials:'include'});
-    if(!r.ok) return;                       // 未登录 401 → 保持占位
+    if(!r.ok){ renderLivecams(); return; }    // 未登录 401 → 恢复占位（不留骨架）
     const j = await r.json(); CAMS = j.cams || [];
     renderLivecams();
-  }catch(_){}
+  }catch(_){ renderLivecams(); }              // 出错也恢复占位
 }
 let _hls = null;
 function openCam(slug){
@@ -1176,14 +1321,28 @@ window.openCam = openCam; window.closeCam = closeCam;
 /* ================= P3 全国浪点目录(58+) · 区域筛选/搜索/点击加载浪报 ================= */
 let CATALOG = [], _catRegion = '全部', _catScores = {};
 const CAT_REGIONS = ['全部','广东','海南','福建','广西','浙江','山东','国外','其他'];
+let _catSort = 'default';
+function onCatSort(){ _catSort = document.getElementById('catSort').value; renderCatalog(); }
+window.onCatSort = onCatSort;
+let _catLiveOnly = false;
+function toggleCatLive(){ _catLiveOnly=!_catLiveOnly; const b=document.getElementById('catLiveBtn'); if(b){ b.classList.toggle('on', _catLiveOnly); b.setAttribute('aria-pressed', _catLiveOnly?'true':'false'); } renderCatalog(); }
+window.toggleCatLive = toggleCatLive;
+function toggleCatFav(slug, ev){ if(ev) ev.stopPropagation(); toggleFav(slug); renderCatalog(); }  // 目录卡片直接收藏(复用 FAV_KEY，同步收藏面板)
+window.toggleCatFav = toggleCatFav;
 function _scoreColor(s){ return s>=7?'#1a9b56':s>=5?'#e8a33d':s>=3?'#e67a3d':'#d9534f'; }
 async function loadCatalog(){
+  const _box=document.getElementById('catalog');
+  const _wasHidden = _box ? (_box.style.display==='none') : true;
+  if(_box) _box.style.display='block';        // 乐观展开并显示骨架屏（失败回滚）
+  _sfSkel('catList','cat',8);
+  const _cc=document.getElementById('catCount'); if(_cc) _cc.textContent='加载中…';
   try{
     const r = await fetch(`${API_BASE}/api/catalog`, {credentials:'include'});
-    if(!r.ok) return;                        // 未登录 401 → 隐藏
+    if(!r.ok){ if(_box && _wasHidden) _box.style.display='none'; if(_cc) _cc.textContent=''; return; }  // 未登录 401 → 回滚隐藏
     const j = await r.json(); CATALOG = j.catalog || [];
-    if(CATALOG.length){ document.getElementById('catalog').style.display='block'; renderCatChips(); renderCatalog(); loadCatalogScores(); }
-  }catch(_){}
+    if(CATALOG.length){ _box.style.display='block'; renderCatChips(); renderCatalog(); loadCatalogScores(); }
+    else if(_box && _wasHidden){ _box.style.display='none'; if(_cc) _cc.textContent=''; }
+  }catch(_){ if(_box && _wasHidden) _box.style.display='none'; if(_cc) _cc.textContent=''; }
 }
 async function loadCatalogScores(){   // 缓存回批(生产);本地无缓存则空,靠点击回填
   try{
@@ -1205,12 +1364,21 @@ function renderCatalog(){
   const q = (document.getElementById('catSearch')?.value||'').trim().toLowerCase();
   let rows = _catRegion==='全部' ? CATALOG.slice() : CATALOG.filter(c=>c.region===_catRegion);
   if(q) rows = rows.filter(c=>(String(c.name||'')+String(c.city||'')).toLowerCase().includes(q));
+  if(_catLiveOnly) rows = rows.filter(c=>c.has_live);
+  const _sc = s => { const v=_catScores[s.slug]; return (v==null ? -1 : +v); };
+  if(_catSort==='score') rows.sort((a,b)=>_sc(b)-_sc(a));
+  else if(_catSort==='fav') rows.sort((a,b)=>(isFav(b.slug)?1:0)-(isFav(a.slug)?1:0));
+  else if(_catSort==='live') rows.sort((a,b)=>(b.has_live?1:0)-(a.has_live?1:0));
+  else if(_catSort==='name') rows.sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'zh'));
+  else if(_catSort==='region') rows.sort((a,b)=>(String(a.region||'').localeCompare(String(b.region||''),'zh'))||String(a.name||'').localeCompare(String(b.name||''),'zh'));
   document.getElementById('catCount').textContent = `${rows.length} 浪点`;
-  if(!rows.length){ list.innerHTML='<div class="cat-empty">无匹配浪点</div>'; return; }
+  if(!rows.length){ list.innerHTML='<div class="cat-empty">没有匹配的浪点，换个关键词或地区试试</div>'; return; }
   list.innerHTML = rows.map(c=>{
     const sc = _catScores[c.slug];
     const badge = (sc!=null) ? `<span class="cat-score" style="background:${_scoreColor(sc)}">${(+sc).toFixed(1)}</span>` : '';
+    const fav = isFav(c.slug);
     return `<div class="cat-item" onclick="pickCatalogSpot('${_favEscape(c.slug)}')">`
+    + `<button class="cat-fav${fav?'':' off'}" title="${fav?'取消收藏':'收藏'}" aria-label="${fav?'取消收藏':'收藏'}${_favEscape(c.name)}" onclick="toggleCatFav('${_favEscape(c.slug)}',event)">${fav?'★':'☆'}</button>`
     + `<span class="cat-name">${badge}${_favEscape(c.name)}${c.has_live?' <span class=\"cat-live\">● LIVE</span>':''}</span>`
     + `<span class="cat-meta">${_favEscape(c.region)}${c.city?' · '+_favEscape(c.city):''} · ${c.lat.toFixed(2)},${c.lon.toFixed(2)}${c.facing_calibrated?'':' · 朝向待校准'}</span>`
     + `</div>`;
@@ -1238,23 +1406,53 @@ window.filterCat = filterCat; window.renderCatalog = renderCatalog; window.pickC
 
 /* ================= 主标签页切换：实时浪报 / 浪报详情 / 其他 ================= */
 const TAB_OF = {
-  catalog:'live', livecams:'live',
-  spotFav:'report', modeBar:'report', strip:'report', hero:'report', liveEntry:'report',
+  liveSubnav:'live', catalog:'live', livecams:'live',
+  spotFav:'report', modeBar:'report', strip:'report', hero:'report', liveEntry:'report', spotbar:'report', reportNav:'report',
   story:'report', cards:'report', verify:'report', checklist:'report', extras:'report',
   annc:'other', feedback:'other', about:'other', newswall:'other', carpool:'other', nearby:'other',
 };
 let _curTab = 'live';
+let _liveView = 'catalog';
+function applyLiveView(){
+  const cat=document.getElementById('catalog'), cam=document.getElementById('livecams');
+  if(cat) cat.classList.toggle('subview-off', _liveView!=='catalog');
+  if(cam) cam.classList.toggle('subview-off', _liveView!=='cams');
+  document.querySelectorAll('#liveSubnav .livesub-btn').forEach(b=>b.classList.toggle('on', b.dataset.view===_liveView));
+}
+function showLiveView(v){ _liveView=v; applyLiveView(); try{localStorage.setItem('sf_liveview_v1',v);}catch(_){} window.scrollTo({top:0,behavior:'smooth'}); }
+window.showLiveView = showLiveView;
+function scrollToEl(id){ const el=document.getElementById(id); if(el && el.offsetParent!==null) el.scrollIntoView({behavior:'smooth', block:'start'}); }
+window.scrollToEl = scrollToEl;
 function showTab(tab){
   _curTab = tab;
+  try{ localStorage.setItem('sf_tab_v1', tab); }catch(_){}
   for(const [id, t] of Object.entries(TAB_OF)){
     const el = document.getElementById(id);
     if(el) el.classList.toggle('tab-off', t !== tab);   // 非本页隐藏(!important)；本页交回元素自身显示逻辑
   }
-  document.querySelectorAll('.maintab-btn').forEach(b=>b.classList.toggle('on', b.dataset.tab === tab));
+  if(tab==='live') applyLiveView();                     // 回到实时浪报时按子视图只显目录或直播
+  document.querySelectorAll('.maintab-btn').forEach(b=>{ const on=b.dataset.tab===tab; b.classList.toggle('on', on); b.setAttribute('aria-selected', on?'true':'false'); });
   window.scrollTo({top:0, behavior:'smooth'});
 }
 window.showTab = showTab;
-window.addEventListener('load', ()=> showTab('live'));   // 默认「实时浪报」
+window.addEventListener('load', ()=>{                    // 恢复上次主 tab + 子视图（新访客默认 live/catalog，不破坏 E2E 首断言）
+  try{ const v=localStorage.getItem('sf_liveview_v1'); if(v==='catalog'||v==='cams') _liveView=v; }catch(_){}
+  let t='live'; try{ const s=localStorage.getItem('sf_tab_v1'); if(s==='live'||s==='report'||s==='other') t=s; }catch(_){}
+  const _dh=_parseSpotHash();
+  if(_dh){ SPOT=_dh; const sp=document.getElementById('metaSpot'); if(sp) sp.textContent='📍 '+_dh.name+' ›'; t='report'; }   // 深链：同步浪点名(不依赖鉴权/loadLive) + 进浪报详情
+  showTab(t);
+});
+// 回到顶部按钮：滚动超过 400px 显示
+window.addEventListener('scroll', ()=>{ const b=document.getElementById('toTop'); if(b) b.classList.toggle('show', window.scrollY>400); }, {passive:true});
+// 深色模式：存储优先，否则跟随系统 prefers-color-scheme
+function applyTheme(dark){ document.body.classList.toggle('dark', dark); const b=document.getElementById('themeToggle'); if(b) b.textContent = dark?'☀️':'🌙'; }
+function toggleTheme(){ const d=!document.body.classList.contains('dark'); applyTheme(d); try{ localStorage.setItem('sf_theme', d?'dark':'light'); }catch(_){} }
+window.toggleTheme = toggleTheme;(function(){ let d=false; try{ const s=localStorage.getItem('sf_theme'); if(s===
+'dark'||s==='light') d=(s==='dark'); else if(window.matchMedia) d=matchMedia('(prefers-color-scheme: dark)').matches; }catch(_){} applyTheme(d); })();
+// V-e 首访引导（一次性）
+function dismissOnboard(){ const b=document.getElementById('onboard'); if(b) b.style.display='none'; try{localStorage.setItem('sf_onboarded_v1','1');}catch(_){} }
+window.dismissOnboard = dismissOnboard;
+window.addEventListener('load', ()=>{ try{ if(localStorage.getItem('sf_onboarded_v1')!=='1'){ const b=document.getElementById('onboard'); if(b) b.style.display='flex'; } }catch(_){} });
 // 下拉选项按收藏置顶重排（仅动 data-saved 项，保留 qd / custom 位置）
 function reorderSpotOptions(){
   const sel = document.getElementById('spotSel');
