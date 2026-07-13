@@ -57,6 +57,7 @@ if(await page.locator('#catalog').first().isVisible().catch(()=>false)){
   await shot('13-catalog-hainan', '#catalog');
   await page.locator('#catChips .cat-chip', { hasText:'全部' }).click().catch(()=>{});
   await page.waitForTimeout(200);
+  if(await page.locator('#catLiveBtn').count()>0){ await page.click('#catLiveBtn').catch(()=>{}); await page.waitForTimeout(250); await shot('28-catalog-liveonly', '#catalog'); await page.click('#catLiveBtn').catch(()=>{}); await page.waitForTimeout(150); }
   await shot('14-livecams', '#livecams');
   const liveItem = page.locator('#catList .cat-item', { has: page.locator('.cat-live') }).first();
   if(await liveItem.count() > 0){

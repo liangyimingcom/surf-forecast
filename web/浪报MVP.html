@@ -63,6 +63,11 @@
   .spotbar-share{background:var(--card);color:var(--ink2);border:1px solid var(--line);border-radius:999px;font-size:12.5px;padding:5px 12px;cursor:pointer}
   .spotbar-share:hover{border-color:#7fb0e6}
   body.dark .spotbar-share{background:var(--card);color:var(--ink2);border-color:var(--line)}
+  .rnav{max-width:960px;margin:8px auto 0;padding:0 16px;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
+  .rnav::-webkit-scrollbar{display:none}
+  .rnav-btn{flex-shrink:0;white-space:nowrap;padding:6px 12px;border:1px solid var(--line,#e3e8ef);border-radius:999px;background:var(--card,#fff);color:var(--ink2);font-size:12.5px;cursor:pointer}
+  .rnav-btn:hover{border-color:#7fb0e6}
+  body.dark .rnav-btn{background:var(--card);color:var(--ink2);border-color:var(--line)}
   .spotbar .spot-cur{background:var(--card);color:var(--ink);border:1px solid var(--line);font-size:13.5px;padding:5px 12px;display:inline-flex;align-items:center}
   body.dark .spotbar .spot-cur{background:var(--card);color:var(--ink);border-color:var(--line)}
 
@@ -317,6 +322,10 @@
   .livesub-btn{flex:1;padding:8px 6px;border:1px solid var(--line,#e2e8f0);border-radius:10px;background:#fff;color:var(--ink2);font-size:13px;font-weight:700;cursor:pointer;transition:background .15s}
   .livesub-btn.on{background:#0ea5e9;color:#fff;border-color:#0ea5e9}
   .maintab{position:sticky;top:0;z-index:50;background:var(--bg);padding-top:10px;padding-bottom:8px}
+  .onboard{max-width:960px;margin:10px auto 0;padding:10px 14px;display:flex;gap:10px;align-items:center;background:#e0f2fe;border:1px solid #7fb0e6;border-radius:12px;font-size:12.5px;color:var(--ink,#0f172a)}
+  .onboard-txt{flex:1}
+  .onboard-x{flex-shrink:0;padding:5px 10px;border:none;border-radius:999px;background:#2d7ff9;color:#fff;font-size:12px;cursor:pointer;white-space:nowrap}
+  body.dark .onboard{background:var(--card);border-color:var(--line);color:var(--ink)}
   #toTop{position:fixed;right:16px;bottom:18px;width:44px;height:44px;border-radius:50%;border:none;background:#0369a1;color:#fff;font-size:20px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:opacity .2s;z-index:60}
   #toTop.show{opacity:.92;pointer-events:auto}
   #themeToggle{position:absolute;right:12px;top:12px;z-index:5;width:34px;height:34px;border:none;border-radius:50%;background:rgba(255,255,255,.18);color:#fff;font-size:16px;cursor:pointer;line-height:1}
@@ -338,6 +347,10 @@
   .cat-ctl{display:flex;gap:8px;align-items:center}
   .cat-ctl .cat-search{flex:1;margin-bottom:8px}
   .cat-sort{padding:8px 10px;border:1px solid var(--line,#e3e8ef);border-radius:10px;font-size:13px;background:#fff;margin-bottom:8px;cursor:pointer}
+  .cat-liveonly{padding:8px 10px;border:1px solid var(--line,#e3e8ef);border-radius:10px;font-size:13px;background:#fff;margin-bottom:8px;cursor:pointer;white-space:nowrap;color:var(--ink2)}
+  .cat-liveonly.on{background:#d9534f;color:#fff;border-color:#d9534f}
+  body.dark .cat-liveonly{background:var(--card);color:var(--ink2);border-color:var(--line)}
+  body.dark .cat-liveonly.on{background:#d9534f;color:#fff;border-color:#d9534f}
   .cat-list{display:flex;flex-direction:column;gap:6px;max-height:420px;overflow-y:auto}
   .cat-item{display:flex;flex-direction:column;gap:2px;background:#fff;border:1px solid var(--line,#e3e8ef);border-radius:10px;padding:8px 34px 8px 12px;cursor:pointer;position:relative}
   .cat-item:hover{border-color:#7fb0e6}
@@ -479,6 +492,12 @@
   </header>
 
   <!-- 主标签页导航（对应小白/高手模式风格）：实时浪报 / 浪报详情 / 其他 -->
+  <!-- V-e 首访引导提示（一次性；localStorage sf_onboarded_v1）-->
+  <div class="onboard" id="onboard" style="display:none">
+    <span class="onboard-txt">👋 欢迎！顶部 <b>三标签页</b>切换实时浪报/详情/其他；全国目录卡片 <b>★</b> 一键收藏；详情页 <b>🔗 分享</b> 可复制浪点链接。</span>
+    <button class="onboard-x" onclick="dismissOnboard()" aria-label="知道了，关闭引导">知道了 ✕</button>
+  </div>
+
   <nav class="maintab" id="maintab" role="tablist" aria-label="主视图切换">
     <button class="maintab-btn on" role="tab" aria-selected="true" data-tab="live" onclick="showTab('live')">🌊 实时浪报<small>全国浪点 · 直播</small></button>
     <button class="maintab-btn" role="tab" aria-selected="false" data-tab="report" onclick="showTab('report')">📊 浪报详情<small>评分 · 图解 · 回看</small></button>
@@ -490,6 +509,14 @@
     <span id="metaSpot" class="spot-cur" onclick="showTab('report')" title="查看该浪点浪报详情">📍 青岛 · 山东头 ›</span>
     <button id="shareSpotBtn" class="spotbar-share" onclick="shareSpot()" title="复制该浪点分享链接" aria-label="复制分享链接">🔗 分享</button>
   </div>
+
+  <!-- V-c 浪报详情锚点快捷条：跳转 评分/图表/昨日回看/直播 -->
+  <nav class="rnav" id="reportNav" aria-label="浪报详情快捷跳转">
+    <button class="rnav-btn" onclick="scrollToEl('hero')">📊 评分</button>
+    <button class="rnav-btn" onclick="scrollToEl('cards')">📈 图表</button>
+    <button class="rnav-btn" onclick="scrollToEl('verify')">🔁 昨日回看</button>
+    <button class="rnav-btn" onclick="scrollToEl('liveEntry')">📹 直播</button>
+  </nav>
 
   <!-- R1.1 浪点收藏：★ 星标 + localStorage 持久化 + 收藏置顶（独立容器，render() 不触碰；空/未登录时隐藏） -->
   <section class="spotfav" id="spotFav" style="display:none">
@@ -524,11 +551,13 @@
       <input id="catSearch" class="cat-search" placeholder="🔍 搜索浪点名称/城市…" oninput="renderCatalog()">
       <select id="catSort" class="cat-sort" onchange="onCatSort()">
         <option value="default">推荐排序</option>
+        <option value="fav">收藏优先</option>
         <option value="score">综合评分 ↓</option>
         <option value="live">有直播优先</option>
         <option value="name">名称</option>
         <option value="region">地区</option>
       </select>
+      <button id="catLiveBtn" class="cat-liveonly" aria-pressed="false" onclick="toggleCatLive()" title="仅看有直播的浪点">📹 仅直播</button>
     </div>
     <div class="cat-list" id="catList"></div>
   </section>
@@ -1295,6 +1324,9 @@ const CAT_REGIONS = ['全部','广东','海南','福建','广西','浙江','山�
 let _catSort = 'default';
 function onCatSort(){ _catSort = document.getElementById('catSort').value; renderCatalog(); }
 window.onCatSort = onCatSort;
+let _catLiveOnly = false;
+function toggleCatLive(){ _catLiveOnly=!_catLiveOnly; const b=document.getElementById('catLiveBtn'); if(b){ b.classList.toggle('on', _catLiveOnly); b.setAttribute('aria-pressed', _catLiveOnly?'true':'false'); } renderCatalog(); }
+window.toggleCatLive = toggleCatLive;
 function toggleCatFav(slug, ev){ if(ev) ev.stopPropagation(); toggleFav(slug); renderCatalog(); }  // 目录卡片直接收藏(复用 FAV_KEY，同步收藏面板)
 window.toggleCatFav = toggleCatFav;
 function _scoreColor(s){ return s>=7?'#1a9b56':s>=5?'#e8a33d':s>=3?'#e67a3d':'#d9534f'; }
@@ -1332,8 +1364,10 @@ function renderCatalog(){
   const q = (document.getElementById('catSearch')?.value||'').trim().toLowerCase();
   let rows = _catRegion==='全部' ? CATALOG.slice() : CATALOG.filter(c=>c.region===_catRegion);
   if(q) rows = rows.filter(c=>(String(c.name||'')+String(c.city||'')).toLowerCase().includes(q));
+  if(_catLiveOnly) rows = rows.filter(c=>c.has_live);
   const _sc = s => { const v=_catScores[s.slug]; return (v==null ? -1 : +v); };
   if(_catSort==='score') rows.sort((a,b)=>_sc(b)-_sc(a));
+  else if(_catSort==='fav') rows.sort((a,b)=>(isFav(b.slug)?1:0)-(isFav(a.slug)?1:0));
   else if(_catSort==='live') rows.sort((a,b)=>(b.has_live?1:0)-(a.has_live?1:0));
   else if(_catSort==='name') rows.sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'zh'));
   else if(_catSort==='region') rows.sort((a,b)=>(String(a.region||'').localeCompare(String(b.region||''),'zh'))||String(a.name||'').localeCompare(String(b.name||''),'zh'));
@@ -1373,7 +1407,7 @@ window.filterCat = filterCat; window.renderCatalog = renderCatalog; window.pickC
 /* ================= 主标签页切换：实时浪报 / 浪报详情 / 其他 ================= */
 const TAB_OF = {
   liveSubnav:'live', catalog:'live', livecams:'live',
-  spotFav:'report', modeBar:'report', strip:'report', hero:'report', liveEntry:'report', spotbar:'report',
+  spotFav:'report', modeBar:'report', strip:'report', hero:'report', liveEntry:'report', spotbar:'report', reportNav:'report',
   story:'report', cards:'report', verify:'report', checklist:'report', extras:'report',
   annc:'other', feedback:'other', about:'other', newswall:'other', carpool:'other', nearby:'other',
 };
@@ -1387,6 +1421,8 @@ function applyLiveView(){
 }
 function showLiveView(v){ _liveView=v; applyLiveView(); try{localStorage.setItem('sf_liveview_v1',v);}catch(_){} window.scrollTo({top:0,behavior:'smooth'}); }
 window.showLiveView = showLiveView;
+function scrollToEl(id){ const el=document.getElementById(id); if(el && el.offsetParent!==null) el.scrollIntoView({behavior:'smooth', block:'start'}); }
+window.scrollToEl = scrollToEl;
 function showTab(tab){
   _curTab = tab;
   try{ localStorage.setItem('sf_tab_v1', tab); }catch(_){}
@@ -1411,9 +1447,12 @@ window.addEventListener('scroll', ()=>{ const b=document.getElementById('toTop')
 // 深色模式：存储优先，否则跟随系统 prefers-color-scheme
 function applyTheme(dark){ document.body.classList.toggle('dark', dark); const b=document.getElementById('themeToggle'); if(b) b.textContent = dark?'☀️':'🌙'; }
 function toggleTheme(){ const d=!document.body.classList.contains('dark'); applyTheme(d); try{ localStorage.setItem('sf_theme', d?'dark':'light'); }catch(_){} }
-window.toggleTheme = toggleTheme;
-(function(){ let d=false; try{ const s=localStorage.getItem('sf_theme'); if(s===
+window.toggleTheme = toggleTheme;(function(){ let d=false; try{ const s=localStorage.getItem('sf_theme'); if(s===
 'dark'||s==='light') d=(s==='dark'); else if(window.matchMedia) d=matchMedia('(prefers-color-scheme: dark)').matches; }catch(_){} applyTheme(d); })();
+// V-e 首访引导（一次性）
+function dismissOnboard(){ const b=document.getElementById('onboard'); if(b) b.style.display='none'; try{localStorage.setItem('sf_onboarded_v1','1');}catch(_){} }
+window.dismissOnboard = dismissOnboard;
+window.addEventListener('load', ()=>{ try{ if(localStorage.getItem('sf_onboarded_v1')!=='1'){ const b=document.getElementById('onboard'); if(b) b.style.display='flex'; } }catch(_){} });
 // 下拉选项按收藏置顶重排（仅动 data-saved 项，保留 qd / custom 位置）
 function reorderSpotOptions(){
   const sel = document.getElementById('spotSel');

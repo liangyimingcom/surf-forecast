@@ -21,6 +21,9 @@ ok('主标签页 3 个', await page.locator('.maintab .maintab-btn').count() ===
 ok('默认 实时浪报 激活', await page.locator('.maintab-btn.on').getAttribute('data-tab') === 'live');
 ok('U-c tablist 角色', await page.locator('#maintab').getAttribute('role') === 'tablist');
 ok('U-c aria-selected 同步激活标签', await page.locator('.maintab-btn[aria-selected="true"]').getAttribute('data-tab') === 'live');
+ok('V-e 首访引导显示', await page.locator('#onboard').isVisible());
+await page.click('#onboard .onboard-x'); await page.waitForTimeout(150);
+ok('V-e 引导关闭后隐藏', !(await page.locator('#onboard').isVisible()));
 ok('排水量功能已移除', await page.locator('#volume').count() === 0);
 
 // —— 【实时浪报】tab：全国目录 + 直播 ——
@@ -53,6 +56,19 @@ if(await page.locator('#catalog').isVisible()){
   ok('U-a 目录收藏点星切换', _favNowOff !== _favWasOff);
   ok('U-a 点星不跳转(仍在实时浪报)', (await page.locator('.maintab-btn.on').getAttribute('data-tab')) === 'live');
   await page.locator('#catList .cat-fav').first().click(); await page.waitForTimeout(150);  // 复位
+  // V-a 仅看直播 toggle
+  const _beforeLive = await page.locator('#catList .cat-item').count();
+  await page.click('#catLiveBtn'); await page.waitForTimeout(250);
+  const _afterLive = await page.locator('#catList .cat-item').count();
+  ok('V-a 仅直播过滤(数量减少)', _afterLive < _beforeLive && _afterLive >= 1);
+  ok('V-a 仅直播项全含LIVE', _afterLive === (await page.locator('#catList .cat-item .cat-live').count()));
+  await page.click('#catLiveBtn'); await page.waitForTimeout(150);  // 复位
+  // V-b 收藏优先排序：收藏某项→选 fav→首项为已收藏
+  await page.locator('#catList .cat-fav').first().click(); await page.waitForTimeout(200);
+  const _favSlugName = await page.locator('#catList .cat-item').first().locator('.cat-name').innerText();
+  await page.selectOption('#catSort', 'fav'); await page.waitForTimeout(200);
+  ok('V-b 收藏优先(首项为已收藏★)', ((await page.locator('#catList .cat-item').first().locator('.cat-fav').getAttribute('class'))||'').includes('off') === false);
+  await page.selectOption('#catSort', 'default'); await page.waitForTimeout(120);
 } else {
   console.log('  ⏭  #catalog 未显示(未 SF_SEED_SPOTS)，跳过实时浪报断言');
 }
@@ -85,6 +101,8 @@ ok('R2.4 Esc 关闭弹层', await page.locator('#newsModal.open').count() === 0)
 // —— 【浪报详情】tab：收藏/搜索/排序/地图（建浪点后）——
 await tab('report'); await page.waitForTimeout(200);
 ok('R1 收藏搜索框存在', await page.locator('#spotSearch').count() === 1);
+ok('V-c 详情锚点条 4 按钮', await page.locator('#reportNav .rnav-btn').count() === 4);
+await page.locator('#reportNav .rnav-btn', { hasText:'图表' }).click(); await page.waitForTimeout(200);
 const created = await page.evaluate(async ()=>{
   const mk = (name,lat,lon)=>fetch('/api/spots',{method:'POST',credentials:'include',
     headers:{'Content-Type':'application/json'},body:JSON.stringify({name,lat,lon,days:3})}).then(r=>r.status);

@@ -108,7 +108,11 @@ Open-Meteo（同源 ECMWF WAM/IFS，免 key），含 `past_days` 历史回算。
 | ♿ 可达性 | 主标签 ARIA tablist/tab+aria-selected · :focus-visible 焦点态 · 图标 aria-label |
 | 📱 移动端 chips 横滑 | 区域/活动 chips 单行横向滚动(不换行堆叠) |
 | 🔗 分享浪点深链 | 🔗 复制 #spot=lat,lon,name 链接，打开即定位该浪点并进详情 |
+| 📹 目录仅看直播 | 全国目录一键只看有直播浪点(与区域/搜索/排序叠加) |
+| ⭐ 目录收藏优先排序 | 排序档「收藏优先」把 ★ 浪点置顶 |
+| 🧷 详情锚点快捷条 | 一键跳 评分/图表/昨日回看/直播 |
+| 👋 首访引导提示 | 一次性 onboarding，指引三标签页/收藏/分享 |
 
-- **测试**：pytest **145**；Playwright E2E **56/56** + 0 JS 报错（`web/e2e/new_features.mjs`）。
-- **截图/文档**：`docs/screenshots/`(28 张，含 26 浪报详情新布局 / 27 目录★收藏 / 02 地图彩色标记) + `docs/UI优化-01~03`（功能介绍/交互操作指南/教学教程，均含第二轮）。
+- **测试**：pytest **145**；Playwright E2E **62/62** + 0 JS 报错（`web/e2e/new_features.mjs`）。
+- **截图/文档**：`docs/screenshots/`(30 张，含 26 详情布局 / 27 目录★ / 28 仅直播 / 02 地图着色) + `docs/UI优化-01~03`（功能介绍/交互操作指南/教学教程，均含第二、三轮）。
 - **合规**：纯前端附加式；不改引擎内核/后端契约（wdeg/GMT+8/float→Decimal）；受保护接口全 401；社区/直播示例与免责保留。
