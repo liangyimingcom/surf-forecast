@@ -328,6 +328,10 @@
   body.dark .onboard{background:var(--card);border-color:var(--line);color:var(--ink)}
   #toTop{position:fixed;right:16px;bottom:18px;width:44px;height:44px;border-radius:50%;border:none;background:#0369a1;color:#fff;font-size:20px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:opacity .2s;z-index:60}
   #toTop.show{opacity:.92;pointer-events:auto}
+  #chartTip{position:fixed;z-index:200;pointer-events:none;background:rgba(15,23,42,.94);color:#fff;font-size:11px;line-height:1.5;padding:6px 9px;border-radius:8px;white-space:nowrap;box-shadow:0 4px 14px rgba(0,0,0,.28);opacity:0;transform:translate(-50%,-115%);transition:opacity .1s}
+  #chartTip.show{opacity:1}
+  #chartTip b{color:#7dd3fc}
+  .ctHit{cursor:crosshair}
   #themeToggle{position:absolute;right:12px;top:12px;z-index:5;width:34px;height:34px;border:none;border-radius:50%;background:rgba(255,255,255,.18);color:#fff;font-size:16px;cursor:pointer;line-height:1}
   #themeToggle:hover{background:rgba(255,255,255,.32)}
   /* ───── 深色模式（body.dark 覆盖 CSS 变量 + 白底面映射）───── */
@@ -663,6 +667,7 @@
 </div>
 
 <button id="toTop" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="回到顶部" aria-label="回到顶部">↑</button>
+<div id="chartTip" role="tooltip" aria-hidden="true"></div>
 <script>
 /* ================= 数据（DATA CONTRACT：后端 /api/report 应返回同构结构）=================
    来源：Open-Meteo ECMWF WAM/IFS 实时拉取，2026-06-20 校准（北京时间 GMT+8），青岛山东头 6/20–6/25 预报 + 6/19 历史。
@@ -1444,6 +1449,21 @@ window.addEventListener('load', ()=>{                    // 恢复上次主 tab 
 });
 // 回到顶部按钮：滚动超过 400px 显示
 window.addEventListener('scroll', ()=>{ const b=document.getElementById('toTop'); if(b) b.classList.toggle('show', window.scrollY>400); }, {passive:true});
+// 图表悬浮 tooltip：委托监听 SVG 内透明命中列 .ctHit（含触屏 pointerdown）
+(function(){
+  const tip=()=>document.getElementById('chartTip');
+  function show(e){
+    const el=e.target.closest&&e.target.closest('.ctHit'); const t=tip();
+    if(!el||!t){ if(t){t.classList.remove('show');t.setAttribute('aria-hidden','true');} return; }
+    t.innerHTML=el.getAttribute('data-tip')||'';
+    t.style.left=e.clientX+'px'; t.style.top=e.clientY+'px';
+    t.classList.add('show'); t.setAttribute('aria-hidden','false');
+  }
+  function hide(){ const t=tip(); if(t){ t.classList.remove('show'); t.setAttribute('aria-hidden','true'); } }
+  document.addEventListener('pointermove', show, {passive:true});
+  document.addEventListener('pointerdown', show, {passive:true});
+  window.addEventListener('scroll', hide, {passive:true});
+})();
 // 深色模式：存储优先，否则跟随系统 prefers-color-scheme
 function applyTheme(dark){ document.body.classList.toggle('dark', dark); const b=document.getElementById('themeToggle'); if(b) b.textContent = dark?'☀️':'🌙'; }
 function toggleTheme(){ const d=!document.body.classList.contains('dark'); applyTheme(d); try{ localStorage.setItem('sf_theme', d?'dark':'light'); }catch(_){} }
@@ -1589,6 +1609,13 @@ function waveChart(d){
     s+=`<circle cx="${sx(t)}" cy="${syT(d.tp[i])}" r="3.2" fill="#fff" stroke="#f97316" stroke-width="2"/>`;
     if(showLbl(i)) s+=`<text x="${sx(t)}" y="${syT(d.tp[i])+13}" font-size="8.5" fill="#ea580c" text-anchor="middle" font-weight="600">${d.tp[i]}</text>`;
   });
+  // 悬浮 tooltip 命中列（透明，携带该时刻数值）
+  const cwW = pw/Math.max(1,d.times.length);
+  d.times.forEach((t,i)=>{
+    const tp2v = (d.tp2 && d.tp2[i]!=null) ? ` · Tp ${d.tp2[i]}s` : '';
+    const tip = `${String(t).padStart(2,'0')}时 · 浪高 <b>${d.hs[i]}m</b> · 涌 ${d.swell[i]}m · Tm ${d.tp[i]}s${tp2v}`;
+    s+=`<rect class="ctHit" x="${sx(t)-cwW/2}" y="${T}" width="${cwW}" height="${ph}" fill="transparent" data-tip="${tip}"/>`;
+  });
   return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">${s}</svg>`;
 }
 /* 浪高图 HTML 图例 */
@@ -1676,6 +1703,13 @@ function windTideChart(d){
   // x 轴
   [0,6,12,18,24].forEach(t=>{
     s+=`<text x="${sx(t)}" y="${H-9}" font-size="9" fill="#64748b" text-anchor="middle">${t}时</text>`;
+  });
+  // 悬浮 tooltip 命中列（风质/风速/阵风）
+  const cwWT = pw/Math.max(1,d.times.length);
+  d.times.forEach((t,i)=>{
+    const kn=WIND_META[windKind(d.wdeg[i])].label || windKind(d.wdeg[i]);
+    const tip = `${String(t).padStart(2,'0')}时 · 风 <b>${d.wind[i]}kn</b> · 阵风 ${d.gust[i]}kn · ${kn}`;
+    s+=`<rect class="ctHit" x="${sx(t)-cwWT/2}" y="${T}" width="${cwWT}" height="${ph}" fill="transparent" data-tip="${tip}"/>`;
   });
   return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">${s}</svg>`;
 }

@@ -203,6 +203,18 @@ ok('深色模式 开启(body.dark)', await page.locator('body.dark').count() ===
 await page.click('#themeToggle'); await page.waitForTimeout(200);
 ok('深色模式 关闭', await page.locator('body.dark').count() === 0);
 
+// —— 图表悬浮 tooltip：高手模式下 hover 命中列 → #chartTip 显示数值 ——
+await tab('report'); await page.evaluate(()=>window.setMode&&window.setMode(true)); await page.waitForTimeout(400);
+const hit0 = page.locator('.chartbox svg .ctHit').first();
+if(await hit0.count()){
+  await hit0.scrollIntoViewIfNeeded(); await page.waitForTimeout(200);
+  await hit0.hover(); await page.waitForTimeout(150);
+  ok('图表 tooltip 悬浮显示', (await page.locator('#chartTip').getAttribute('class')||'').includes('show')
+    && ((await page.locator('#chartTip').innerText())||'').length > 0);
+} else {
+  fail++; console.log('  ❌ 图表 tooltip 未找到 .ctHit 命中列');
+}
+
 // —— 0 JS 报错（排除资源404/favicon/直播流HLS）——
 const jsErrors = errors.filter(e => !/favicon|Failed to load resource|net::ERR|m3u8|hls|manifest|frag|level|buffer|mediaError/i.test(e));
 ok('0 控制台 JS 报错(排除资源404/直播流)', jsErrors.length === 0);
