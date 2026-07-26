@@ -33,6 +33,7 @@ class InMemoryStore:
         self.spots: dict[str, list] = {}      # email -> [spot,...]
         self.registry: dict[str, dict] = {}   # slug -> registry row (全局去重浪点)
         self.prefs: dict[str, str] = {}       # email -> last_selected slug
+        self.feedback: dict[str, dict] = {}   # fid -> 需求/反馈行(status 状态机)
 
     # —— users ——
     def get_user(self, email: str) -> Optional[dict]:
@@ -150,6 +151,30 @@ class InMemoryStore:
         with self._lock:
             return self.prefs.get(email)
 
+    # —— feedback / 需求库（status 状态机）——
+    def add_feedback(self, row: dict) -> dict:
+        with self._lock:
+            self.feedback[row["id"]] = dict(row)
+            return self.feedback[row["id"]]
+
+    def list_feedback(self, status: str | None = None) -> list[dict]:
+        with self._lock:
+            rows = list(self.feedback.values())
+        return [r for r in rows if status is None or r.get("status") == status]
+
+    def set_feedback_status(self, fid: str, status: str) -> None:
+        with self._lock:
+            r = self.feedback.get(fid)
+            if r:
+                r["status"] = status
+
+    def find_feedback_by_claim(self, claim: str) -> dict | None:
+        with self._lock:
+            for r in self.feedback.values():
+                if r.get("claim_code") == claim:
+                    return r
+        return None
+
 
 _store: InMemoryStore | None = None
 
@@ -170,6 +195,7 @@ class DynamoDBStore:
         self.votes = ddb.Table(f"{prefix}-accuracy_votes")
         self.spots_t = ddb.Table(f"{prefix}-saved_spots")
         self.registry_t = ddb.Table(f"{prefix}-spot_registry")
+        self.feedback_t = ddb.Table(f"{prefix}-feedback")
 
     def get_user(self, email):
         r = self.users.get_item(Key={"email": email})
@@ -302,6 +328,51 @@ class DynamoDBStore:
     def get_last_selected(self, email):
         u = self.get_user(email)
         return (u or {}).get("last_selected")
+
+    # —— feedback / 需求库（status 状态机，TTL 仅清 new/rejected）——
+    def _fb_ttl(self, status: str):
+        import time
+        return int(time.time()) + 14 * 86400 if status in ("new", "rejected") else None
+
+    def add_feedback(self, row: dict) -> dict:
+        item = dict(row)
+        ttl = self._fb_ttl(item.get("status", "new"))
+        if ttl is not None:
+            item["expiresAt"] = ttl
+        self.feedback_t.put_item(Item=_to_decimal(item))
+        return item
+
+    def list_feedback(self, status: str | None = None) -> list[dict]:
+        from boto3.dynamodb.conditions import Attr
+        kw = {"FilterExpression": Attr("status").eq(status)} if status else {}
+        items, resp = [], self.feedback_t.scan(**kw)
+        items.extend(resp.get("Items", []))
+        while resp.get("LastEvaluatedKey"):
+            resp = self.feedback_t.scan(ExclusiveStartKey=resp["LastEvaluatedKey"], **kw)
+            items.extend(resp.get("Items", []))
+        return items
+
+    def set_feedback_status(self, fid: str, status: str) -> None:
+        # 采纳/进行中/已发 → 去掉 TTL（绝不被 TTL 误删）；new/rejected → 保留/重设 TTL
+        ttl = self._fb_ttl(status)
+        if ttl is None:
+            self.feedback_t.update_item(
+                Key={"id": fid},
+                UpdateExpression="SET #s = :st REMOVE expiresAt",
+                ExpressionAttributeNames={"#s": "status"},
+                ExpressionAttributeValues={":st": status})
+        else:
+            self.feedback_t.update_item(
+                Key={"id": fid},
+                UpdateExpression="SET #s = :st, expiresAt = :e",
+                ExpressionAttributeNames={"#s": "status"},
+                ExpressionAttributeValues={":st": status, ":e": ttl})
+
+    def find_feedback_by_claim(self, claim: str):
+        from boto3.dynamodb.conditions import Attr
+        r = self.feedback_t.scan(FilterExpression=Attr("claim_code").eq(claim))
+        items = r.get("Items", [])
+        return items[0] if items else None
 
 
 def get_store():

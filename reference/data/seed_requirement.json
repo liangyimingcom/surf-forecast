@@ -1,0 +1,20 @@
+{
+  "id": "seed-0001",
+  "status": "accepted",
+  "kind": "improve",
+  "page": "live",
+  "text": "[直播播放/清晰度] 直播弹层底部免责文案补充说明：信号随时段变化、暂未开播属正常，减少用户误解。",
+  "repro": "",
+  "expect": "直播弹层 .cam-tip 文案追加一句“信号可能随时段变化，暂未开播属正常。”",
+  "accept": "web/浪报MVP.html 的 .cam-tip 含新增说明；pytest+冻结E2E 全绿；纯前端附加式、不改 web/e2e/。",
+  "rollbackable": true,
+  "auto_eligible": true,
+  "created_gmt8": "2026-07-26 15:12",
+  "edit": {
+    "file": "web/浪报MVP.html",
+    "op": "append_in_element",
+    "find": "直播流来自公开来源，仅供研究用途。",
+    "replace": "直播流来自公开来源，仅供研究用途；信号可能随时段变化，暂未开播属正常。",
+    "note": "声明式确定性编辑(锚点全文替换,幂等)。真实 pipeline 由 LLM coder 产出等价 edit;此处手工种入以打通端到端。"
+  }
+}
