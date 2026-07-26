@@ -1,23 +1,29 @@
-# Roadmap — 自迭代闭环 A(对话审阅台) → E(全链薄彩排)
+# Roadmap — self-iterate-ops spec（可审物，零代码）
 
-单一驱动器(auto-nudge)。每轮挑最高杠杆一步，改前 grep/CodeLens 摸底，改后 pytest/E2E/bash -n；
-生产写操作(真发布/真改生产 status)统一在「生产写操作门 G」或人工对话授权下执行。顺序 A→E。
+单一驱动器(auto-nudge,禁 task_run)。纯文档产出;不改运行时/不碰生产。每轮据实勾选。
 
-## A 对话审阅台（连接输入↔执行的中段；工具本地实现+单测，对生产操作人工授权）
-- A1 审阅工具 `tools/review_queue.py`(纯 stdlib)：子命令 list/accept/reject/stats；
-     读 feedback（status 过滤）+ 垃圾/超短/重复预过滤 + 摘要展示；accept→status=accepted(去TTL)，reject→status=rejected(留TTL)。
-     支持 `--store dynamo`(生产,需 creds) 与 `--store memory`(测试/dry-run)。
-- A2 对话审阅体验：review_queue list 拉待审 → 我在对话把摘要+预分类拉给你 → 你说"接受X/驳回Y" → 我调 accept/reject 改 status（逐条人工授权）。
-- A3 覆盖：review_queue 状态流转/过滤/去重 确定性单测（双侧钉死边界）；用内存 store 模拟，不碰生产。
+## S1 requirements.md
+- 摸底既有 spec 的 requirements 写法(EARS/编号/验收)对齐风格。
+- 用户故事：终端用户提建议 / 人工每日 triage 审阅 / accepted 按风险分流 / AI 出 draft PR / 人主导发布 / 审计追溯。
+- 验收标准(EARS)；把 v5 红线(人主导·去无人值守·硬规则兜底·非回滚·单驱动)写成**约束性需求**。
 
-## E 全链薄彩排（一条真需求跑通整环）
-- E1 选一条真实 accepted 需求（A 审阅产出；队列空则用一条真实提交样本 accept）→ 备 req_pipeline 可消费的需求对象（agent 据需求手工写声明式 edit，标注=LLM coder 缝）。
-- E2 跑 `req_pipeline`：安全门 →(纯前端+全绿=AUTO_OK / 否则 NEEDS_HUMAN)→ 出 draft PR（--create-pr，真开）。
-- E3 合并（自动路径判定/人工）→ deploy.sh 发布(build+redeploy)+金丝雀(canary 64/0)→ git tag + CHANGELOG(需求ID)。  ← 真发布=G门
-- E4 闭环通知：该需求 status→shipped；生产 /api/changelog 可见；认领码 track 显示 shipped。
-- E5 审计链验证：`audit_trace --requirement-id <该需求>` 全环 ✅ 贯通（不再 ⏳）。
+## S2 design.md
+- 架构总览：收编 v5 G1-G5;数据流(建议→审阅→分流→PR→发布→审计);与产品 5-spec 的边界(工具≠产品功能)。
+- **ADR（L0 决策，附推荐值+备选，待人批）**：D-a 分流硬规则清单 / D-b 升格 spec 映射 / D-c lane 记录方式 / D-d triage 渠道。
+- 数据模型：feedback 需求对象(+lane/spec_ref/decided_gmt8;非回滚;读路径容忍旧行缺字段)。
+- 接口：review_queue(promote/mark) / req_pipeline(--from-queue,lane-aware) / 每日 cron。
+- 复用清单：review_queue.py/req_pipeline.py/audit_trace.py/tools/crons/surf_triage.py(已建)。
 
-## [生产写操作门 G]（停下发 blocker 等人工确认后执行）
-- G.E2 真开 draft PR（--create-pr 推分支+建 PR）
-- G.E3 真发布(build+redeploy+canary+git tag+CHANGELOG)
-- G.status 改生产 feedback status（accept/reject/shipped）——逐条人工对话授权
+## S3 tasks.md
+- 实施任务排序(决策优先):L0决策 → L1数据模型/契约 → L2新接口 → L3用户可见 → L4内部逻辑(硬规则兜底) → L5机械/测试。
+- **红线逻辑(lane判定/兜底)测试随层编织,不推迟 L5**(执行注意 2)。
+- 每条任务映射 requirements 编号 + 标可回滚性。
+
+## S4 结构注册
+- `structure.md` spec 边界表 +self-iterate-ops(标"工具/流程 spec");README「快速导航」+条目;根 roadmap/README 提及。
+
+## S5 一致性校验 + 收尾
+- 三件套交叉引用/EARS 格式/ADR 完整性自查;pytest 188 无倒退(零代码);创建 STOP。
+
+## [生产写操作门 G]
+- 无。本 goal 纯文档。实现 self-iterate-ops 的代码 = 后续独立 goal，且真发布仍留 G 门。
