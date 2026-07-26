@@ -10,7 +10,7 @@
 - **离岸风(offshore)**：风向作为一等参数，图示用色块+箭头编码 offshore/cross/onshore。
 - **昨日回看校验**：用真实历史回算 + 用户体感自评，校准系统性偏差（新增独立 spec）。
 - **双周期口径** Tm/Tp、**GMT+8** 全程显式校准时间戳。
-- **三个 spec**：analyzer / web / accuracy-feedback，外加 **deployment-and-ops**（生产部署 + 每日自动更新）与 **custom-spots**（浪点自定义与管理）。
+- **五个产品 spec**：analyzer / web / accuracy-feedback / deployment-and-ops / custom-spots，外加 **self-iterate-ops**🔧（用户建议自迭代闭环，*工具/流程 spec*，人主导·非产品功能）。
 
 ## 快速导航
 
@@ -24,6 +24,7 @@
 | 昨日回看校验 spec | [.kiro/specs/forecast-accuracy-feedback/](.kiro/specs/forecast-accuracy-feedback/) |
 | 生产部署+每日自动更新 spec | [.kiro/specs/deployment-and-ops/](.kiro/specs/deployment-and-ops/) |
 | 浪点自定义与管理 spec | [.kiro/specs/custom-spots/](.kiro/specs/custom-spots/) |
+| 用户建议自迭代闭环 spec🔧(工具/流程) | [.kiro/specs/self-iterate-ops/](.kiro/specs/self-iterate-ops/) |
 | 会员视图实现 | [web/浪报MVP.html](web/浪报MVP.html) |
 | UI 验收基准 | [reference/reports/ui-golden-sample-浪报MVP.html](reference/reports/ui-golden-sample-浪报MVP.html) |
 | 后续开发指南 | [docs/kiro-development-guide.md](docs/kiro-development-guide.md) |
@@ -34,7 +35,7 @@
 
 ## 当前状态
 
-- ✅ Kiro 文档体系完整（4 steering + 5 spec三件套 + 2 hooks）
+- ✅ Kiro 文档体系完整（4 steering + 6 spec三件套(5产品+1工具) + 2 hooks）
 - ✅ `web/浪报MVP.html`：会员视图功能完整 MVP（双模式、三类 SVG 图表、离岸风质条、昨日回看、GMT+8）
 - ✅ `src/surf_forecast/physics.py` 已实现并通过校验（含风向判定）
 - ⬜ 引擎其余模块、Web 后端、校验持久化为脚手架，按各 spec 的 tasks 推进

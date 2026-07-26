@@ -1,29 +1,31 @@
-# North Star — 自迭代闭环 A(对话审阅台) → E(全链薄彩排)
+# North Star — 产出第 6 个 Kiro spec：self-iterate-ops（可审物，零代码）
 
 ## 目标
-把"活的用户建议"接成**真正的闭环**：
-1. **A 对话审阅台**：从生产 feedback 表拉待审建议 → 人工在对话里 accept/reject → 改 status（accepted 进 pipeline 队列，去 TTL）。补上"输入端↔执行端"缺失的中段。
-2. **E 全链薄彩排**：取一条真实 accepted 需求，跑通整环——
-   `建议 → 审阅accept → req_pipeline安全门 →(纯前端全绿=自动 / 否则人工)draft PR → 合并 → 部署+金丝雀 → status=shipped → 更新日志/认领码可见 → 审计链贯通`。
+把「自迭代闭环 v5 人主导治理模型」升格为**正式的第 6 个 Kiro spec** `self-iterate-ops`，
+产出完整三件套（requirements / design / tasks）并注册进项目结构。
+**纯文档 / 零代码 / 零 live 触碰**——本 goal 只产可审规格，不改 review_queue/req_pipeline/feedback 运行时、不碰生产。
 
-## DoD（每阶段）
-- 相关 pytest/冻结E2E 全绿(64/0)+0 JS 报错；schema_check ✅；红线零违反；据实勾选。
-- A：review_queue 工具有确定性单测（状态流转/过滤/去重双侧钉死）；对生产表操作**逐条由人工在对话里授权**。
-- E：一条真需求端到端可追溯——`audit_trace --requirement-id` 全环 ✅ 贯通（不再 ⏳）。
+## 产物
+1. `.kiro/specs/self-iterate-ops/requirements.md`：EARS 风格用户故事 + 验收标准；把 v5 红线作为约束性需求。
+2. `.kiro/specs/self-iterate-ops/design.md`：架构（收编 v5 G1-G5）+ **L0 决策作 ADR 附推荐值（待 spec 评审拍板，loop 不自行定案）** + 数据模型 + 接口 + 复用既有组件（review_queue/req_pipeline/audit_trace/每日 cron）。
+3. `.kiro/specs/self-iterate-ops/tasks.md`：实施任务，**排序=决策→数据模型→新接口→用户可见→内部逻辑→机械/测试（红线逻辑测试随层例外）**，每条映射 requirements。
+4. 注册：`structure.md` spec 边界表 +1、README 导航、根 roadmap 提及；**明标"工具/流程 spec，与产品功能 spec 区分"**（不侵蚀产品范围认知）。
 
-## 红线（不可妥协）
-- **单一驱动器**：dashboard auto-nudge 唯一驱动，**绝不调 task_run**。
-- **AI 绝不自动合并 master / 自动部署生产**：pipeline 只出 draft PR；真发布(build/redeploy/canary/tag)统一停「生产写操作门 G」等人工确认。
-- **审阅 accept/reject 改生产 status = 人工在对话里逐条授权**（人即是门），非无人值守。
-- 自动路径仅当：路径 ⊆{web/浪报MVP.html} + 非删除 + pytest/E2E 全绿 + diff 安全扫描过；**禁碰 web/e2e/**（冻结基线）。
-- 沿用既有红线：GMT+8 / DATA CONTRACT wdeg / DynamoDB float→Decimal(_to_decimal) / 全 401 / ALB SG 禁 0.0.0.0/0 / terraform 禁 -auto-approve。
-- 新增 DynamoDB 表/IAM 走既有教训（任务角色按表 ARN 授权 + IAM 最终一致）。
-- 每轮改前 grep/CodeLens 摸底 + 算爆炸半径；改后 pytest/E2E 不倒退。
-- **LLM coder 未接线**（方向 D 未选）：E 彩排的 edit 由 agent 据需求手工写声明式 edit，此为唯一人工缝、显式标注。
+## DoD
+- 三件套齐全、交叉引用一致、EARS 验收可测；L0 以 ADR 形式列出**推荐值 + 备选**待人批（未擅自定案）。
+- 结构注册完成（structure.md/README/roadmap 提及 self-iterate-ops 且标注工具属性）。
+- **零代码改动** → pytest 仍 **188** 不倒退（仅验证无回归，不新增测试）。
+- 全程 GMT+8；据实勾选。
+
+## 红线
+- **单一驱动器**：auto-nudge 唯一驱动，**禁 task_run**；与每日 triage cron(8e721bb9)/任何产品 goal 不并发写同一文件。
+- **纯文档**：不改任何 `.py`/`.mjs`/`web/浪报MVP.html` 运行时；不碰生产 DynamoDB/ECS。
+- **L0 不自行拍板**：D-a~D-d 只作 ADR 附推荐，最终由人在 spec 评审时定。
+- 沿用既有红线（GMT+8 / DATA CONTRACT / float→Decimal / 全401 / SG禁0.0.0.0/0 / terraform禁-auto-approve）——作为 spec 的约束性需求写入，不在本 goal 实现。
 
 ## 范围外
-匿名触发合并/部署；向匿名暴露 CodeLens/源码；云端 LLM 澄清接线（方向 C）；LLM 自动写 edit（方向 D）；TTL 误删已采纳需求。
+写任何实现代码；改 review_queue/req_pipeline/feedback；碰生产；替人定 L0 决策；产品 5-spec 主线工作。
 
 ## 停止
-所有本地可交付完成、仅剩生产写操作门(G)时，创建 STOP：
+三件套 + 注册完成、pytest 188 无倒退后创建 STOP：
 `/Users/yiming/.meshclaw/workspace-surf-forecast/.stop-chat-3-1783779532`

@@ -19,7 +19,8 @@ surf-forecast-kiro-v2/
 │   │   ├── surf-report-web/           # 会员网站（鉴权/查询/视图）
 │   │   ├── forecast-accuracy-feedback/# 昨日回看校验机制（v2 新增）
 │   │   ├── deployment-and-ops/        # 生产部署+每日自动更新（v2 新增）
-│   │   └── custom-spots/              # 浪点/位置自定义与管理（v2 新增）
+│   │   ├── custom-spots/              # 浪点/位置自定义与管理（v2 新增）
+│   │   └── self-iterate-ops/          # 用户建议自迭代闭环（工具/流程 spec，v2 新增）
 │   └── hooks/
 ├── web/
 │   └── 浪报MVP.html              # 当前会员视图实现（单文件 MVP）
@@ -42,7 +43,7 @@ surf-forecast-kiro-v2/
 └── README.md
 ```
 
-## 五个 Spec 的边界
+## 六个 Spec 的边界（5 产品功能 + 1 工具/流程）
 
 | Spec | 负责 | 不负责 |
 |------|------|--------|
@@ -51,8 +52,9 @@ surf-forecast-kiro-v2/
 | **forecast-accuracy-feedback** | 昨日历史回算、预报vs体感自评、偏差校准 | 实时预报（用引擎历史模式） |
 | **deployment-and-ops** | IaC、计算托管、存储、**每日定时刷新**、CDN、可观测性、安全、CI/CD | 业务逻辑（部署上述三者） |
 | **custom-spots** | 浪点注册表、自定义经纬度、多点管理(CRUD)、动态刷新编排(去重/即时预算/冷点回收) | 评分/渲染(调引擎)、鉴权(用 web 会话)、调度基建(用 deployment) |
+| **self-iterate-ops** 🔧 | 用户建议落库/澄清/每日triage审阅/按风险分流/AI出draft PR/人主导发布/审计链（**工具·流程 spec，非产品功能**） | 产品功能实现(升格进对应产品spec)、无人值守自动合并/部署(明确不做) |
 
-依赖：web 与 feedback 都依赖 analyzer；feedback 在 web 视图中呈现；deployment-and-ops 部署前述者，并提供「每日自动更新」调度链路（与在线请求读写解耦）。**custom-spots** 依赖 analyzer(引擎)、web(会话/视图)、deployment(缓存/调度)——把 deployment 的硬编码 `DEFAULT_SPOTS` 升级为 DynamoDB 动态浪点注册表。
+依赖：web 与 feedback 都依赖 analyzer；feedback 在 web 视图中呈现；deployment-and-ops 部署前述者，并提供「每日自动更新」调度链路（与在线请求读写解耦）。**custom-spots** 依赖 analyzer(引擎)、web(会话/视图)、deployment(缓存/调度)——把 deployment 的硬编码 `DEFAULT_SPOTS` 升级为 DynamoDB 动态浪点注册表。**self-iterate-ops**（工具/流程）复用 web 鉴权、deployment 发布地基与既有工具(review_queue/req_pipeline/audit_trace/surf_triage cron)；它演进"产品如何迭代"，与 5 个产品功能 spec 解耦，绝不侵蚀产品范围。治理见 [docs/自迭代闭环-治理模型-v5.md](../../docs/自迭代闭环-治理模型-v5.md)。
 
 ## 命名约定
 
