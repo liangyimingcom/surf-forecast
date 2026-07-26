@@ -37,7 +37,9 @@ def cams_list(user: dict = Depends(deps.current_user)) -> dict:
     rows = db.get_store().list_listed_registry() or []
     cams = []
     for r in rows:
-        if not r.get("live_src"):
+        src = r.get("live_src") or ""
+        # 只收 https 源：http 明文在 HTTPS 生产会被 mixed-content 拦截、永远无法播放
+        if not src.startswith("https://"):
             continue
         try:
             lat, lon = float(r["lat"]), float(r["lon"])

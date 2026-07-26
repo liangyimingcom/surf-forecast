@@ -29,7 +29,11 @@ REGIONS_8 = {"广东", "海南", "福建", "广西", "浙江", "山东", "其他
 EXPECT_REGION_COUNTS = {"广东": 22, "海南": 15, "山东": 3, "福建": 5,
                         "广西": 3, "浙江": 2, "其他": 1, "国外": 7}
 EXPECT_TOTAL = 58
-EXPECT_LIVE = 42
+# 直播只收 https 源（http 明文在 HTTPS 生产 mixed-content 被拦，已在 cams.py 过滤）
+import json as _json
+EXPECT_LIVE = sum(
+    1 for _r in _json.load(open("reference/data/shilaoren_spots.json"))["spots"]
+    if str(_r.get("live_src") or "").startswith("https://"))
 
 
 @pytest.fixture(autouse=True)
@@ -90,8 +94,9 @@ def test_registry_region_distribution_matches_snapshot():
 
 def test_registry_live_src_subset_is_42():
     _seed_real()
+    # 注册表保留全部 live_src（含 http，不过滤）——42；https 过滤只发生在 /api/cams 层
     live = [r for r in db.get_store().list_active_registry() if r.get("live_src")]
-    assert len(live) == EXPECT_LIVE
+    assert len(live) == 42
 
 
 def test_seed_row_float_to_decimal_redline():

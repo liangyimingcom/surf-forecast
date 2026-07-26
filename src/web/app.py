@@ -196,7 +196,7 @@ def catalog_list(user: dict = Depends(deps.current_user)) -> dict:
             "region": r.get("region_cn", "其他"), "lat": lat, "lon": lon,
             "facing": float(r.get("spot_facing_deg", 0) or 0),
             "facing_calibrated": bool(r.get("facing_calibrated", False)),
-            "has_live": bool(r.get("live_src")), "days": int(r.get("days", 6) or 6),
+            "has_live": str(r.get("live_src") or "").startswith("https://"), "days": int(r.get("days", 6) or 6),
         })
     return {"catalog": catalog}
 

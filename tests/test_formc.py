@@ -108,3 +108,19 @@ def test_cold_spot_still_listed_but_not_refreshed(client):
     cat = {c["slug"] for c in client.get("/api/catalog").json()["catalog"]}
     cams = {c["slug"] for c in client.get("/api/cams").json()["cams"]}
     assert "sl74" in cat and "sl74" in cams
+
+
+# —— http 明文源须被隐藏（HTTPS 生产 mixed-content 拦截，数据诚实）——
+def test_http_live_src_excluded(client):
+    from web import seed as _seed_mod
+    snap = {"spots": [
+        {"slug": "hp1", "name": "明文源", "city": "X", "region_cn": "其他",
+         "lat": 22.5, "lon": 114.5, "facing": 135, "facing_calibrated": False,
+         "live_src": "http://isurflive.c-pan.cn/live/x.m3u8", "post_url": None},
+    ]}
+    _seed_mod.seed_store(db.get_store(), _seed_mod.build_registry_rows(snap))
+    _auth(client)
+    cams = {c["slug"] for c in client.get("/api/cams").json()["cams"]}
+    cat = {c["slug"]: c for c in client.get("/api/catalog").json()["catalog"]}
+    assert "hp1" not in cams                 # http 源不进直播
+    assert cat["hp1"]["has_live"] is False   # 目录 has_live 也不认 http

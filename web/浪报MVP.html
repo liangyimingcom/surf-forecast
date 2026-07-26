@@ -305,6 +305,8 @@
   .cam-card:hover{border-color:#7fb0e6}
   .cam-thumb{position:relative;height:90px;background:linear-gradient(135deg,#5b8bc4,#a7c7e7);display:flex;align-items:center;justify-content:center}
   .cam-live{position:absolute;top:6px;left:6px;font-size:10px;font-weight:700;color:#fff;background:rgba(217,83,79,.9);border-radius:6px;padding:1px 6px}
+  .cam-live.probing{background:rgba(100,116,139,.85)}
+  .cam-live.offline{background:rgba(71,85,105,.9)}
   .cam-play{font-size:26px;color:rgba(255,255,255,.9)}
   .cam-name{padding:7px 10px;font-size:12.5px;font-weight:600;color:var(--ink1,#1a2734)}
   .cam-empty{color:var(--ink3);font-size:12.5px;padding:8px 2px}
@@ -1280,10 +1282,36 @@ function renderLivecams(){
   const box = document.getElementById('camGrid');
   if(!box) return;
   if(!CAMS.length){ box.innerHTML = '<div class="cam-empty">登录后加载直播源…（研究用途，数据来自公开直播流）</div>'; return; }
-  box.innerHTML = CAMS.map(c=>`<div class="cam-card" onclick="openCam('${_favEscape(c.slug)}')">`
-    + `<div class="cam-thumb"><span class="cam-live">● LIVE</span><span class="cam-play">▶</span></div>`
+  box.innerHTML = CAMS.map(c=>`<div class="cam-card" data-slug="${_favEscape(c.slug)}" onclick="openCam('${_favEscape(c.slug)}')">`
+    + `<div class="cam-thumb"><span class="cam-live probing" data-live="probing">⏳ 检测中</span><span class="cam-play">▶</span></div>`
     + `<div class="cam-name">${_favEscape(c.name)}${c.city?' · '+_favEscape(c.city):''}</div>`
     + `</div>`).join('');
+  probeCamsLive();
+}
+/* 探活：真实探测每条直播源是否在播，据实标 🔴LIVE / ⚫暂未开播（数据诚实，不全标LIVE）。
+   上游 CORS=*，浏览器可 fetch；并发限 6，会话内缓存避免重复探测。*/
+const _camLive = {};   // slug -> true/false
+async function probeCamsLive(){
+  const box = document.getElementById('camGrid'); if(!box) return;
+  const setBadge = (slug, ok)=>{
+    const el = box.querySelector(`.cam-card[data-slug="${slug}"] .cam-live`); if(!el) return;
+    el.classList.remove('probing');
+    if(ok){ el.dataset.live='1'; el.textContent='● LIVE'; el.classList.remove('offline'); }
+    else  { el.dataset.live='0'; el.textContent='⚫ 暂未开播'; el.classList.add('offline'); }
+  };
+  const probe = async (c)=>{
+    if(c.slug in _camLive){ setBadge(c.slug, _camLive[c.slug]); return; }
+    let ok=false;
+    try{
+      const ac=new AbortController(); const t=setTimeout(()=>ac.abort(), 4500);
+      const r=await fetch(c.live_src, {signal:ac.signal, cache:'no-store'});
+      clearTimeout(t); ok = r.ok;   // 200 = 在播；404/其它 = 未开播
+    }catch(_){ ok=false; }
+    _camLive[c.slug]=ok; setBadge(c.slug, ok);
+  };
+  // 并发限 6
+  const q=[...CAMS]; const workers=Array.from({length:6}, async()=>{ while(q.length){ await probe(q.shift()); } });
+  await Promise.all(workers);
 }
 async function loadCams(){
   _sfSkel('camGrid','cam',4);                 // 加载态骨架屏
@@ -1295,20 +1323,27 @@ async function loadCams(){
   }catch(_){ renderLivecams(); }              // 出错也恢复占位
 }
 let _hls = null;
+function _camMsg(text){
+  const t=document.getElementById('camModalTitle'); if(t) t.textContent=text;
+}
 function openCam(slug){
   const c = CAMS.find(x=>x.slug===slug); if(!c || !c.live_src) return;
   const modal = document.getElementById('camModal');
   const v = document.getElementById('camVideo');
-  document.getElementById('camModalTitle').textContent = c.name + (c.city?' · '+c.city:'');
+  const title = c.name + (c.city?' · '+c.city:'');
+  document.getElementById('camModalTitle').textContent = title;
   modal.classList.add('open'); modal.setAttribute('aria-hidden','false');
   if(_hls){ try{_hls.destroy();}catch(_){} _hls=null; }
+  const onDead = ()=> _camMsg(title+' — 直播信号中断或暂未开播（公开源·研究用途）');
+  v.onerror = onDead;   // Safari 原生 HLS 出错
   if(v.canPlayType('application/vnd.apple.mpegurl')){        // Safari 原生 HLS
     v.src = c.live_src; v.play().catch(()=>{});
   }else if(window.Hls && Hls.isSupported()){
     _hls = new Hls({lowLatencyMode:true, liveDurationInfinity:true});
+    _hls.on(Hls.Events.ERROR, (_e,data)=>{ if(data && data.fatal) onDead(); });  // 死链/网络错→友好提示
     _hls.loadSource(c.live_src); _hls.attachMedia(v); v.play().catch(()=>{});
   }else{
-    document.getElementById('camModalTitle').textContent = c.name+'（浏览器不支持 HLS）';
+    _camMsg(c.name+'（浏览器不支持 HLS）');
   }
 }
 function closeCam(){
