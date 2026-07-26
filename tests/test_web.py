@@ -86,3 +86,28 @@ def test_bad_coord_400(client):
     client.post("/api/auth/login", json={"email": "a@b.com", "password": "secret123"})
     r = client.get("/api/report?lat=999&lon=120&days=3")
     assert r.status_code == 400
+
+
+def test_report_502_on_datasource_failure(client, monkeypatch):
+    """W2.1 故障降级：get_report 抛错(如 Open-Meteo 故障) → 502 + 可读 detail（非 500 裸崩、非白屏源）。"""
+    client.post("/api/auth/register", json={"email": "d@b.com", "password": "secret123"})
+    client.post("/api/auth/login", json={"email": "d@b.com", "password": "secret123"})
+
+    def _boom(lat, lon, days, spot):
+        from surf_forecast.fetch import DataSourceError
+        raise DataSourceError("Open-Meteo 502", ["*"])
+    monkeypatch.setattr(deps, "get_report", _boom)
+    r = client.get("/api/report?lat=36.092&lon=120.468&spot=x&days=3")
+    assert r.status_code == 502
+    assert "浪报生成失败" in r.json()["detail"]
+
+
+def test_history_502_on_failure(client, monkeypatch):
+    client.post("/api/auth/register", json={"email": "d@b.com", "password": "secret123"})
+    client.post("/api/auth/login", json={"email": "d@b.com", "password": "secret123"})
+
+    def _boom(lat, lon, days, spot):
+        raise RuntimeError("history upstream down")
+    monkeypatch.setattr(deps, "get_history", _boom)
+    r = client.get("/api/report/history?lat=36.092&lon=120.468&spot=x")
+    assert r.status_code == 502

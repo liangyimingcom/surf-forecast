@@ -1,31 +1,31 @@
-# North Star — 产出第 6 个 Kiro spec：self-iterate-ops（可审物，零代码）
+# North Star — surf-report-web 韧性与契约（阶段3 缓存容错 + 0.2 契约 schema）
 
 ## 目标
-把「自迭代闭环 v5 人主导治理模型」升格为**正式的第 6 个 Kiro spec** `self-iterate-ops`，
-产出完整三件套（requirements / design / tasks）并注册进项目结构。
-**纯文档 / 零代码 / 零 live 触碰**——本 goal 只产可审规格，不改 review_queue/req_pipeline/feedback 运行时、不碰生产。
+让会员视图**在 Open-Meteo 故障时不白屏、可缓存加速**，并把前后端数据契约固化为**单一来源**。
+聚焦 surf-report-web spec 的：**0.2**(report.schema.json 契约) + **3.2**(故障降级不白屏) + **3.1**(cache.py TTL) + **3.3**(test_cache)。
 
-## 产物
-1. `.kiro/specs/self-iterate-ops/requirements.md`：EARS 风格用户故事 + 验收标准；把 v5 红线作为约束性需求。
-2. `.kiro/specs/self-iterate-ops/design.md`：架构（收编 v5 G1-G5）+ **L0 决策作 ADR 附推荐值（待 spec 评审拍板，loop 不自行定案）** + 数据模型 + 接口 + 复用既有组件（review_queue/req_pipeline/audit_trace/每日 cron）。
-3. `.kiro/specs/self-iterate-ops/tasks.md`：实施任务，**排序=决策→数据模型→新接口→用户可见→内部逻辑→机械/测试（红线逻辑测试随层例外）**，每条映射 requirements。
-4. 注册：`structure.md` spec 边界表 +1、README 导航、根 roadmap 提及；**明标"工具/流程 spec，与产品功能 spec 区分"**（不侵蚀产品范围认知）。
+## 排序（你的原则：最可能调整的决策在前，机械/测试垫底；红线逻辑测试随层）
+1. **0.2 数据契约**（最可能调整）：抽 DAYS/HISTORY/REPORT 形状为 `web/report.schema.json`（含 wdeg/tp2/tideEvents 数字字段），前后端单一真相源。
+2. **3.2 用户可见**：Open-Meteo 取数失败时后端降级、前端**不白屏**（友好态/回退上一版），保留校准时间戳诚实。
+3. **3.1 内部**：cache.py TTL（预报短 TTL / 历史长缓存），由 `SF_CACHE_BUCKET` 特性开关控制。
+4. **3.3 测试**：test_cache（TTL 边界/降级路径）；红线逻辑（TTL 命中/过期、降级触发）**边界双侧钉死随层编织**，不推迟。
 
 ## DoD
-- 三件套齐全、交叉引用一致、EARS 验收可测；L0 以 ADR 形式列出**推荐值 + 备选**待人批（未擅自定案）。
-- 结构注册完成（structure.md/README/roadmap 提及 self-iterate-ops 且标注工具属性）。
-- **零代码改动** → pytest 仍 **188** 不倒退（仅验证无回归，不新增测试）。
+- pytest 全绿（新增 test_cache）+ 冻结 E2E 64/0 + 0 JS 报错；schema 与实际 render_json 字段一致（校验脚本）。
+- 故障降级：模拟 Open-Meteo 失败 → 前端有内容（回退/友好态），非白屏、非 NaN 图表。
 - 全程 GMT+8；据实勾选。
 
 ## 红线
-- **单一驱动器**：auto-nudge 唯一驱动，**禁 task_run**；与每日 triage cron(8e721bb9)/任何产品 goal 不并发写同一文件。
-- **纯文档**：不改任何 `.py`/`.mjs`/`web/浪报MVP.html` 运行时；不碰生产 DynamoDB/ECS。
-- **L0 不自行拍板**：D-a~D-d 只作 ADR 附推荐，最终由人在 spec 评审时定。
-- 沿用既有红线（GMT+8 / DATA CONTRACT / float→Decimal / 全401 / SG禁0.0.0.0/0 / terraform禁-auto-approve）——作为 spec 的约束性需求写入，不在本 goal 实现。
+- **单一驱动器**：auto-nudge 唯一，禁 task_run；与每日 triage cron/自迭代不并发写同文件。
+- **DATA CONTRACT**：render_json 每日含 wdeg 数字数组；图表字段(times/windows/tideEvents/hs/wind/gust)为数字；预报区与历史区日期互斥；全程 GMT+8。
+- **冷点炸弹教训**：缓存/TTL **绝不把"可见性"耦合到成本开关**（可见性用 list_listed_registry 类，不受 refresh_enabled 影响）。
+- float→Decimal(`_to_decimal`) 写 DynamoDB；`/api/*` 全 401；ALB SG 禁 0.0.0.0/0；terraform 禁 -auto-approve。
+- 每轮改前用 skill surf-forecast-codelens-dev 摸底(explain_code/find_symbol)+爆炸半径(get_impact/find_affected_tests)+守红线(find_route)；pytest/E2E 零倒退。
+- **真部署留生产写操作门 G**（build+redeploy+canary+tag+CHANGELOG）等人工确认。
 
 ## 范围外
-写任何实现代码；改 review_queue/req_pipeline/feedback；碰生产；替人定 L0 决策；产品 5-spec 主线工作。
+4.1/5.3 保存浪点 CRUD（归 custom-spots）；阶段6 Vite 组件化；阶段7 安全上线；自迭代 meta 工作。
 
 ## 停止
-三件套 + 注册完成、pytest 188 无倒退后创建 STOP：
+0.2/3.2/3.1/3.3 本地完成 + 全绿、仅剩生产写门时创建 STOP：
 `/Users/yiming/.meshclaw/workspace-surf-forecast/.stop-chat-3-1783779532`
