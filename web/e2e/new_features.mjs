@@ -10,11 +10,12 @@ const tab = (t) => page.evaluate((x)=>window.showTab(x), t);
 
 const browser = await chromium.launch();
 const page = await browser.newPage();
+const ready = () => page.waitForFunction(() => window.__SF_READY__ === true, { timeout: 30000 });
 page.on('console', m => { if(m.type()==='error') errors.push(m.text()); });
 page.on('pageerror', e => errors.push('PAGEERROR: '+e.message));
 
-await page.goto(BASE, { waitUntil: 'networkidle', timeout: 30000 });
-await page.waitForTimeout(2500);
+await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 30000 });
+await ready();
 
 // —— 主标签页导航 ——
 ok('主标签页 3 个', await page.locator('.maintab .maintab-btn').count() === 3);
@@ -116,8 +117,8 @@ const created = await page.evaluate(async ()=>{
   return [a,b];
 });
 console.log('    建浪点状态:', created);
-await page.reload({ waitUntil:'networkidle' });
-await page.waitForTimeout(2500);
+await page.reload({ waitUntil:'domcontentloaded' });
+await ready(); await page.waitForTimeout(300);
 await tab('report'); await page.waitForTimeout(300);
 if(await page.locator('#spotFav').isVisible()){
   ok('R1.1 收藏面板渲染浪点卡', await page.locator('#spotFavList .spotcard').count() >= 2);
@@ -166,17 +167,17 @@ ok('U1 顶部 spinner 隐藏', !(await page.locator('#sfLoadBar').isVisible()));
 // —— U2 tab / 子视图 记忆持久化（localStorage + 刷新恢复 + 脏值回退）——
 await tab('other'); await page.waitForTimeout(150);
 ok('U2 主标签写入 localStorage(other)', (await page.evaluate(()=>localStorage.getItem('sf_tab_v1'))) === 'other');
-await page.reload({ waitUntil:'networkidle' }); await page.waitForTimeout(1600);
+await page.reload({ waitUntil:'domcontentloaded' }); await ready(); await page.waitForTimeout(300);
 ok('U2 刷新后恢复上次主标签(other)', (await page.locator('.maintab-btn.on').getAttribute('data-tab')) === 'other');
 // 子视图记忆：切到直播 → 写入 → 刷新恢复
 await tab('live'); await page.waitForTimeout(150);
 await page.evaluate(()=>window.showLiveView('cams')); await page.waitForTimeout(150);
 ok('U2 子视图写入 localStorage(cams)', (await page.evaluate(()=>localStorage.getItem('sf_liveview_v1'))) === 'cams');
-await page.reload({ waitUntil:'networkidle' }); await page.waitForTimeout(1600);
+await page.reload({ waitUntil:'domcontentloaded' }); await ready(); await page.waitForTimeout(300);
 ok('U2 刷新后恢复子视图(直播显/目录隐)', (await page.locator('#livecams').isVisible()) && !(await page.locator('#catalog').isVisible()));
 // 脏值/非法值 → 回退默认（不影响后端契约）
 await page.evaluate(()=>{ localStorage.setItem('sf_tab_v1','__bad__'); localStorage.setItem('sf_liveview_v1','__bad__'); });
-await page.reload({ waitUntil:'networkidle' }); await page.waitForTimeout(1600);
+await page.reload({ waitUntil:'domcontentloaded' }); await ready(); await page.waitForTimeout(300);
 ok('U2 脏值回退默认主标签(live)', (await page.locator('.maintab-btn.on').getAttribute('data-tab')) === 'live');
 ok('U2 脏值回退默认子视图(目录显)', await page.locator('#catalog').isVisible());
 
@@ -198,7 +199,7 @@ if(await page.locator('#spotFav').isVisible()){
 
 // —— U-e 分享深链：#spot 恢复浪点 + 直接进浪报详情 ——
 await page.evaluate(()=>{ location.hash='#spot=30.50,122.10,E2E深链浪点'; });
-await page.reload({ waitUntil:'networkidle' }); await page.waitForTimeout(3500);
+await page.reload({ waitUntil:'domcontentloaded' }); await ready(); await page.waitForTimeout(400);
 ok('U-e 深链恢复浪点名', ((await page.locator('#metaSpot').innerText().catch(()=>''))||'').includes('深链'));
 ok('U-e 深链进浪报详情', (await page.locator('.maintab-btn.on').getAttribute('data-tab')) === 'report');
 await page.evaluate(()=>{ location.hash=''; });

@@ -1,49 +1,30 @@
-# Tasks — surf-forecast 发布地基 (Phase 0)
+# Tasks — 自迭代闭环 E→D→B
 
-> 规则：单一驱动器（auto-nudge，禁 task_run）。改前 grep/codelens 摸底；改后 dry-run；
-> 勾选须与文件一致，禁记未落地完成项。触碰生产统一在「生产写操作门」停下等确认。
-> 基线：pytest 147 · E2E 64/64 · deploy.sh(test/frontend/redeploy)。
+> 单一驱动器(auto-nudge,禁 task_run)。改前 grep/codelens 摸底；改后 pytest/E2E/bash -n。
+> 勾选须与文件一致,禁记未落地。触碰生产统一在「生产写操作门 G」停下等确认。
+> 基线：pytest 147 · E2E 64/64 · 生产 v0.1.0 · Phase0 地基(版本/回滚/金丝雀/审计/告警)已上线。
 
-## P0.0 前提探测
-- [x] P0.0.1 探测：deploy.sh cmd_build(L72) 只 `docker push $REPO:latest` 覆盖式；ECR 历史镜像全 null tag → **确认无版本回滚物**；已有 `$stamp` 时间戳可复用
-- [x] P0.0.2 探测：master **未受保护**(gh api 404) → 本地 pipeline 可直接合并/推送，无需 bot bypass
-- [x] P0.0.3 结论 → P0.1 方案：cmd_build 远程 docker 段加 `docker tag $REPO:latest $REPO:vX.Y.Z && docker push $REPO:vX.Y.Z`；semver 源=仓库根 `VERSION` 文件(patch 自增)，构建时读入传远程脚本；rollback=切 ECS task def 到上一 `:vX.Y.Z`
+## E 可行性 spike（先做，出结论+风险，不写产品代码）
+- [x] E1 ECS→`alblitellm` 连通性：网关=公网IP+key鉴权(本地GET /v1/models 200,含 bedrock-claude-sonnet-4-6);ECS 私有子网+NAT已调Open-Meteo公网→**强推可达**;定论级实测(execute-command/探针)待接线时。结论落 docs/spike-E-可行性.md
+- [x] E2 本地试调网关 sonnet-4-6：`POST /v1/chat/completions` OpenAI 兼容(200,choices[].message.content+usage,~4s);坏key 401;非200 应降级模板。结论落文档
+- [x] E3 Pipeline 出 PR 试跑：编辑+pytest 机制通;**关键发现**——冻结 E2E 的 networkidle 在 probeCamsLive 下稳定超时(假失败),D 用作自动门前必须改显式元素等待/测试期短路探活。试探改动已回滚
+- [x] E4 结论落 `docs/spike-E-可行性.md`（三项结论+风险+对 D/LLM 取舍）：E1/E2 ✅可行;E3 给 D 加前置 D0
+  → Go/No-Go：B 可直接做(零依赖);D 需先 D0 加固 E2E;云端 LLM 澄清接线前补 E1 定论级实测
 
+## D 最薄执行端闭环
+- [x] D0 **✅ 已解决** 加固冻结 E2E：app bootstrap 末置就绪信号 `window.__SF_READY__`+`body[data-ready=1]`(整链含深链完成后)；E2E 全部 networkidle→domcontentloaded+`await ready()`(等就绪信号)。**3/3 跑 64/0 稳定确定性**,深链亦过。pytest153/schema✅。→ D 自动门现可靠可上
+- [x] D1 需求对象 schema：`docs/requirement-schema.md`(字段+status状态机+TTL红线+可回滚性/auto_eligible) + 手工种子 `reference/data/seed_requirement.json`(1条 accepted·纯前端·可回滚)
+- [x] D2 本地 pipeline 脚本 `tools/req_pipeline.py`(纯stdlib)：读 accepted 需求→声明式确定性 edit(幂等,LLM coder 后续接线)→**确定性安全门**(资格/路径白名单⊆{web/浪报MVP.html}禁碰web-e2e/非删除净签名判定/secret+后门+新出网扫描)→node--check/schema_check/pytest/**冻结E2E(起服SF_FRONTEND+SF_SEED_SPOTS)**→全绿=AUTO_OK 出 draft PR(默认dry-run,真开需--create-pr)。审计→pipeline_audit.jsonl。**种子端到端 AUTO_OK(pytest174+E2E64/0)**;负路径实证(eval注入被扫描拦且未落盘/e2e路径被白名单拦→NEEDS_HUMAN)。门单测 `tests/test_req_pipeline.py` 21条双侧钉死(pytest153→174)
+- [ ] D3 人工合并→deploy.sh 发布+canary→CHANGELOG(需求ID)  ← 真发布属 G 门
+- [x] D4 审计链贯通验证 `tools/audit_trace.py`(纯stdlib)：追溯 `需求ID↔pipeline审计↔分支/PR/commit↔版本tag↔CHANGELOG↔部署时间`,每环标 ✅存在/⏳待D3/❌断裂。seed-0001 链**已接线**(需求↔pipeline ✅ verdict=AUTO_OK 8/8门绿;PR/tag/CHANGELOG/部署 ⏳待D3);v0.1.0 子链 CHANGELOG 真实数据全✅。解析器单测 5 条(pytest174→179)。约定:需求发布 SF_RELEASE_NOTE="需求<ID>:..."写CHANGELOG。**发现:git tag 从未打(仅ECR镜像tag)→D3发布应补 git tag vX.Y.Z 闭合"版本↔commit"环**
 
-## P0.1 版本号 + 不可变镜像 tag（先实现+dry-run，不推真镜像）
-- [x] P0.1.1 semver 源=仓库根 `VERSION` 文件(=0.1.0)；cmd_build 读入 `local ver`
-- [x] P0.1.2 cmd_build 远程 docker 段：`docker tag $REPO:latest $REPO:v$ver && push` 双 tag(:latest + :v$ver)
-- [ ] P0.1.3 保留最近 10 版清理：策略已定(保留最近10个 :vX.Y.Z)；**实际删旧 tag 属生产写操作 → 移到 G 门执行**
-- [x] P0.1.4 bash -n OK；确认 heredoc 未加引号→`$ver` 本地展开进 user-data(远程得字面版本号)
-- 附带发现(留后处理,非本Phase): `deploy.sh cmd_apply` 用了 `terraform apply -auto-approve`(L51) → 违既有红线,后续单独修
+## B Phase1 无 LLM 输入端
+- [x] B1 `/api/feedback`(匿名POST,长度上限,GMT+8,status=new+认领码) 落库；db 双store add/list/set_feedback_status;DynamoDB TTL 仅 new/rejected(采纳去TTL)。pytest 147→**150**(+3)
+- [x] B2 page-schema：`PAGE_SCHEMA`(live/report/other 各含 label/features/topics) 定义于 HTML;`web/e2e/schema_check.mjs` 纯node守卫(键==maintab data-tab,防漂移)✅
+- [x] B3 预置模板澄清 UI：悬浮「💡提建议」→ 弹层 3 步(类别→PAGE_SCHEMA主题→文本,可跳过,≤3步)→结构化需求 POST /api/feedback→显示认领码。焦点探针跑通(类别→主题→文本→claim码);零 LLM。E2E 持久断言并入 B5
+- [x] B4 公开更新日志页(GET /api/changelog 读 CHANGELOG)+匿名认领码查进展(GET /api/feedback/track?claim,只回状态/时间/类别)；前端「其他」tab #changelog 块(切页加载+状态中文映射)。探针:日志4条+查进展显"待审阅"。生产镜像需含 CHANGELOG.md→G门
+- [x] B5 覆盖：pytest 150→**153**(+changelog/track/bad-claim) · schema_check.mjs ✅ · inline JS OK；B3/B4 交互经 Playwright 焦点探针验证(全套 E2E 断言待 D0 加固后并入)
 
-## P0.2 CHANGELOG + 审计链
-- [x] P0.2.1 建 `CHANGELOG.md`（格式：时间·版本·commit·摘要·结果，GMT+8）+ genesis 条目
-- [x] P0.2.2 `deploy.sh` 加 `changelog_add` helper；cmd_frontend 成功后自动追加(SF_RELEASE_NOTE 可定制摘要)
-- [x] P0.2.3 审计链验证：v0.1.0↔commit e86f264↔GMT+8 时间 格式跑通(本地干跑,未触生产)
-
-## P0.3 deploy.sh rollback
-- [x] P0.3.1 新增 `rollback [vX.Y.Z]` 子命令：列 ECR :v tag→目标(或上一版)→注册新 task def revision(image=:v目标,jq改)→切服务
-- [x] P0.3.2 rollback 成功调 changelog_add("rollback → v目标")
-- [x] P0.3.3 bash -n OK；干跑只读段(列v-tag)确认无版本时正确报错;真 register/update 留 G 门
-
-## P0.4 真浏览器金丝雀 + 自动回滚
-- [x] P0.4.1 `cmd_canary [URL]`：对目标(默认 PROD_URL)跑冻结基线 new_features.mjs + 0 JS 报错(脚本 argv[2] 收 URL,失败 exit1)
-- [x] P0.4.2 金丝雀失败→自动 `cmd_rollback` + changelog_add(失败→触发rollback)
-- [x] P0.4.3 localhost:8848 验证跑通(64/64→"金丝雀通过 ✅",CHANGELOG 记录已还原,未碰生产)
-
-## P0.5 关键端点计数告警
-- [x] P0.5.1 `tools/monitor_counts.py`(纯stdlib urllib)：demo登录→查 catalog/cams/report_days；任一跌0→🔴ALERT+exit2
-- [x] P0.5.2 本地验证通过(catalog58/cams39/report3→OK exit0)；告警接线(cron `|| notify`)属 G门/ops
-
-## P0.6 验证 + 收尾
-- [x] P0.6.1 pytest **147** + E2E **64/64** 全绿 + `bash -n deploy.sh` OK + 金丝雀/监控本地实跑通过
-- [x] P0.6.2 README 追加「Phase 0 发布地基」小节；据实勾选（本地实现全部完成，真生产动作留 G 门）
-
-## [生产写操作门]（已人工确认并执行 2026-07-26）
-- [x] G.1 v0.1.0 首个版本化镜像发布：ECR 双 tag latest+v0.1.0(构建机 i-08338b3a) + ECS 滚动 COMPLETED + CHANGELOG
-- [x] G.2 回滚演练：`rollback`→ECS task def:7 钉到不可变 `:v0.1.0`(不再:latest)，回滚路径打通 + CHANGELOG
-- [x] G.3 生产金丝雀：`deploy.sh canary` 对 CloudFront 跑真浏览器 E2E **64/64** 通过 + CHANGELOG
-- [x] G.4 计数告警 cron：`4dea9f76` surf-forecast-count-monitor(每日09:00 CST,script=~/.meshclaw/crons/surf_monitor.py,静默除非🔴ALERT)
-- 注：环境限制——deploy.sh 的长阻塞/静默 aws 序列在本 tool 会话易被截断，故 build 用直接 run-instances、rollback 用内联执行（机制与 deploy.sh 一致，代码路径已验证）
-- P0.1.3 删旧镜像 tag(保留10)：历史镜像多为 null tag,暂无需清理,留后续
+## [生产写操作门 G]（停下发 blocker 等人工确认）
+- [ ] G.D3 D 的真实发布(build+redeploy+canary)
+- [ ] G.B1 生产 DynamoDB 建表/灌数据 + /api/feedback 真上线

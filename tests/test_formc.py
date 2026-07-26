@@ -124,3 +124,46 @@ def test_http_live_src_excluded(client):
     cat = {c["slug"]: c for c in client.get("/api/catalog").json()["catalog"]}
     assert "hp1" not in cams                 # http 源不进直播
     assert cat["hp1"]["has_live"] is False   # 目录 has_live 也不认 http
+
+
+# —— B1 需求库/反馈落库 + status 状态机 ——
+def test_feedback_submit_and_store(client):
+    r = client.post("/api/feedback", json={"kind": "improve", "page": "catalog", "text": "按距离排序"})
+    assert r.status_code == 200
+    j = r.json()
+    assert j["status"] == "new" and j["id"] and j["claim_code"]
+    store = db.get_store()
+    news = store.list_feedback("new")
+    assert any(x["id"] == j["id"] and x["text"] == "按距离排序" for x in news)
+    # 状态机：采纳 → 退出 new 集
+    store.set_feedback_status(j["id"], "accepted")
+    assert all(x["id"] != j["id"] for x in store.list_feedback("new"))
+    assert any(x["id"] == j["id"] for x in store.list_feedback("accepted"))
+
+
+def test_feedback_empty_text_422(client):
+    assert client.post("/api/feedback", json={"text": ""}).status_code == 422
+
+
+def test_feedback_text_length_capped(client):
+    # 长度上限由 Pydantic max_length=2000 强制：超限直接 422（反滥用/RP-mc1）
+    assert client.post("/api/feedback", json={"text": "x" * 5000}).status_code == 422
+    assert client.post("/api/feedback", json={"text": "x" * 2000}).status_code == 200
+
+
+# —— B4 更新日志 + 认领码查进展 ——
+def test_changelog_public(client):
+    j = client.get("/api/changelog").json()
+    assert "releases" in j and isinstance(j["releases"], list)
+
+
+def test_track_claim_flow(client):
+    claim = client.post("/api/feedback", json={"text": "track流程"}).json()["claim_code"]
+    r = client.get("/api/feedback/track", params={"claim": claim})
+    assert r.status_code == 200 and r.json()["status"] == "new"
+    # 认领码只回状态/时间/类别，不含文本(防泄漏他人内容)
+    assert "text" not in r.json()
+
+
+def test_track_bad_claim_404(client):
+    assert client.get("/api/feedback/track", params={"claim": "nope"}).status_code == 404

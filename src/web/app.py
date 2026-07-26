@@ -220,6 +220,59 @@ def catalog_scores(user: dict = Depends(deps.current_user)) -> dict:
     return {"scores": scores, "cached": True}
 
 
+# —— 用户建议/需求提交（B: 匿名可提，落 DynamoDB 需求库，status=new+认领码；长度上限防滥用）——
+class RequirementIn(BaseModel):
+    kind: str = "improve"          # new_feature / improve / remove / bug
+    page: str = ""
+    text: str = Field(min_length=1, max_length=2000)
+    repro: str = ""
+    expect: str = ""
+    accept: str = ""
+
+
+@app.post("/api/feedback")
+def submit_feedback(body: RequirementIn) -> dict:
+    """匿名提交结构化需求/建议 → 需求库(status=new,TTL 14天,人工审阅采纳后去TTL)。
+    返回认领码供匿名查进展。反注入：仅存字段+长度上限,不回显、不入 prompt。"""
+    import secrets
+    import time
+    import uuid
+    fid = uuid.uuid4().hex[:12]
+    claim = secrets.token_urlsafe(6)
+    ts = time.strftime("%Y-%m-%d %H:%M", time.gmtime(time.time() + 8 * 3600))  # GMT+8
+    row = {
+        "id": fid, "claim_code": claim, "created_gmt8": ts, "status": "new",
+        "kind": (body.kind or "improve")[:20], "page": (body.page or "")[:80],
+        "text": body.text[:2000], "repro": (body.repro or "")[:1000],
+        "expect": (body.expect or "")[:1000], "accept": (body.accept or "")[:1000],
+        "rollbackable": None,
+    }
+    db.get_store().add_feedback(row)
+    return {"id": fid, "claim_code": claim, "status": "new"}
+
+
+@app.get("/api/changelog")
+def public_changelog() -> dict:
+    """公开更新日志：读仓库 CHANGELOG.md 的 Releases 行。生产镜像需含 CHANGELOG.md(G门)。"""
+    from pathlib import Path
+    p = Path(__file__).resolve().parents[2] / "CHANGELOG.md"
+    try:
+        lines = [ln.strip("- ").rstrip() for ln in p.read_text(encoding="utf-8").splitlines()
+                 if ln.startswith("- ")]
+    except OSError:
+        lines = []
+    return {"releases": lines}
+
+
+@app.get("/api/feedback/track")
+def track_feedback(claim: str) -> dict:
+    """匿名凭认领码查建议进展：仅回状态/时间/类别，不泄漏文本等他人可见信息。"""
+    row = db.get_store().find_feedback_by_claim((claim or "")[:40])
+    if not row:
+        raise HTTPException(status_code=404, detail="认领码不存在或已过期")
+    return {"status": row.get("status"), "created_gmt8": row.get("created_gmt8"), "kind": row.get("kind")}
+
+
 # 直播目录只读接口 /api/cams（形态C Task 4）：权威实现在 web.cams（单一真源），此处挂载。
 # 受保护(401, 同 /api/spots) · 只读(仅GET) · slug→live_src · 视频前端 hls.js 直连上游不经后端 · 附来源免责。
 from .cams import router as cams_router  # noqa: E402
