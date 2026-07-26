@@ -4,9 +4,9 @@
 > 前置：analyzer 能 render(JSON 含 wdeg) 且支持 --past-days；web 后端可容器化。
 
 ## 阶段 0：决策与准备
-- [ ] 0.1 决策部署方案 A(Serverless) / B(Fargate)，记录于 design ADR-D3 _(D1)_
-- [ ] 0.2 决策 Open-Meteo 商用许可（免费降频 vs 付费 key），影响缓存策略与成本 _(R5.6)_
-- [ ] 0.3 确认区域 ap-northeast-1、域名（新 Route53 zone 或复用子域）_(D3)_
+- [x] 0.1 决策=**B Fargate**(现实已定:ECS Fargate 生产运行 td:9/v0.1.2) _(D1)_ (对账2026-07-26)
+- [x] 0.2 决策=**免费降频**(无 key;每日预算 S3 缓存 + 进程内 TTL(cache.py,W3)降调用;付费 key 暂不) _(R5.6)_ (对账)
+- [x] 0.3 区域=**ap-northeast-1**;域名=**复用 CloudFront 默认域** d2hmhl7n8yga53.cloudfront.net(暂不建 Route53) _(D3)_ (对账)
 
 ## 阶段 1：IaC 骨架与镜像（D1）
 - [x] 1.1 Terraform 工程骨架 + 环境 tfvars(dev/staging/prod) 参数化 _(R1.1,1.2)_ ✅ root+versions+vars+outputs，dev.tfvars.example，`terraform validate` 通过（未 apply）

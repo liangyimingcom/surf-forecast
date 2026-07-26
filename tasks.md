@@ -24,4 +24,4 @@
 - [x] W4.1 全量 pytest **209** + 冻结 E2E **64/0** + schema 校验器 CLI「✅合乎契约」+ bash -n OK；提交 PR + STOP
 
 ## [生产写操作门 G]
-- [ ] G.1 真部署(build+redeploy+canary 64/0 + git tag + CHANGELOG)
+- [x] G.1 真部署 v0.1.2:td:9滚动COMPLETED+生产金丝雀64/0+git tag v0.1.2+CHANGELOG(2026-07-26)
