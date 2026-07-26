@@ -9,3 +9,5 @@
 - 2026-07-26 13:25 GMT+8 · v0.1.0 · e86f264 · G.1 首个版本化镜像发布(v0.1.0 双tag) + 滚动部署 · 已滚动
 - 2026-07-26 13:30 GMT+8 · v0.1.0 · e86f264 · canary@https://d2hmhl7n8yga53.cloudfront.net · 通过
 - 2026-07-26 13:31 GMT+8 · v0.1.0 · e86f264 · G.2 回滚演练：ECS 钉到不可变 :v0.1.0(task def:7) · 已切换
+- 2026-07-26 16:52 GMT+8 · v0.1.1 · 609196c · 需求seed-0001: 直播免责文案补充 + 自迭代闭环 E/B/D 上线(feedback落库/澄清UI/更新日志/pipeline/审计链) · 已滚动部署(taskdef:8)
+- 2026-07-26 16:52 GMT+8 · v0.1.1 · 609196c · canary@https://d2hmhl7n8yga53.cloudfront.net 冻结E2E 64/0 · 通过
