@@ -5,10 +5,10 @@
 > 状态：本 spec 为**规格**，以下 tasks 为后续实现 goal 的蓝图，当前均未实现。
 
 ## L0 · 决策（动手前经评审拍板；对应 design §7 ADR）
-- [ ] L0.1 ADR-1 敲定契约关键字黑名单（D-a）_(R4.3, R6.4)_
-- [ ] L0.2 ADR-2 敲定升格目标映射：promote→目标 spec tasks 一条新 task（D-b）_(R3.2)_
-- [ ] L0.3 ADR-3 敲定 lane 记录方式：落 feedback 字段（D-c）_(R3.1)_
-- [ ] L0.4 ADR-4 敲定 triage 摘要渠道：dashboard-only（D-d）_(R2.1)_
+- [x] L0.1 ADR-1 契约关键字黑名单=§4.3列表（D-a，已定案）_(R4.3, R6.4)_
+- [x] L0.2 ADR-2 升格=promote→目标产品spec tasks一条新task引用feedback id（D-b，已定案）_(R3.2)_
+- [x] L0.3 ADR-3 lane 落 feedback 字段（D-c，已定案）_(R3.1)_
+- [x] L0.4 ADR-4 triage 渠道=dashboard-only（D-d，已定案）_(R2.1)_
 
 ## L1 · 数据模型 / 契约（非回滚；旧行容错）
 - [ ] L1.1 feedback 需求对象扩展 `lane`/`spec_ref`/`decided_gmt8`；写入 `_to_decimal`，读路径缺字段默认值 _(R6.3, R3.1)_ · 可回滚性=否(动数据契约)
