@@ -315,6 +315,9 @@
   .cam-empty{color:var(--ink3);font-size:12.5px;padding:8px 2px}
   .cam-video{width:100%;max-height:60vh;background:#000;border-radius:10px;display:block}
   .cam-tip{margin-top:8px;font-size:11.5px;color:var(--ink3)}
+  .sf-degraded{margin:6px auto 0;max-width:960px;padding:6px 12px;border-radius:8px;background:#fff4e5;color:#8a4b00;border:1px solid #f0c98a;font-size:12.5px;text-align:center}
+  body.dark .sf-degraded{background:#3a2a10;color:#ffd9a0;border-color:#6b4e1f}
+  .sf-degraded a{color:inherit;text-decoration:underline;font-weight:600}
   /* 主标签页导航 */
   .maintab{max-width:960px;margin:10px auto 0;padding:0 16px;display:flex;gap:8px}
   .maintab-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:9px 6px;border:1px solid var(--line,#e3e8ef);border-radius:12px;background:#fff;color:var(--ink2);font-size:13.5px;font-weight:700;cursor:pointer}
@@ -483,6 +486,7 @@
       <span id="metaRange">📅 —</span>
       <span id="metaCalib">🕐 校准 —</span>
     </div>
+    <div id="sfDegraded" class="sf-degraded" style="display:none" role="status" aria-live="polite">⚠️ 实时数据暂不可用，当前显示<b>示例数据（非实时）</b> · <a href="#" onclick="retryLive();return false;">重试</a></div>
 
     <!-- 位置查询栏：按需求从首页移除(隐藏)；#spotSel 等元素保留供收藏/目录/地图切换逻辑依赖 -->
     <div class="query" style="display:none" aria-hidden="true">
@@ -897,6 +901,13 @@ function _sfSkelRows(kind, n){                 // 生成 n 行骨架屏 HTML
 function _sfSkel(id, kind, n){                  // 往容器塞骨架屏
   const el=document.getElementById(id); if(el) el.innerHTML=_sfSkelRows(kind,n);
 }
+function showDegraded(on){                        // R4.3 故障降级可见提示（数据诚实：示例≠实时）
+  try{
+    const b=document.getElementById('sfDegraded'); if(b) b.style.display=on?'':'none';
+    if(on){ const c=document.getElementById('metaCalib'); if(c) c.textContent='⚠️ 示例数据（实时暂不可用）'; }
+  }catch(_){}
+}
+async function retryLive(){ showDegraded(false); const ok=await loadLive(); if(!ok) showDegraded(true); }
 function _sfLoadBar(on){                         // loadLive 顶部细 spinner（不触碰报告 DOM）
   let bar=document.getElementById('sfLoadBar');
   if(on){
@@ -939,10 +950,12 @@ async function loadLive(){
       if(h.ok){ const hj = await h.json(); if(hj.history) HISTORY = hj.history; }
     }catch(_){}
     render();                                         // 用实时数据重渲染
+    showDegraded(false);                              // 实时成功→隐藏降级提示
     _sfLoadBar(false);
     return true;
   }catch(e){
     console.warn('实时数据加载失败，回退内嵌示例：', e.message);  // 不白屏（R4.3）
+    showDegraded(true);                               // 可见降级提示 + 诚实标注(非实时)
     _sfLoadBar(false);
     return false;
   }

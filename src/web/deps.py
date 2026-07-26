@@ -8,7 +8,21 @@ from fastapi import HTTPException, Request
 
 from surf_forecast import analyze, render
 
-from . import db
+from . import cache, db
+
+# 进程内 TTL 缓存（默认 0=停用；生产设 SF_REPORT_TTL/SF_HISTORY_TTL 秒开启）。
+# 纯性能层：键=查询参数，绝不影响可见性（冷点炸弹红线）。
+_report_cache = cache.TTLCache(float(os.getenv("SF_REPORT_TTL", "0")), max_items=256)
+_history_cache = cache.TTLCache(float(os.getenv("SF_HISTORY_TTL", "0")), max_items=256)
+
+
+def _memo_key(lat, lon, days, spot):
+    slug = _resolve_slug(lat, lon) or f"{round(lat,4)},{round(lon,4)}"
+    return f"{slug}|{days}|{spot}"
+
+
+def reset_caches():
+    _report_cache.clear(); _history_cache.clear()
 
 COOKIE_NAME = "sf_session"
 
@@ -72,27 +86,42 @@ def _resolve_slug(lat: float, lon: float) -> str | None:
 
 
 def get_report(lat: float, lon: float, days: int, spot: str) -> dict:
-    """读写解耦的「读」：上架/已注册浪点优先命中每日预算缓存（<500ms）；未命中回退引擎实算。"""
+    """读写解耦的「读」：进程内 TTL memo → S3 每日预算缓存 → 引擎实算。"""
+    mkey = _memo_key(lat, lon, days, spot)
+    memo = _report_cache.get(mkey)
+    if memo is not None:
+        return memo
     reader = _cache_reader()
     slug = _resolve_slug(lat, lon)
     if reader is not None and slug is not None:
         cached = reader.get(f"{slug}/latest.json")
         if cached:
+            _report_cache.set(mkey, cached)
             return cached
     # 回退：实时计算（自定义坐标 / 缓存未命中 / 缓存不可用）
     from . import refresh  # noqa: F401  保持原依赖路径
     ctx = analyze.build_context(lat, lon, days, spot)
-    return render.render_json(ctx)
+    rep = render.render_json(ctx)
+    _report_cache.set(mkey, rep)
+    return rep
 
 
 def get_history(lat: float, lon: float, days: int, spot: str) -> dict | None:
     """昨日回看 HISTORY（含 predict）。已注册浪点优先读缓存，未命中回退引擎 include_history。"""
+    mkey = _memo_key(lat, lon, days, spot)
+    memo = _history_cache.get(mkey)
+    if memo is not None:
+        return memo
     reader = _cache_reader()
     slug = _resolve_slug(lat, lon)
     if reader is not None and slug is not None:
         cached = reader.get(f"{slug}/latest.json")
         if cached and cached.get("history"):
+            _history_cache.set(mkey, cached["history"])
             return cached["history"]
     ctx = analyze.build_context(lat, lon, days, spot, include_history=True)
     rep = render.render_json(ctx)
-    return rep.get("history")
+    hist = rep.get("history")
+    if hist is not None:
+        _history_cache.set(mkey, hist)
+    return hist

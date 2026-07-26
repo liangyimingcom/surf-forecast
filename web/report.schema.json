@@ -1,0 +1,59 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://surf-forecast/report.schema.json",
+  "title": "REPORT — 浪报前后端数据契约（单一真相源）",
+  "description": "render_json 输出 = 前端 REPORT(含 DAYS/HISTORY)。红线：days 非空;每日含 wdeg 数字数组;图表字段(times/hs/wind/gust/tp)为数字数组;tideEvents 为 [小时,潮位] 数字对;全程 GMT+8;历史与预报日期互斥。",
+  "type": "object",
+  "required": ["spot", "coord", "calibratedAt", "days", "ranking"],
+  "properties": {
+    "spot": {"type": "string"},
+    "coord": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2},
+    "spotFacingDeg": {"type": "number"},
+    "calibratedAt": {"type": "string", "pattern": "GMT\\+8$"},
+    "ranking": {"type": "array", "items": {"type": "integer"}},
+    "story": {"type": "string"},
+    "lifecycle": {"type": "array"},
+    "confidenceNotes": {"type": "array"},
+    "days": {"type": "array", "minItems": 1, "items": {"$ref": "#/definitions/day"}},
+    "history": {"oneOf": [{"type": "null"}, {"$ref": "#/definitions/history"}]}
+  },
+  "definitions": {
+    "numArray": {"type": "array", "items": {"type": "number"}},
+    "day": {
+      "type": "object",
+      "required": ["date", "week", "today", "best", "score", "times", "hs", "wind", "gust", "tp", "wdeg", "tideEvents"],
+      "properties": {
+        "id": {"type": "string"},
+        "date": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$"},
+        "week": {"type": "string"},
+        "today": {"type": "boolean"},
+        "best": {"type": "boolean"},
+        "score": {"type": "number"},
+        "stars": {"type": "integer"},
+        "tag": {"type": "string"},
+        "board": {"type": "string"},
+        "weakest": {"type": "string"},
+        "times": {"$ref": "#/definitions/numArray"},
+        "hs": {"$ref": "#/definitions/numArray"},
+        "swell": {"$ref": "#/definitions/numArray"},
+        "tp": {"$ref": "#/definitions/numArray"},
+        "tp2": {"type": "array", "items": {"type": ["number", "null"]}},
+        "wind": {"$ref": "#/definitions/numArray"},
+        "gust": {"$ref": "#/definitions/numArray"},
+        "wdeg": {"$ref": "#/definitions/numArray"},
+        "windows": {"type": "array"},
+        "tideEvents": {
+          "type": "array",
+          "items": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2}
+        },
+        "dims": {"type": "object"},
+        "pa": {"type": "array"}
+      }
+    },
+    "history": {
+      "allOf": [{"$ref": "#/definitions/day"}],
+      "required": ["predict"],
+      "properties": {"predict": {"type": "object"}}
+    }
+  }
+}
