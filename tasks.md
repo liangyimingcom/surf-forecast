@@ -1,30 +1,22 @@
-# Tasks — 自迭代闭环 E→D→B
+# Tasks — 自迭代闭环 A(对话审阅台) → E(全链薄彩排)
 
-> 单一驱动器(auto-nudge,禁 task_run)。改前 grep/codelens 摸底；改后 pytest/E2E/bash -n。
-> 勾选须与文件一致,禁记未落地。触碰生产统一在「生产写操作门 G」停下等确认。
-> 基线：pytest 147 · E2E 64/64 · 生产 v0.1.0 · Phase0 地基(版本/回滚/金丝雀/审计/告警)已上线。
+> 单一驱动器(auto-nudge,禁 task_run)。改前 grep/CodeLens 摸底；改后 pytest/E2E/bash -n。
+> 勾选须与文件一致,禁记未落地。生产写(真发布/改生产 status)统一「生产写操作门 G」或人工对话授权。
+> 基线：pytest 179 · 冻结E2E 64/0 · 生产 v0.1.1 · feedback 已上线(/api/feedback+track+changelog)。
 
-## E 可行性 spike（先做，出结论+风险，不写产品代码）
-- [x] E1 ECS→`alblitellm` 连通性：网关=公网IP+key鉴权(本地GET /v1/models 200,含 bedrock-claude-sonnet-4-6);ECS 私有子网+NAT已调Open-Meteo公网→**强推可达**;定论级实测(execute-command/探针)待接线时。结论落 docs/spike-E-可行性.md
-- [x] E2 本地试调网关 sonnet-4-6：`POST /v1/chat/completions` OpenAI 兼容(200,choices[].message.content+usage,~4s);坏key 401;非200 应降级模板。结论落文档
-- [x] E3 Pipeline 出 PR 试跑：编辑+pytest 机制通;**关键发现**——冻结 E2E 的 networkidle 在 probeCamsLive 下稳定超时(假失败),D 用作自动门前必须改显式元素等待/测试期短路探活。试探改动已回滚
-- [x] E4 结论落 `docs/spike-E-可行性.md`（三项结论+风险+对 D/LLM 取舍）：E1/E2 ✅可行;E3 给 D 加前置 D0
-  → Go/No-Go：B 可直接做(零依赖);D 需先 D0 加固 E2E;云端 LLM 澄清接线前补 E1 定论级实测
+## A 对话审阅台
+- [x] A1 `tools/review_queue.py`(纯stdlib)：list/accept/reject/stats；status过滤+垃圾(空/<8字/非法kind)/重复(归一化text)/优先级(bug>改进>新增>删除)预过滤+摘要；accept→accepted(去TTL)/reject→rejected(留TTL)；--store dynamo|memory。**强制 AWS_DEFAULT_REGION=ap-northeast-1**(botocore读此非AWS_REGION,曾ResourceNotFound)
+- [x] A2 对话审阅体验：`list --store dynamo` 生产只读拉待审(scan)已验证——真实队列 3 条(2测试行+**1真实用户建议 ab141aa90439「拼车增加人数选择」**);accept/reject 生产status写=人工对话逐条授权(未擅自改)
+- [x] A3 覆盖：`tests/test_review_queue.py` 9 条确定性单测(spam MIN_TEXT_LEN双侧钉死/normalize/dedup首个规范/priority序/triage排序过滤);内存store,不碰生产。pytest 179→**188**
 
-## D 最薄执行端闭环
-- [x] D0 **✅ 已解决** 加固冻结 E2E：app bootstrap 末置就绪信号 `window.__SF_READY__`+`body[data-ready=1]`(整链含深链完成后)；E2E 全部 networkidle→domcontentloaded+`await ready()`(等就绪信号)。**3/3 跑 64/0 稳定确定性**,深链亦过。pytest153/schema✅。→ D 自动门现可靠可上
-- [x] D1 需求对象 schema：`docs/requirement-schema.md`(字段+status状态机+TTL红线+可回滚性/auto_eligible) + 手工种子 `reference/data/seed_requirement.json`(1条 accepted·纯前端·可回滚)
-- [x] D2 本地 pipeline 脚本 `tools/req_pipeline.py`(纯stdlib)：读 accepted 需求→声明式确定性 edit(幂等,LLM coder 后续接线)→**确定性安全门**(资格/路径白名单⊆{web/浪报MVP.html}禁碰web-e2e/非删除净签名判定/secret+后门+新出网扫描)→node--check/schema_check/pytest/**冻结E2E(起服SF_FRONTEND+SF_SEED_SPOTS)**→全绿=AUTO_OK 出 draft PR(默认dry-run,真开需--create-pr)。审计→pipeline_audit.jsonl。**种子端到端 AUTO_OK(pytest174+E2E64/0)**;负路径实证(eval注入被扫描拦且未落盘/e2e路径被白名单拦→NEEDS_HUMAN)。门单测 `tests/test_req_pipeline.py` 21条双侧钉死(pytest153→174)
-- [x] D3 真发布(G.D3已授权执行)：VERSION 0.1.0→0.1.1 走 release/v0.1.1 PR#9 合并 master(2906f5a);t4g 构建镜像双tag :latest+:v0.1.1;ECS taskdef:8 钉 :v0.1.1 滚动 COMPLETED;生产金丝雀冻结E2E **64/0** 通过;补打 **git tag v0.1.1**(闭合版本↔commit);CHANGELOG 记 需求seed-0001+release+canary
-- [x] D4 审计链贯通验证 `tools/audit_trace.py`(纯stdlib)：追溯 `需求ID↔pipeline审计↔分支/PR/commit↔版本tag↔CHANGELOG↔部署时间`,每环标 ✅存在/⏳待D3/❌断裂。seed-0001 链**已接线**(需求↔pipeline ✅ verdict=AUTO_OK 8/8门绿;PR/tag/CHANGELOG/部署 ⏳待D3);v0.1.0 子链 CHANGELOG 真实数据全✅。解析器单测 5 条(pytest174→179)。约定:需求发布 SF_RELEASE_NOTE="需求<ID>:..."写CHANGELOG。**发现:git tag 从未打(仅ECR镜像tag)→D3发布应补 git tag vX.Y.Z 闭合"版本↔commit"环**
+## E 全链薄彩排
+- [ ] E1 选真实 accepted 需求 + 备 req_pipeline 需求对象(agent 据需求写声明式 edit,标注 LLM coder 缝)
+- [ ] E2 跑 req_pipeline 安全门→AUTO_OK/NEEDS_HUMAN→出 draft PR(--create-pr)  ← G.E2
+- [ ] E3 合并→deploy.sh 发布+canary(64/0)→git tag+CHANGELOG(需求ID)  ← G.E3
+- [ ] E4 闭环通知：status→shipped；/api/changelog 可见；认领码 track 显 shipped
+- [ ] E5 audit_trace --requirement-id <需求> 全环 ✅ 贯通
 
-## B Phase1 无 LLM 输入端
-- [x] B1 `/api/feedback`(匿名POST,长度上限,GMT+8,status=new+认领码) 落库；db 双store add/list/set_feedback_status;DynamoDB TTL 仅 new/rejected(采纳去TTL)。pytest 147→**150**(+3)
-- [x] B2 page-schema：`PAGE_SCHEMA`(live/report/other 各含 label/features/topics) 定义于 HTML;`web/e2e/schema_check.mjs` 纯node守卫(键==maintab data-tab,防漂移)✅
-- [x] B3 预置模板澄清 UI：悬浮「💡提建议」→ 弹层 3 步(类别→PAGE_SCHEMA主题→文本,可跳过,≤3步)→结构化需求 POST /api/feedback→显示认领码。焦点探针跑通(类别→主题→文本→claim码);零 LLM。E2E 持久断言并入 B5
-- [x] B4 公开更新日志页(GET /api/changelog 读 CHANGELOG)+匿名认领码查进展(GET /api/feedback/track?claim,只回状态/时间/类别)；前端「其他」tab #changelog 块(切页加载+状态中文映射)。探针:日志4条+查进展显"待审阅"。生产镜像需含 CHANGELOG.md→G门
-- [x] B5 覆盖：pytest 150→**153**(+changelog/track/bad-claim) · schema_check.mjs ✅ · inline JS OK；B3/B4 交互经 Playwright 焦点探针验证(全套 E2E 断言待 D0 加固后并入)
-
-## [生产写操作门 G]（已人工授权执行 2026-07-26）
-- [x] G.D3 D 的真实发布(build+redeploy+canary)：v0.1.1 镜像双tag → ECS taskdef:8 滚动 COMPLETED → 生产金丝雀 64/0 → git tag v0.1.1 → CHANGELOG。生产站 https://d2hmhl7n8yga53.cloudfront.net 跑 v0.1.1
-- [x] G.B1 生产 DynamoDB 建表 + /api/feedback 真上线：建 `surf-forecast-dev-feedback`(id HASH,PAY_PER_REQUEST,TTL=expiresAt) + 任务角色策略 DynamoRW 补授 feedback 表 ARN(PutItem/Scan)。端到端验证:匿名POST→claim落库、track查状态、坏码404。**发现:feedback表+IAM策略经CLI直建=terraform IaC drift,待补进 iac/terraform 防漂移(单独跟进)**
+## [生产写操作门 G]（停下发 blocker 等人工确认）
+- [ ] G.E2 真开 draft PR(--create-pr)
+- [ ] G.E3 真发布(build+redeploy+canary+git tag+CHANGELOG)
+- [ ] G.status 改生产 feedback status(accept/reject/shipped)——逐条人工对话授权
