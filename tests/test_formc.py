@@ -88,3 +88,23 @@ def test_catalog_scores_no_cache(client):
     _seed(); _auth(client)
     j = client.get("/api/catalog/scores").json()
     assert j["cached"] is False and j["scores"] == {}
+
+
+# —— 解耦回归：冷点回收(refresh_enabled=False)不得让目录/直播消失 ——
+def test_cold_spot_still_listed_but_not_refreshed(client):
+    """根因回归：list_listed_registry(目录/直播) 与 list_active_registry(刷新/回收) 解耦。
+    冷点回收把 refresh_enabled=False 后，浪点仍须在 /api/catalog + /api/cams 可见，
+    但退出刷新集(list_active_registry)。防「部署两周后目录/直播静默归零」复发。"""
+    _seed(); _auth(client)
+    store = db.get_store()
+    store.set_refresh_enabled("sl74", False)   # 模拟冷点回收
+    # 刷新集：sl74 已退出
+    active = {r["slug"] for r in store.list_active_registry()}
+    assert "sl74" not in active
+    # 公开可见集：sl74 仍在
+    listed = {r["slug"] for r in store.list_listed_registry()}
+    assert "sl74" in listed
+    # API：目录 + 直播仍含 sl74
+    cat = {c["slug"] for c in client.get("/api/catalog").json()["catalog"]}
+    cams = {c["slug"] for c in client.get("/api/cams").json()["cams"]}
+    assert "sl74" in cat and "sl74" in cams
