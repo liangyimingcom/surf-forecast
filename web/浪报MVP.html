@@ -314,7 +314,7 @@
   .cam-name{padding:7px 10px;font-size:12.5px;font-weight:600;color:var(--ink1,#1a2734)}
   .cam-empty{color:var(--ink3);font-size:12.5px;padding:8px 2px}
   .cam-video{width:100%;max-height:60vh;background:#000;border-radius:10px;display:block}
-  .cam-tip{margin-top:8px;font-size:11.5px;color:var(--ink3)}
+  .cam-tip{margin-top:8px;font-size:11.5px;color:var(--ink3)}\n  .fb-aipick{margin-top:6px}\n  .fb-chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;padding:4px 8px;margin:3px 4px 0 0;border:1px solid var(--line,#d0d7de);border-radius:14px;cursor:pointer}\n  .fb-chip.on{background:#e0f2fe;border-color:#7dd3fc}\n  body.dark .fb-chip.on{background:#0b3a52;border-color:#2b6f8f}
   .sf-degraded{margin:6px auto 0;max-width:960px;padding:6px 12px;border-radius:8px;background:#fff4e5;color:#8a4b00;border:1px solid #f0c98a;font-size:12.5px;text-align:center}
   body.dark .sf-degraded{background:#3a2a10;color:#ffd9a0;border-color:#6b4e1f}
   .sf-degraded a{color:inherit;text-decoration:underline;font-weight:600}
@@ -1567,7 +1567,7 @@ let _liveView = 'catalog';
 /* B3 预置模板澄清（零 LLM，≤4 步收敛，可跳过）→ 结构化需求 → POST /api/feedback */
 const FB_KINDS=[['new_feature','✨ 新增功能'],['improve','🔧 改进现有'],['remove','🗑️ 删除/精简'],['bug','🐞 报告 Bug']];
 let _fb={};
-function openFeedback(){ _fb={page:_curTab,kind:'',topic:'',text:'',repro:''}; fbRender(1); const m=document.getElementById('fbModal'); m.classList.add('open'); m.setAttribute('aria-hidden','false'); }
+function openFeedback(){ _fb={page:_curTab,kind:'',topic:'',text:'',repro:'',picks:[]}; fbRender(1); const m=document.getElementById('fbModal'); m.classList.add('open'); m.setAttribute('aria-hidden','false'); }
 function closeFeedback(){ const m=document.getElementById('fbModal'); if(m){ m.classList.remove('open'); m.setAttribute('aria-hidden','true'); } }
 function _esc(s){ return String(s||'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])); }
 function fbRender(step){
@@ -1586,7 +1586,9 @@ function fbRender(step){
     const bugRepro = _fb.kind==='bug' ? `<div class="fb-step" style="margin-top:8px">复现步骤（可选）</div><textarea class="fb-ta" id="fbRepro" placeholder="怎样触发这个问题？">${_esc(_fb.repro)}</textarea>`:'';
     b.innerHTML=`<h3>💡 提建议</h3><div class="fb-step">第 3/3 步 · 具体说说你的期望/问题（必填，≤2000 字）</div>`
       +`<textarea class="fb-ta" id="fbText" placeholder="越具体越好：你想要什么效果 / 现在有什么问题">${_esc(_fb.text)}</textarea>`+bugRepro
+      +`<div id="fbAiPick" class="fb-aipick" style="display:none"></div>`
       +`<div class="fb-row"><button class="fb-btn ghost" onclick="fbRender(_fb.kind?2:1)">‹ 上一步</button><button class="fb-btn primary" onclick="fbSubmit()">提交建议</button></div>`;
+    _fbClarifyStep3();                              // L3+ 第3步 LLM 页面感知多选(降级则隐藏=纯手动)
   }
 }
 async function _fbClarifyEnhance(){       // 在线 LLM 澄清(渐进增强;失败/降级则保持预置模板,不阻塞)
@@ -1603,13 +1605,35 @@ async function _fbClarifyEnhance(){       // 在线 LLM 澄清(渐进增强;失�
     }
   }catch(_){/* 降级:保持模板 */}
 }
+async function _fbClarifyStep3(){         // 第3步:LLM 页面感知建议多选(与手动输入并存;降级/失败则隐藏,纯手动不受影响)
+  try{
+    const chosen=[]; if(_fb.kind) chosen.push(_fb.kind); if(_fb.topic) chosen.push(_fb.topic);
+    const r=await fetch(`${API_BASE}/api/clarify`,{method:'POST',credentials:'include',
+      headers:{'Content-Type':'application/json'},body:JSON.stringify({page:_fb.page,step:3,chosen,text:''})});
+    if(!r.ok) return;
+    const j=await r.json();
+    if(!(j && j.source==='llm' && Array.isArray(j.options) && j.options.length)) return;  // 降级→保持隐藏
+    const box=document.getElementById('fbAiPick'); if(!box || _fb.step!==3) return;
+    const sel=new Set(_fb.picks||[]);
+    box.style.display='';
+    box.innerHTML=`<div class="fb-step" style="margin-top:8px">🤖 AI 建议补充（可多选，基于当前页；也可只手动填写上方）</div>`
+      +`<div class="fb-opts">`+j.options.map(o=>`<label class="fb-chip${sel.has(o)?' on':''}"><input type="checkbox" value="${_esc(o)}"${sel.has(o)?' checked':''} onchange="_fbTogglePick(this)"> ${_esc(o)}</label>`).join('')+`</div>`;
+  }catch(_){/* 降级:纯手动 */}
+}
+function _fbTogglePick(el){
+  _fb.picks=_fb.picks||[]; const v=el.value;
+  if(el.checked){ if(!_fb.picks.includes(v)) _fb.picks.push(v); el.parentElement.classList.add('on'); }
+  else { _fb.picks=_fb.picks.filter(x=>x!==v); el.parentElement.classList.remove('on'); }
+}
 function fbPick(field,val,next){ _fb[field]=val; fbRender(next); }
 function fbSkip(){ fbRender(3); }
 async function fbSubmit(){
   const t=(document.getElementById('fbText')||{}).value||''; _fb.text=t.trim();
   const rp=(document.getElementById('fbRepro')||{}).value||''; _fb.repro=rp.trim();
-  if(!_fb.text){ alert('请填写具体期望/问题'); return; }
-  const payload={kind:_fb.kind||'improve',page:_fb.page,text:(_fb.topic?('['+_fb.topic+'] '):'')+_fb.text,repro:_fb.repro,expect:''};
+  const picks=(_fb.picks||[]);
+  if(!_fb.text && !picks.length){ alert('请填写具体期望/问题，或勾选至少一个 AI 建议'); return; }
+  const combined=[(_fb.topic?('['+_fb.topic+'] '):''),(picks.length?('【选中】'+picks.join('；')):''),(_fb.text?('\n'+_fb.text):'')].join('').trim().slice(0,2000);
+  const payload={kind:_fb.kind||'improve',page:_fb.page,text:combined,repro:_fb.repro,expect:''};
   try{
     const r=await fetch(`${API_BASE}/api/feedback`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
     const j=await r.json();
