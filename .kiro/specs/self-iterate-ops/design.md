@@ -67,12 +67,12 @@
 - review_queue↔req_pipeline 串联集成测试用内存 store，不碰生产。
 - 冻结 E2E 作发布金丝雀（生产真浏览器），非本 spec 新增。
 
-## 7. ADR（L0 决策 — 附推荐值，**待评审拍板，非既定**）
+## 7. ADR（L0 决策 — **已定案 2026-07-26**）
 
-- **ADR-1（D-a）契约关键字黑名单**：推荐 = §4.3 列表（`wdeg/tp/tp2/tideEvents/times/windows/hs/wind/gust/_to_decimal/DATA CONTRACT/__SF_READY__`）。备选：更严（加 `demoAuth/loadCatalog` 等 bootstrap 符号）/更松（仅 wdeg+DATA CONTRACT）。**倾向推荐值**（覆盖 DATA CONTRACT 红线关键面）。
-- **ADR-2（D-b）升格目标映射**：推荐 = promote 时人工指定目标 spec，追加为该 spec `tasks.md` 的一条新 task（引用 feedback id）。备选：集中式 `docs/backlog.md`。**倾向"直接进目标 spec tasks"**（单一真相源，避免第三个 backlog）。
-- **ADR-3（D-c）lane 记录方式**：推荐 = feedback 落 `lane` 字段（可追溯、审计链完整）。备选：triage 口头指示不落字段（轻但不可追溯）。**倾向落字段**（审计链需要）。
-- **ADR-4（D-d）triage 摘要渠道**：推荐 = dashboard 通知（`send_message` 默认）。备选：+Slack DM。**倾向 dashboard-only**（低打扰，贴"不打断"取向）。
+- **ADR-1（D-a）契约关键字黑名单**：**定案 = §4.3 列表**（`wdeg/tp/tp2/tideEvents/times/windows/hs/wind/gust/_to_decimal/DATA CONTRACT/__SF_READY__`）。理由：恰好覆盖 DATA CONTRACT 红线关键面，命中即退回 promote。（实现时清单集中一处常量，便于增补。）
+- **ADR-2（D-b）升格目标映射**：**定案 = promote 时人工指定目标产品 spec，追加为该 spec `tasks.md` 一条新 task（引用 feedback id）**。不建集中式第三 backlog——单一真相源，避免 backlog 分裂。
+- **ADR-3（D-c）lane 记录方式**：**定案 = feedback 落 `lane` 字段**（可追溯、审计链完整）；旧行缺字段读路径默认值容错。
+- **ADR-4（D-d）triage 摘要渠道**：**定案 = dashboard 通知（`send_message` 默认，非 Slack）**。低打扰，贴"不打断既定开发"取向；每日 cron 已按此实现。
 
 ## 8. 范围外
 无人值守自动合并/部署；云端 LLM 澄清；LLM coder 自动写实现；新增公网审阅端点。
