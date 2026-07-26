@@ -18,3 +18,5 @@
 - 2026-07-26 22:15 GMT+8 · v0.1.3 · 48dd878 · canary@生产 冻结E2E 64/0 + TTL重复请求0.82→0.69s · 通过
 - 2026-07-26 23:42 GMT+8 · v0.1.4 · 68f65c8 · 在线LLM澄清真接入(Secrets注入SF_LLM_KEY+ECS执行角色授权;/api/clarify source=llm)+LLM coder · 已滚动部署(taskdef:11) · **开始LLM计费**
 - 2026-07-26 23:42 GMT+8 · v0.1.4 · 68f65c8 · canary@生产 冻结E2E 64/0 + /api/clarify 真调LLM返回页面感知选项 · 通过
+- 2026-07-27 01:17 GMT+8 · v0.1.5 · c790858 · 提建议第3步 LLM 页面感知多选(与手动并存) · 已部署(taskdef:12,补tag)
+- 2026-07-27 01:17 GMT+8 · v0.1.6 · 0098166 · 修缓存显示(澄清增强接受source=cache,每次都显chips) · 已滚动部署(taskdef:13)+金丝雀64/0
