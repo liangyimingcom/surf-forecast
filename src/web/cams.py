@@ -8,7 +8,7 @@
 契约（north_star 红线 + Task 4 裁定）：
 - **受保护(401)**：与 `/api/spots` 同一 `Depends(deps.current_user)`——未登录一律 401（直播非完全公开）。
 - **只读**：仅注册 GET；POST/PUT/DELETE/PATCH → 405（无写入面）。不复刻登录/支付/社区写入。
-- **slug→live_src 目录**：从 `list_active_registry()` 仅取含 `live_src` 的行；国外(live_src=None)自动过滤。
+- **slug→live_src 目录**：从 `list_listed_registry()` 仅取含 `live_src` 的行；国外(live_src=None)自动过滤。
 - **视频不经后端**：仅下发上游 live_src URL，前端 hls.js 直连；来源+研究免责随响应下发。
 - **Decimal 兼容**：lat/lon 用 float() 兼容 DynamoDB Decimal / 内存 float。
 """
@@ -34,10 +34,12 @@ def cams_list(user: dict = Depends(deps.current_user)) -> dict:
     鉴权：按 /api/spots 模式受保护——未登录 401（直播非完全公开）。
     视频流由前端 hls.js 直连上游、不经后端转发；本接口只读目录，不复刻登录/支付/社区写入。
     从注册表返回含 live_src 的浪点; lat/lon 兼容 Decimal(DynamoDB)/float(内存)。附来源免责标注。"""
-    rows = db.get_store().list_active_registry() or []
+    rows = db.get_store().list_listed_registry() or []
     cams = []
     for r in rows:
-        if not r.get("live_src"):
+        src = r.get("live_src") or ""
+        # 只收 https 源：http 明文在 HTTPS 生产会被 mixed-content 拦截、永远无法播放
+        if not src.startswith("https://"):
             continue
         try:
             lat, lon = float(r["lat"]), float(r["lon"])

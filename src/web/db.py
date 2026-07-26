@@ -121,6 +121,13 @@ class InMemoryStore:
             return [r for r in self.registry.values()
                     if r.get("status") == "active" and r.get("refresh_enabled")]
 
+    def list_listed_registry(self) -> list[dict]:
+        """公开目录/直播可见集：仅 status=active（**不**要求 refresh_enabled）。
+        与 list_active_registry(刷新/回收用)解耦——冷点回收关掉 refresh_enabled 时，
+        浪点仍在目录/直播中可见（预报按点实时兜底）。"""
+        with self._lock:
+            return [r for r in self.registry.values() if r.get("status") == "active"]
+
     def incr_ref(self, slug: str, delta: int = 1) -> None:
         with self._lock:
             r = self.registry.get(slug)
@@ -251,6 +258,19 @@ class DynamoDBStore:
         r = self.registry_t.scan(
             FilterExpression=Attr("status").eq("active") & Attr("refresh_enabled").eq(True))
         return r.get("Items", [])
+
+    def list_listed_registry(self):
+        """公开目录/直播可见集：仅 status=active（不要求 refresh_enabled）。
+        与刷新/回收解耦——冷点回收关 refresh_enabled 后浪点仍在目录/直播可见。"""
+        from boto3.dynamodb.conditions import Attr
+        items, resp = [], self.registry_t.scan(FilterExpression=Attr("status").eq("active"))
+        items.extend(resp.get("Items", []))
+        while resp.get("LastEvaluatedKey"):
+            resp = self.registry_t.scan(
+                FilterExpression=Attr("status").eq("active"),
+                ExclusiveStartKey=resp["LastEvaluatedKey"])
+            items.extend(resp.get("Items", []))
+        return items
 
     def incr_ref(self, slug, delta=1):
         row = self.get_registry(slug)

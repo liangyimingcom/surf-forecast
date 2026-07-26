@@ -184,7 +184,7 @@ def spots_select(slug: str, user: dict = Depends(deps.current_user)) -> dict:
 def catalog_list(user: dict = Depends(deps.current_user)) -> dict:
     """P3 形态C：全国浪点目录(58+)。登录可见；从注册表返回基础信息+区域+是否有直播。
     lat/lon 兼容 Decimal(DynamoDB)/float(内存)。评分留待前端按点取报(用缓存)。"""
-    rows = db.get_store().list_active_registry() or []
+    rows = db.get_store().list_listed_registry() or []
     catalog = []
     for r in rows:
         try:
@@ -196,7 +196,7 @@ def catalog_list(user: dict = Depends(deps.current_user)) -> dict:
             "region": r.get("region_cn", "其他"), "lat": lat, "lon": lon,
             "facing": float(r.get("spot_facing_deg", 0) or 0),
             "facing_calibrated": bool(r.get("facing_calibrated", False)),
-            "has_live": bool(r.get("live_src")), "days": int(r.get("days", 6) or 6),
+            "has_live": str(r.get("live_src") or "").startswith("https://"), "days": int(r.get("days", 6) or 6),
         })
     return {"catalog": catalog}
 
@@ -208,7 +208,7 @@ def catalog_scores(user: dict = Depends(deps.current_user)) -> dict:
     reader = deps._cache_reader()
     if reader is None:
         return {"scores": {}, "cached": False}
-    rows = db.get_store().list_active_registry() or []
+    rows = db.get_store().list_listed_registry() or []
     scores = {}
     for r in rows:
         try:
