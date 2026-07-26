@@ -116,3 +116,19 @@ Open-Meteo（同源 ECMWF WAM/IFS，免 key），含 `past_days` 历史回算。
 - **测试**：pytest **145**；Playwright E2E **62/62** + 0 JS 报错（`web/e2e/new_features.mjs`）。
 - **截图/文档**：`docs/screenshots/`(30 张，含 26 详情布局 / 27 目录★ / 28 仅直播 / 02 地图着色) + `docs/UI优化-01~03`（功能介绍/交互操作指南/教学教程，均含第二、三轮）。
 - **合规**：纯前端附加式；不改引擎内核/后端契约（wdeg/GMT+8/float→Decimal）；受保护接口全 401；社区/直播示例与免责保留。
+
+## 发布地基 Phase 0：版本化 / 回滚 / 金丝雀 / 审计（2026-07-26 新增）
+
+「用户建议自迭代闭环」的前提地基（设计见 `docs/自迭代闭环-设计与提示词-v4.md`）。**纯发布层，未改引擎/后端契约**。
+
+| 能力 | 实现 |
+|------|------|
+| 不可变版本 tag | `VERSION`(semver) → `deploy.sh build` 镜像双 tag `:latest` + `:vX.Y.Z`（历史可回滚，不再覆盖式） |
+| 审计链 + CHANGELOG | `CHANGELOG.md` 每次发布/回滚自动追加「时间·版本·commit·摘要·结果」(GMT+8) |
+| 回滚 | `deploy.sh rollback [vX.Y.Z]`：切 ECS 到指定/上一版本镜像(注册新 task def revision)，不重建 |
+| 真浏览器金丝雀 | `deploy.sh canary [URL]`：对目标跑冻结基线 E2E + 0 JS 报错；**失败→自动 rollback** |
+| 计数告警 | `tools/monitor_counts.py`(stdlib)：catalog/cams/report 计数跌 0 → 🔴ALERT exit2（防"冷点炸弹"复发） |
+
+- **验证**：pytest **147** · Playwright E2E **64/64** · `bash -n deploy.sh` OK · 金丝雀/监控本地实跑通过（未触生产）。
+- **红线**：真打 tag / 真部署 / 真回滚演练 / 真建告警 = 生产写操作，**留「生产写操作门」人工确认后执行**；本 Phase 全部本地实现+dry-run。
+- **附带发现**：`deploy.sh cmd_apply` 用了 `terraform apply -auto-approve`（违既有红线），待后续单独修。

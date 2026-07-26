@@ -299,7 +299,7 @@
   .nb-name{font-size:13.5px;font-weight:600;color:var(--ink1,#1a2734)}
   .nb-desc{font-size:12px;color:var(--ink2);line-height:1.5}
   .cam{max-width:960px;margin:12px auto 0;padding:0 16px}
-  .cam-hd{font-size:13.5px;font-weight:700;color:var(--ink2);margin:0 2px 8px}
+  .cam-hd{font-size:13.5px;font-weight:700;color:var(--ink2);margin:0 2px 8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
   .cam-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
   .cam-card{background:#fff;border:1px solid var(--line,#e3e8ef);border-radius:12px;overflow:hidden;cursor:pointer}
   .cam-card:hover{border-color:#7fb0e6}
@@ -307,6 +307,9 @@
   .cam-live{position:absolute;top:6px;left:6px;font-size:10px;font-weight:700;color:#fff;background:rgba(217,83,79,.9);border-radius:6px;padding:1px 6px}
   .cam-live.probing{background:rgba(100,116,139,.85)}
   .cam-live.offline{background:rgba(71,85,105,.9)}
+  .cam-livecount{font-size:11px;font-weight:600;color:var(--ink3,#8294aa);margin-left:6px}
+  .cam-filter{margin-left:auto;font-size:11px;font-weight:700;padding:3px 10px;border:1px solid var(--line,#e3e8ef);border-radius:999px;background:#fff;color:var(--ink2,#475569);cursor:pointer}
+  .cam-filter.on{background:#0ea5e9;color:#fff;border-color:#0ea5e9}
   .cam-play{font-size:26px;color:rgba(255,255,255,.9)}
   .cam-name{padding:7px 10px;font-size:12.5px;font-weight:600;color:var(--ink1,#1a2734)}
   .cam-empty{color:var(--ink3);font-size:12.5px;padding:8px 2px}
@@ -631,7 +634,10 @@
 
   <!-- R2.8 模块A 在线视频直播占位：示例摄像头占位卡（无真实HLS流；明确标注演示） -->
   <section class="cam" id="livecams">
-    <div class="cam-hd">📹 浪点直播 <span class="sample-tag">真实直播 · 研究用途</span></div>
+    <div class="cam-hd">📹 浪点直播 <span class="sample-tag">真实直播 · 研究用途</span>
+      <span id="camLiveCount" class="cam-livecount"></span>
+      <button id="camLiveOnly" class="cam-filter" type="button" aria-pressed="false" onclick="toggleCamLiveOnly()">仅看在播</button>
+    </div>
     <div class="cam-grid" id="camGrid"></div>
   </section>
 
@@ -1312,7 +1318,37 @@ async function probeCamsLive(){
   // 并发限 6
   const q=[...CAMS]; const workers=Array.from({length:6}, async()=>{ while(q.length){ await probe(q.shift()); } });
   await Promise.all(workers);
+  sortCamsByLive(); applyCamFilter();   // 探活完成 → LIVE 优先排序 + 应用「仅看在播」
 }
+/* 探活后把在播卡片排到前面（DOM 重排，稳定） */
+function sortCamsByLive(){
+  const box=document.getElementById('camGrid'); if(!box) return;
+  const cards=[...box.querySelectorAll('.cam-card')];
+  cards.sort((a,b)=>{
+    const la=a.querySelector('.cam-live')?.dataset.live==='1'?0:1;
+    const lb=b.querySelector('.cam-live')?.dataset.live==='1'?0:1;
+    return la-lb;   // 在播(0) 在前
+  }).forEach(c=>box.appendChild(c));
+}
+let _camLiveOnly=false;
+try{ _camLiveOnly = localStorage.getItem('sf_cam_live_only')==='1'; }catch(_){}
+function applyCamFilter(){
+  const box=document.getElementById('camGrid'); if(!box) return;
+  let live=0, tot=0;
+  box.querySelectorAll('.cam-card').forEach(c=>{
+    const ok=c.querySelector('.cam-live')?.dataset.live==='1'; tot++; if(ok) live++;
+    c.style.display = (_camLiveOnly && !ok) ? 'none' : '';
+  });
+  const cnt=document.getElementById('camLiveCount'); if(cnt) cnt.textContent=`● 在播 ${live}/${tot}`;
+  const btn=document.getElementById('camLiveOnly');
+  if(btn){ btn.classList.toggle('on', _camLiveOnly); btn.setAttribute('aria-pressed', _camLiveOnly?'true':'false'); }
+}
+function toggleCamLiveOnly(){
+  _camLiveOnly=!_camLiveOnly;
+  try{ localStorage.setItem('sf_cam_live_only', _camLiveOnly?'1':'0'); }catch(_){}
+  applyCamFilter();
+}
+window.toggleCamLiveOnly = toggleCamLiveOnly;
 async function loadCams(){
   _sfSkel('camGrid','cam',4);                 // 加载态骨架屏
   try{

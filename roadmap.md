@@ -1,32 +1,22 @@
-# Roadmap — surf-forecast UI 交互布局持续优化
+# Roadmap — surf-forecast 发布地基 (Phase 0)
 
-依赖链：U0(基线+摸底) → U1..Un(UI 优化批次, 每轮1-2项+配套功能迭代) → V(E2E 全绿) → W(截图) → X(3 文档) → Y(收尾/README) → [可选] Z(部署, 停下等确认)
+单一驱动器（dashboard auto-nudge）。每轮挑最高杠杆一步，改前先 grep/codelens 摸底，改后 dry-run 验证，
+勾选须与文件一致。触碰生产的步骤停下发 blocker 等人工确认。
 
-## U0 — 基线 + 摸底
-pytest 145 + E2E 基线确认；codelens/grep 摸清当前 UI 结构与接入点（TAB_OF/showTab/showLiveView/renderCatalog/renderSpotFav/render()）。
-
-## U1..Un — UI 优化批次（每轮单个最高杠杆）
-从 north_star「优化方向」挑选，例如：
-- 目录卡片布局与评分排序 / 空态提示
-- 加载态骨架屏(catalog/live/cams)
-- tab & 子视图记忆(localStorage)
-- 深色模式切换(持久化)
-- 可达性(aria/键盘/焦点)
-- 目录卡片直接收藏 + 地图按评分着色
-- 移动端触控/滚动优化
-每项：grep 确认 → 实现 → node --check → E2E 断言 → pytest 子集不倒退。
-
-## V — E2E 全绿
-`web/e2e/new_features.mjs` 扩断言覆盖所有新交互；全绿 + 0 JS 报错（排除资源404/直播流）。
-
-## W — headless Chrome 截图
-`web/e2e/shots.mjs` 扩截新界面 → `docs/screenshots/*.png`。
-
-## X — 三份中文文档
-功能介绍 / 交互操作指南 / 教学教程（引用截图，含交互流程与代码地图）。
-
-## Y — 收尾
-README 更新 + 最终 pytest + E2E 复核 + 验收结论。
-
-## Z — 部署（可选, 高风险）
-`AWS_PROFILE=oversea1 ./deploy.sh test→frontend→smoke` + CloudFront 复核。**不在 loop 内自动执行**——到此停下发 blocker 等人工确认。
+- **P0.0 前提探测（先做）**
+  确认三项待验证前提（见 v4 文档第六节）：① 当前 frontend 构建是否覆盖 `:latest`（→无回滚物）
+  ② ECR 现有镜像 tag 情况 ③ master 分支保护/自动合并策略。产出结论，据此定版本 tag 方案。
+- **P0.1 版本号 + 不可变镜像 tag 方案**
+  定 semver 来源（`VERSION` 文件或 git tag，patch 自增）；`deploy.sh frontend` 构建时**同时打 `:vX.Y.Z` 与 `:latest`**；
+  保留最近 10 版清理策略。先实现 + dry-run，不推真镜像。
+- **P0.2 CHANGELOG + 审计链**
+  `CHANGELOG.md` 结构；`deploy.sh` 发布成功后自动追加「时间·版本·commit·摘要·结果」；版本↔commit↔时间可回溯。
+- **P0.3 `deploy.sh rollback`**
+  新增子命令：列可用版本 tag → 切 ECS 到上一个 `:vX.Y.Z`（不重建）→ 记 CHANGELOG。bash -n + 逻辑走查。
+- **P0.4 真浏览器金丝雀 + 自动回滚**
+  部署后对生产跑 `web/e2e/new_features.mjs` + 0 JS 报错；失败→自动 `rollback`。先对 localhost 验证脚本，再定生产接线。
+- **P0.5 关键端点计数告警**
+  catalog/cams/report 计数跌 0 告警（最简可落地：脚本 + send_message 或 CloudWatch，二选一）。
+- **P0.6 验证 + 收尾**
+  pytest/E2E 全绿零倒退；deploy.sh bash -n；本地金丝雀脚本跑通；README/文档更新；据实勾选。
+- **[生产写操作门]** P0.1–P0.5 的"真打 tag / 真部署 / 真回滚演练 / 真建告警"统一在此停下，发一次 blocker 等人工确认后执行。
