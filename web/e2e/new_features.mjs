@@ -42,6 +42,12 @@ if(await page.locator('#catalog').isVisible()){
   await page.locator('#liveSubnav .livesub-btn', { hasText:'直播' }).click();
   await page.waitForTimeout(300);
   ok('子视图 切直播(直播显/目录隐)', (await page.locator('#livecams').isVisible()) && !(await page.locator('#catalog').isVisible()));
+  // 仅看在播：探活完成后点开关 → 可见卡片无离线
+  await page.waitForTimeout(6500);
+  await page.locator('#camLiveOnly').click(); await page.waitForTimeout(400);
+  const _offVis = await page.locator('#camGrid .cam-card:visible .cam-live[data-live="0"]').count();
+  ok('仅看在播 隐藏离线卡', (await page.locator('#camLiveOnly').getAttribute('aria-pressed'))==='true' && _offVis===0);
+  await page.locator('#camLiveOnly').click(); await page.waitForTimeout(200);   // 复位
   await page.locator('#liveSubnav .livesub-btn', { hasText:'目录' }).click();
   await page.waitForTimeout(300);
   ok('子视图 切回目录', await page.locator('#catalog').isVisible());
