@@ -4,7 +4,7 @@
 
 ## 阶段 0：脚手架（v1 已建，v2 沿用）
 - [x] 0.1 目录结构、pyproject、physics.py（含 wind_kind 风向判定）
-- [ ] 0.2 thresholds.yaml 增补 `spot_facing_deg`、离岸放宽档位
+- [x] 0.2 thresholds.yaml 已含 spot_facing_deg:157 + offshore_bonus_band:1(离岸放宽一档) — 已实现(对账2026-07-26)
 
 ## 阶段 1：模型与配置
 - [x] 1.1 models.py：WindKind 枚举、ForecastPoint(含 wind_kind 方法)、DailyForecast(weekday GMT+8 只读)、DailyAnalysis(含 dawn_wind_kind)、ReportContext(含 calibrated_at, history) _(R1.1,3.1)_ ✅ test_models 7 项通过

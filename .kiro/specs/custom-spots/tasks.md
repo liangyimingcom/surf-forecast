@@ -8,8 +8,8 @@
 - [x] 1.1 db.py 补 saved_spots 访问：put_spot/list_spots(by email)/get_spot/update_spot/soft_delete _(C2)_
 - [x] 1.2 新增 spot_registry 模型与访问：upsert/list_active/incr_ref/decr_ref/set_refresh_enabled _(C5)_
 - [x] 1.3 slug 生成器：slugify(name) 冲突退化 geo-{lat4}-{lon4}，全局唯一稳定 _(C1)_
-- [ ] 1.4 去重键：round(lat,4)+round(lon,4)+facing；region/facing 推断函数（继承区域缺省） _(C5,C6)_
-- [ ] 1.5 test_spot_models（slug 稳定/去重键/区域推断） + moto 表测试 _(C1,C5)_
+- [x] 1.4 spots_model.py 已实现 dedup_key(round4+facing)/infer_region/infer_facing(区域缺省+override) _(C5,C6)_ (对账2026-07-26)
+- [x] 1.5 tests/test_spots_model.py(slug稳定/dedup双侧/region/facing) + moto 表测试(test_dynamo_store/test_formc_task8);spots 测试18passed _(C1,C5)_ (对账)
 
 ## 阶段 2：浪点 CRUD API（src/web/spots.py）
 - [x] 2.1 spots.py：GET/POST/PATCH/DELETE /api/spots + /select，全部 401 保护 _(C2,C9)_
@@ -39,7 +39,7 @@
 - [x] 5.3 切换：SPOT 重赋值→loadLive(复用实时数据层)→POST /select；记住上次选中 _(C3)_
 - [x] 5.4 管理：✏️重命名 / 🗑删除(软删)；未登录/故障回退内嵌示例不白屏 _(C2)_
 - [x] 5.5 （阶段 B）嵌入 Leaflet+OSM 地图点选回填坐标 ✅ + 前端重命名按钮(PATCH slug不变) _(C1)_
-- [ ] 5.6 JS 语法校验 + 浏览器走查（切换即时加载、当日 GMT+8 实时数据） _(C3,C10)_
+- [x] 5.6 冻结 E2E 64/0 覆盖切换即时加载+当日GMT+8实时;inline JS 无报错 _(C3,C10)_ (对账,E2E验证)
 
 ## 阶段 6：基础设施（IaC，需 apply 审批）
 - [x] 6.1 storage 模块新增 spot_registry DynamoDB 表（on-demand/PITR/PK=slug） _(C5)_
