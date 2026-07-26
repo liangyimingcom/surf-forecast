@@ -2129,6 +2129,13 @@ function renderVerify(){
 function rateYesterday(kind){
   document.querySelectorAll('#vrate button').forEach(b=>b.classList.remove('sel'));
   event.currentTarget.classList.add('sel');
+  // 2.3 登录态上报自评(best-effort,失败不阻塞本地反馈——降级一致)
+  try{
+    const hdate=(window.HISTORY && (HISTORY.date||HISTORY.id)) || '';
+    fetch(`${API_BASE}/api/accuracy/vote`, {method:'POST', credentials:'include',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({spot:SPOT.name, date:hdate, kind})}).catch(()=>{});
+  }catch(_){}
   const msg={
     accurate:['#ecfdf5','#047857','✅ 太好了——预报与你的体感吻合，说明这套评分模型对青岛山东头的标定是可信的。你可以放心参考本周（尤其周三王者日）的预报安排下水。'],
     optimistic:['#fffbeb','#92400e','📉 收到。预报偏乐观时，常见原因：近岸浅水把外海浪高打了折（本系统已按 7–8 折估算，但浪点地形差异仍在），或风/纯度的体感比数字更敏感。建议本周把各日预期下调半档来用。'],
