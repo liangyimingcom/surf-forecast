@@ -16,3 +16,5 @@
 - 2026-07-26 19:43 GMT+8 · v0.1.2 · 8ed5617 · canary@https://d2hmhl7n8yga53.cloudfront.net 冻结E2E 64/0 · 通过
 - 2026-07-26 22:15 GMT+8 · v0.1.3 · 48dd878 · 前端提速(report+history并行/客户端会话缓存秒开) + 后端TTL memo(SF_REPORT_TTL=900/SF_HISTORY_TTL=21600) · 已滚动部署(taskdef:10)
 - 2026-07-26 22:15 GMT+8 · v0.1.3 · 48dd878 · canary@生产 冻结E2E 64/0 + TTL重复请求0.82→0.69s · 通过
+- 2026-07-26 23:42 GMT+8 · v0.1.4 · 68f65c8 · 在线LLM澄清真接入(Secrets注入SF_LLM_KEY+ECS执行角色授权;/api/clarify source=llm)+LLM coder · 已滚动部署(taskdef:11) · **开始LLM计费**
+- 2026-07-26 23:42 GMT+8 · v0.1.4 · 68f65c8 · canary@生产 冻结E2E 64/0 + /api/clarify 真调LLM返回页面感知选项 · 通过
