@@ -29,5 +29,5 @@
 - [x] L5.1 全量 pytest **238**(LLM全mock) + 冻结 E2E 64/0 + py语法OK + schema同步;提交PR + STOP
 
 ## [生产写操作门 G]（停下发 blocker 等人工确认）
-- [ ] G.1 Secrets Manager 存网关 key + ECS 任务角色 valueFrom + (若新表)建表+IAM(按新表ARN授权,IAM最终一致)
-- [ ] G.2 部署(build+redeploy+canary+tag+CHANGELOG) + 生产真调网关冒烟(带预算/限流)
+- [x] G.1 Secrets(surf-forecast-dev/llm-key)存SF_LLM_KEY + ECS执行角色surf-forecast-dev-exec授GetSecretValue + task def:11 valueFrom注入 + SF_LLM_URL/MODEL env
+- [x] G.2 构建:v0.1.4(含LLM代码)→td:11滚动COMPLETED→金丝雀64/0→/api/clarify source=llm(页面感知选项)→git tag v0.1.4+CHANGELOG。开始LLM计费
