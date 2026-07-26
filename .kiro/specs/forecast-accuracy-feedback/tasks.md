@@ -18,7 +18,7 @@
 ## 阶段 2：自评持久化
 - [x] 2.1 GET /api/report/history 接口 _(R1)_ ✅ app.py（缓存优先+回退）
 - [x] 2.2 POST /api/accuracy/vote → accuracy_votes 表（含 GMT+8 时间） _(R2.3;F5)_ ✅ feedback.record_vote
-- [ ] 2.3 前端 rateYesterday 登录态下调用 vote 接口 _(R2.3)_ 🔸 P5 前端动态化时接
+- [x] 2.3 rateYesterday 登录态 POST /api/accuracy/vote(best-effort非阻塞,失败不断本地反馈) _(R2.3)_
 - [x] 2.4 test_vote_feedback + test_vote_persist _(F4,F5)_ ✅ test_feedback 7 项
 
 ## 阶段 3：偏差校准
@@ -27,7 +27,7 @@
 - [x] 3.3 test_bias（≥N 出建议、原分不变） _(F6)_ ✅
 
 ## 阶段 4：位置与时区核验
-- [ ] 4.1 test_placement（verify DOM 在 cards 之后） _(F7)_ 🔸 P5 前端
+- [x] 4.1 tests/test_accuracy_placement.py：#verify 在 #cards 之后 + rateYesterday 上报断言 _(F7)_
 - [x] 4.2 全程 GMT+8 标注核验 _(R4.2)_ ✅ vote created_at_gmt8 + 历史 GMT+8 日界
 
 ## 依赖
