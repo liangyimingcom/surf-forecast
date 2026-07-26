@@ -1598,7 +1598,7 @@ async function _fbClarifyEnhance(){       // 在线 LLM 澄清(渐进增强;失�
       body:JSON.stringify({page:_fb.page,step:2,chosen:_fb.kind?[_fb.kind]:[],text:''})});
     if(!r.ok) return;
     const j=await r.json();
-    if(j && j.source==='llm' && Array.isArray(j.options) && j.options.length){
+    if(j && (j.source==='llm'||j.source==='cache') && Array.isArray(j.options) && j.options.length){
       const box=document.querySelector('#fbBody .fb-opts'); if(!box || _fb.step!==2) return;
       box.innerHTML=j.options.map(t=>`<button class="fb-opt" onclick="fbPick('topic',${JSON.stringify(t).replace(/"/g,'&quot;')},3)">${_esc(t)}</button>`).join('')
         +`<div class="fb-ai" style="font-size:11px;color:var(--ink3);margin-top:4px">🤖 AI 追问(基于当前页面)</div>`;
@@ -1612,7 +1612,7 @@ async function _fbClarifyStep3(){         // 第3步:LLM 页面感知建议多�
       headers:{'Content-Type':'application/json'},body:JSON.stringify({page:_fb.page,step:3,chosen,text:''})});
     if(!r.ok) return;
     const j=await r.json();
-    if(!(j && j.source==='llm' && Array.isArray(j.options) && j.options.length)) return;  // 降级→保持隐藏
+    if(!(j && (j.source==='llm'||j.source==='cache') && Array.isArray(j.options) && j.options.length)) return;  // 降级→保持隐藏
     const box=document.getElementById('fbAiPick'); if(!box || _fb.step!==3) return;
     const sel=new Set(_fb.picks||[]);
     box.style.display='';
