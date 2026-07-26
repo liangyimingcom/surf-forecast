@@ -14,3 +14,5 @@
 - 2026-07-26 17:00 GMT+8 · v0.1.1 · 2906f5a · G.B1: 生产建 surf-forecast-dev-feedback 表(TTL expiresAt)+任务角色补授+/api/feedback 上线 · 端到端通过
 - 2026-07-26 19:43 GMT+8 · v0.1.2 · 8ed5617 · surf-report-web 韧性与契约(report.schema/故障降级不白屏/cache TTL) + accuracy-feedback(rateYesterday上报) · 已滚动部署(taskdef:9)
 - 2026-07-26 19:43 GMT+8 · v0.1.2 · 8ed5617 · canary@https://d2hmhl7n8yga53.cloudfront.net 冻结E2E 64/0 · 通过
+- 2026-07-26 22:15 GMT+8 · v0.1.3 · 48dd878 · 前端提速(report+history并行/客户端会话缓存秒开) + 后端TTL memo(SF_REPORT_TTL=900/SF_HISTORY_TTL=21600) · 已滚动部署(taskdef:10)
+- 2026-07-26 22:15 GMT+8 · v0.1.3 · 48dd878 · canary@生产 冻结E2E 64/0 + TTL重复请求0.82→0.69s · 通过

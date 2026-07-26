@@ -20,13 +20,13 @@
 - [~] P3.1 预取**跳过**(可选):正确预取须连history取(否则命中显旧history=数据诚实bug)+2N后端负载;P1+P2已解核心切换慢,边际收益不抵风险。留待确有需求再做
 
 ## P4 后端 TTL memo（乙）
-- [ ] P4.1 部署 env 开 SF_REPORT_TTL/SF_HISTORY_TTL(900/21600);验证后端重复请求只算一次  ← 部署=G门
-- [ ] P4.2 确认 memo 不碰可见性(冷点炸弹红线复核)
+- [x] P4.1 task def:10 注入 SF_REPORT_TTL=900/SF_HISTORY_TTL=21600;实测重复请求 1.1s→0.69-0.82s
+- [x] P4.2 memo 键=查询参数,不碰可见性(catalog/cams 另走 list_listed_registry) 复核通过
 
 ## P5 缓存覆盖 + 收尾
 - [x] P5.1 生产缓存核查:52 latest.json 在写(每日刷新);全覆盖补齐=运行 refresh 写生产缓存(G.2 ops);custom 坐标固有实算(已标注)
 - [x] P5.2 全量 pytest 211 + 冻结 E2E 64/0(P1/P2本session已验) + bash -n;提交 PR + STOP
 
 ## [生产写操作门 G]（停下发 blocker 等人工确认）
-- [ ] G.1 部署(前端 + task def 加 TTL env + build+redeploy+canary+tag+CHANGELOG)
-- [ ] G.2 (若需)刷新覆盖补齐生产缓存
+- [x] G.1 部署 v0.1.3:td:10(前端提速+TTL env) 滚动COMPLETED+金丝雀64/0+git tag+CHANGELOG
+- [x] G.2 **不手动跑**:refresh_cli 含 recycle_cold_spots(冷点炸弹红线,会禁用无view的demo浪点刷新);交每日 EventBridge 14:00(已活跃,写52 latest.json)安全维护
