@@ -1,33 +1,34 @@
-# North Star — 前端体验提速（切换浪点秒开 · 大胆缓存）
+# North Star — 在线 LLM 澄清 + LLM coder 实现（L1-L5，按 v6 设计）
 
 ## 目标
-大幅降低"切换浪点/读取"的延迟：**已访问浪点秒开、首次并行加载、缓存激进**。
-决策前提：**可接受稍旧数据**（本就每日刷新 02:00/14:00 + 页面显 GMT+8 校准时间戳=诚实）。
-方案 = 方向甲(前端并行+客户端缓存+预取) + 方向乙(后端 TTL memo + 缓存覆盖)；**丙 CDN 暂缓**(cookie 鉴权有串用户风险)。
+按 `docs/自迭代-在线LLM澄清与coder-设计v6.md`（ADR-5~8）实现两块 AI 环节：
+- **在线匿名 LLM 澄清**（ECS 调 alblitellm；每步自动；仅应用层护栏）。
+- **LLM coder**（写实现但一律人工审 draft PR，守 v5 G1）。
+本地全程 **mock LLM 测试**（不真烧钱/不触网）；真调网关 + Secrets 注入 + 部署 = **生产写操作门 G**。
 
-## 范围
-- **P1 前端并行**：`loadLive` 把 /api/report 与 /api/report/history 由**串行改并行**（Promise.all）。
-- **P2 客户端缓存**：REPORT/HISTORY 会话内内存缓存（键=lat,lon,days,spot）；**切回已访问浪点秒开**；缓存内容仍带校准时间戳（诚实，不伪装实时）。
-- **P3 预取**（可选）：收藏/相邻浪点后台预取，切换即命中。
-- **P4 后端 TTL**：部署开 `SF_REPORT_TTL`/`SF_HISTORY_TTL`（W3 已实现的进程内 memo），TTL 窗口内跳过 S3+解析。
-- **P5 缓存覆盖**：确认 58 个上架浪点全有 `latest.json`（补刷新覆盖），消灭"实算数秒"慢点。
+## 范围（决策优先排序；红线逻辑测试随层）
+- **L1 数据模型**：per-IP 限流 + 全局日预算计数（DynamoDB，float→Decimal）；选项缓存键(page-schema+步骤+已选)；LLM 输出结构化需求 schema + 校验器。
+- **L2 接口**：后端 `POST /api/clarify`（匿名+限流→缓存→调网关(key from Secrets)→schema校验→写缓存；超限/不通/报错降级模板）；`req_pipeline --llm-coder`（生成锚点 patch→硬门→draft PR，永远人工审）。
+- **L3 用户可见**：前端澄清 UI 每步调 /api/clarify（loading 态；≤4 轮收敛；跳过逃生；降级无缝切模板）。
+- **L4 内部逻辑**：per-IP 限流 + 日预算硬闸 + 反注入(系统/数据分隔) + coder 锚点patch/禁碰web-e2e/diff扫描/需求当数据。
+- **L5 机械/测试**：限流/预算/缓存/schema校验/降级 单测(边界双侧+mutation) + /api/clarify 降级集成 + coder patch+门 集成（全 mock LLM）。
 
 ## DoD
-- 切回已访问浪点**近乎瞬时**（客户端命中，无网络等待）；首次加载两请求并行（非串行）。
-- pytest 不倒退；冻结 E2E **64/0** + 新增"并行/秒切"断言；0 JS 报错。
-- 数据诚实：缓存展示仍显 GMT+8 校准时间戳（不伪装实时）；降级 banner 仍生效。
-- 全程 GMT+8。
+- pytest 全绿（LLM 全 mock，不触网/不烧钱）+ 冻结 E2E 64/0 + 0 JS 报错。
+- 降级链可证：网关不通/超限 → 无缝退预置模板、不报错、不白屏。
+- 数据诚实/反注入/缓存不碰可见性 红线守住；全程 GMT+8。
 
 ## 红线
-- **数据诚实**：缓存/稍旧数据必须显真实校准时间戳，绝不标为"实时"。
-- **冷点炸弹**：任何缓存**不碰可见性**（目录/直播用 list_listed_registry，与提速缓存解耦）。
 - **单一驱动器**（禁 task_run）；与每日 triage cron/其他 goal 不并发写同文件。
-- DATA CONTRACT(wdeg/数字图表/预报历史互斥)、float→Decimal、全401、SG禁0.0.0.0/0、terraform禁-auto-approve。
-- 每轮 codelens-dev 摸底+爆炸半径+守红线；**真部署留生产写操作门 G**。
+- **人主导**：LLM coder 产出一律停 draft PR 等人工审，**无自动合并/部署**（守 v5 G1）。
+- 匿名 LLM 仅**应用层**护栏（per-IP + 全局日预算硬闸 + 选项缓存 + 降级模板），**不引 WAF**。
+- 反注入（用户/需求文本作 data 段）；CodeLens/源码/key 不外露；LLM 输出 schema 校验。
+- 沿用：GMT+8 / DATA CONTRACT / float→Decimal(_to_decimal) / 全401 / SG禁0.0.0.0/0 / terraform禁-auto-approve。
+- 每轮 codelens-dev 摸底+爆炸半径；pytest/E2E 零倒退；**真调网关/Secrets/部署留 G 门**。
 
 ## 范围外
-CDN 缓存 /api（鉴权风险，另议）；Vite 组件化（不解决性能）；改引擎算法。
+无人值守自动合并/部署；WAF/CloudFront；LLM 略过人眼上线；pytest 里真调网关(必须 mock)。
 
 ## 停止
-P1-P5 本地完成+全绿、仅剩 G 门时创建 STOP：
+L1-L5 本地完成+全绿、仅剩 G 门（Secrets+部署）时创建 STOP：
 `/Users/yiming/.meshclaw/workspace-surf-forecast/.stop-chat-3-1783779532`
