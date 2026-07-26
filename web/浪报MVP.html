@@ -901,6 +901,20 @@ function _sfSkelRows(kind, n){                 // 生成 n 行骨架屏 HTML
 function _sfSkel(id, kind, n){                  // 往容器塞骨架屏
   const el=document.getElementById(id); if(el) el.innerHTML=_sfSkelRows(kind,n);
 }
+/* P2 客户端会话缓存：切回已访问浪点秒开（稍旧可接受;仍显真实校准时间戳=诚实）。不碰可见性(冷点炸弹红线)。*/
+const SF_RCACHE = new Map();
+const SF_RCACHE_TTL = 10*60*1000;              // 10 分钟客户端缓存,过期重取
+const SF_RCACHE_MAX = 40;                       // 容量上限,超则淘汰最早
+function _rcacheKey(){ return `${SPOT.lat},${SPOT.lon},${SPOT.days},${SPOT.name}`; }
+function _rcacheSet(k, v){ if(SF_RCACHE.has(k)) SF_RCACHE.delete(k); SF_RCACHE.set(k, v); while(SF_RCACHE.size>SF_RCACHE_MAX) SF_RCACHE.delete(SF_RCACHE.keys().next().value); }
+function _applyReportMeta(nm, calibratedAt, days){
+  try{
+    const sp=document.getElementById('metaSpot'); if(sp) sp.textContent='📍 '+nm+' ›';
+    document.title='🏄 浪报 · '+nm;
+    if(calibratedAt){ const c=document.getElementById('metaCalib'); if(c) c.textContent='🕐 校准 '+calibratedAt+' 北京时间'; }
+    if(days && days.length){ const f=days[0].date,l=days[days.length-1].date; const md=x=>{const q=(x||'').split('-');return q.length===3?(+q[1])+'/'+(+q[2]):x;}; const rg=document.getElementById('metaRange'); if(rg) rg.textContent='📅 '+md(f)+' – '+md(l); }
+  }catch(_){}
+}
 function showDegraded(on){                        // R4.3 故障降级可见提示（数据诚实：示例≠实时）
   try{
     const b=document.getElementById('sfDegraded'); if(b) b.style.display=on?'':'none';
@@ -922,7 +936,16 @@ async function loadLive(){
   _sfLoadBar(true);
   try{ const _sp=document.getElementById('metaSpot'); if(_sp) _sp.textContent='📍 '+SPOT.name+' ›'; }catch(_){}
   try{
+    const _ck=_rcacheKey(); const _c=SF_RCACHE.get(_ck);
+    if(_c && (Date.now()-_c.ts < SF_RCACHE_TTL)){        // P2 命中→秒开(无网络),稍旧但显真实校准时间戳
+      DAYS=_c.days; if(_c.history) HISTORY=_c.history; if(_c.story) window.__SF_STORY=_c.story;
+      _applyReportMeta(_c.spot||SPOT.name, _c.calibratedAt, _c.days);
+      render(); showDegraded(false); _sfLoadBar(false);
+      return true;
+    }
     const qs = `lat=${SPOT.lat}&lon=${SPOT.lon}&spot=${encodeURIComponent(SPOT.name)}&days=${SPOT.days}`;
+    // P1 并行：history 与 report 同时发出（不再串行等 report 完），切换耗时腰斩
+    const _hp = fetch(`${API_BASE}/api/report/history?lat=${SPOT.lat}&lon=${SPOT.lon}&spot=${encodeURIComponent(SPOT.name)}`, {credentials:'include'}).catch(()=>null);
     const r = await fetch(`${API_BASE}/api/report?${qs}`, {credentials:'include'});
     if(!r.ok) throw new Error('report '+r.status);
     const data = await r.json();
@@ -946,9 +969,10 @@ async function loadLive(){
       }
     }catch(_){}
     try{
-      const h = await fetch(`${API_BASE}/api/report/history?lat=${SPOT.lat}&lon=${SPOT.lon}&spot=${encodeURIComponent(SPOT.name)}`, {credentials:'include'});
-      if(h.ok){ const hj = await h.json(); if(hj.history) HISTORY = hj.history; }
+      const h = await _hp;                            // P1 已并行发出,此处仅取结果
+      if(h && h.ok){ const hj = await h.json(); if(hj.history) HISTORY = hj.history; }
     }catch(_){}
+    try{ _rcacheSet(_ck, {days:DAYS, history:HISTORY, story:window.__SF_STORY, spot:(data&&data.spot)||SPOT.name, calibratedAt:data&&data.calibratedAt, ts:Date.now()}); }catch(_){}  // P2 存缓存
     render();                                         // 用实时数据重渲染
     showDegraded(false);                              // 实时成功→隐藏降级提示
     _sfLoadBar(false);
