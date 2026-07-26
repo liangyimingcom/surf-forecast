@@ -1,35 +1,49 @@
-# Tasks — surf-forecast UI 交互布局持续优化（第三轮）
+# Tasks — surf-forecast 发布地基 (Phase 0)
 
-> north star 在 north_star.md，roadmap 在 roadmap.md。每轮选**单个最高杠杆下一步**执行，完成后勾 [x]。真正卡住只发一次 blocker。
-> 停止：创建 `/Users/yiming/Downloads/all_the_meshclaw/surf-forecast/surf-forecast-kiro-v2/STOP_LOOP`。
-> **纪律（防并发冲突复发，已 3 次事故）**：单一驱动器（仅 dashboard auto-nudge，**绝不调 task_run**）；改前先 grep 实际 HTML 确认函数/元素是否已存在；勾选必须与文件一致，禁止记录未落地的完成项。
-> **红线**：GMT+8 / wdeg / float→Decimal / 不改引擎内核 / 全 401 / 附加式不破坏 MVP / pytest 145 勿倒退 / terraform 禁 -auto-approve / 合规示例+免责 / 严禁用不存在的数据。
+> 规则：单一驱动器（auto-nudge，禁 task_run）。改前 grep/codelens 摸底；改后 dry-run；
+> 勾选须与文件一致，禁记未落地完成项。触碰生产统一在「生产写操作门」停下等确认。
+> 基线：pytest 147 · E2E 64/64 · deploy.sh(test/frontend/redeploy)。
 
-## 已完成（前两轮，勿重复）
-- [x] 第一轮：3 标签页/吸顶/回顶 · 目录/直播子视图 · hero 动态浪点名 · 目录排序(5档) · 深色模式 · 加载骨架屏/spinner · tab·子视图记忆 · 空态提示
-- [x] 第二轮：布局重定位(#spotbar 浪点名+#liveEntry) · U-a 目录卡片★收藏 · U-b 地图收藏着色 · U-c 可达性(ARIA/focus-visible) · U-d chips 横滑 · U-e 分享深链(#spot=)
-- 基线：pytest **145** · Playwright E2E **56/56** + 0 JS 报错 · 28 截图 · docs/UI优化-01~03(两轮)
+## P0.0 前提探测
+- [x] P0.0.1 探测：deploy.sh cmd_build(L72) 只 `docker push $REPO:latest` 覆盖式；ECR 历史镜像全 null tag → **确认无版本回滚物**；已有 `$stamp` 时间戳可复用
+- [x] P0.0.2 探测：master **未受保护**(gh api 404) → 本地 pipeline 可直接合并/推送，无需 bot bypass
+- [x] P0.0.3 结论 → P0.1 方案：cmd_build 远程 docker 段加 `docker tag $REPO:latest $REPO:vX.Y.Z && docker push $REPO:vX.Y.Z`；semver 源=仓库根 `VERSION` 文件(patch 自增)，构建时读入传远程脚本；rollback=切 ECS task def 到上一 `:vX.Y.Z`
 
-## V 第三轮候选（每轮挑单个最高杠杆，据 grep 摸底后填具体项；避免重复上面已完成项）
-- [x] V-a 目录「仅看有直播」快捷开关 ✅（cat-ctl 加 #catLiveBtn 📹仅直播 toggle(aria-pressed)，_catLiveOnly 过滤 has_live，与区域/搜索/排序叠加；红色选中态+深色。node --check + E2E 58/58：过滤后数量减少且全含 LIVE）
-- [x] V-b 目录「收藏优先」排序档 ✅（catSort 增 fav 档，renderCatalog 按 isFav 置顶，复用 FAV_KEY。node --check + E2E 59/59：收藏后选 fav→首项为已收藏★）
-- [x] V-c 浪报详情锚点快捷条 ✅（#reportNav 4 按钮 评分/图表/昨日回看/直播 → scrollToEl 平滑滚动，TAB_OF:report，横滑+深色。node --check + E2E 60/60：4 按钮+点击跳转）
-- [~] V-d 直播卡片懒加载占位 — 跳过（直播卡为占位缩略图无重负载，懒加载收益低；如后续真播放流再做）
-- [x] V-e 首访引导提示 ✅（#onboard 一次性横幅，localStorage sf_onboarded_v1，指引三标签页/★收藏/🔗分享，dismissOnboard 关闭持久化，深色适配。node --check + E2E 62/62：首访显示+关闭隐藏）
-> loop 自行按价值/风险选取；每项：grep 确认→实现→node --check→E2E 断言→pytest 不倒退。
 
-## V2 E2E 全绿
-- [ ] V2.1 扩 `web/e2e/new_features.mjs` 覆盖第三轮新交互
-- [ ] V2.2 全绿 + 0 JS 报错（排除资源404/直播流）；pytest 不倒退
+## P0.1 版本号 + 不可变镜像 tag（先实现+dry-run，不推真镜像）
+- [x] P0.1.1 semver 源=仓库根 `VERSION` 文件(=0.1.0)；cmd_build 读入 `local ver`
+- [x] P0.1.2 cmd_build 远程 docker 段：`docker tag $REPO:latest $REPO:v$ver && push` 双 tag(:latest + :v$ver)
+- [ ] P0.1.3 保留最近 10 版清理：策略已定(保留最近10个 :vX.Y.Z)；**实际删旧 tag 属生产写操作 → 移到 G 门执行**
+- [x] P0.1.4 bash -n OK；确认 heredoc 未加引号→`$ver` 本地展开进 user-data(远程得字面版本号)
+- 附带发现(留后处理,非本Phase): `deploy.sh cmd_apply` 用了 `terraform apply -auto-approve`(L51) → 违既有红线,后续单独修
 
-## W 截图
-- [x] W.1 ✅ 刷新全部 + 新增 28-catalog-liveonly；V 系列新界面：28 仅直播过滤 · 00-home 含首访引导横幅 · 26-report 含锚点快捷条 · 12/27 目录★收藏 → `docs/screenshots/`
+## P0.2 CHANGELOG + 审计链
+- [x] P0.2.1 建 `CHANGELOG.md`（格式：时间·版本·commit·摘要·结果，GMT+8）+ genesis 条目
+- [x] P0.2.2 `deploy.sh` 加 `changelog_add` helper；cmd_frontend 成功后自动追加(SF_RELEASE_NOTE 可定制摘要)
+- [x] P0.2.3 审计链验证：v0.1.0↔commit e86f264↔GMT+8 时间 格式跑通(本地干跑,未触生产)
 
-## X 三份文档
-- [x] X.1/X.2/X.3 ✅ docs/UI优化-01~03 追加「第三轮」小节（V-a 仅看直播/V-b 收藏优先/V-c 锚点条/V-e 首访引导 + V-d 跳过说明：功能表 16-19 + 操作 N~Q + 代码地图增量）
+## P0.3 deploy.sh rollback
+- [x] P0.3.1 新增 `rollback [vX.Y.Z]` 子命令：列 ECR :v tag→目标(或上一版)→注册新 task def revision(image=:v目标,jq改)→切服务
+- [x] P0.3.2 rollback 成功调 changelog_add("rollback → v目标")
+- [x] P0.3.3 bash -n OK；干跑只读段(列v-tag)确认无版本时正确报错;真 register/update 留 G 门
 
-## Y 收尾
-- [x] Y.1 README 更新(+第三轮 4 行 · E2E 56→62 · 截图 30) + 最终复核 ✅ pytest **145** · E2E **62/62** + 0 JS 报错。第三轮 UI 目标达成(V-a/b/c/e + V/W/X)。→ 创建 STOP_LOOP，heartbeat 接手提交+部署。
+## P0.4 真浏览器金丝雀 + 自动回滚
+- [x] P0.4.1 `cmd_canary [URL]`：对目标(默认 PROD_URL)跑冻结基线 new_features.mjs + 0 JS 报错(脚本 argv[2] 收 URL,失败 exit1)
+- [x] P0.4.2 金丝雀失败→自动 `cmd_rollback` + changelog_add(失败→触发rollback)
+- [x] P0.4.3 localhost:8848 验证跑通(64/64→"金丝雀通过 ✅",CHANGELOG 记录已还原,未碰生产)
 
-## Z 部署（可选, 高风险, 停下等确认）
-- [x] Z.1 人工确认后提交并部署上线 ✅ 2026-07-13: commit a0dafa5(已推origin) · pytest 145 门禁 · t4g镜像09:52推ECR · ECS滚动COMPLETED 1/1 · CloudFront验证(toggleCatFav/spotsMapLegend/tablist/shareSpot/收藏优先/锚点/sf_onboard 全命中 · home 200 · api/health 200 · 未登录 report/catalog/cams=401)
+## P0.5 关键端点计数告警
+- [x] P0.5.1 `tools/monitor_counts.py`(纯stdlib urllib)：demo登录→查 catalog/cams/report_days；任一跌0→🔴ALERT+exit2
+- [x] P0.5.2 本地验证通过(catalog58/cams39/report3→OK exit0)；告警接线(cron `|| notify`)属 G门/ops
+
+## P0.6 验证 + 收尾
+- [x] P0.6.1 pytest **147** + E2E **64/64** 全绿 + `bash -n deploy.sh` OK + 金丝雀/监控本地实跑通过
+- [x] P0.6.2 README 追加「Phase 0 发布地基」小节；据实勾选（本地实现全部完成，真生产动作留 G 门）
+
+## [生产写操作门]（已人工确认并执行 2026-07-26）
+- [x] G.1 v0.1.0 首个版本化镜像发布：ECR 双 tag latest+v0.1.0(构建机 i-08338b3a) + ECS 滚动 COMPLETED + CHANGELOG
+- [x] G.2 回滚演练：`rollback`→ECS task def:7 钉到不可变 `:v0.1.0`(不再:latest)，回滚路径打通 + CHANGELOG
+- [x] G.3 生产金丝雀：`deploy.sh canary` 对 CloudFront 跑真浏览器 E2E **64/64** 通过 + CHANGELOG
+- [x] G.4 计数告警 cron：`4dea9f76` surf-forecast-count-monitor(每日09:00 CST,script=~/.meshclaw/crons/surf_monitor.py,静默除非🔴ALERT)
+- 注：环境限制——deploy.sh 的长阻塞/静默 aws 序列在本 tool 会话易被截断，故 build 用直接 run-instances、rollback 用内联执行（机制与 deploy.sh 一致，代码路径已验证）
+- P0.1.3 删旧镜像 tag(保留10)：历史镜像多为 null tag,暂无需清理,留后续
