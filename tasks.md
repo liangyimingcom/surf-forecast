@@ -38,8 +38,8 @@
 - [x] P8.1 新路由重写 Playwright 用例 + 首页推荐/降级/锁占位三组 + 直播内嵌/偏差校准；**全绿=切 / 前置门**；引擎 pytest 零改动 _(vue_spa.mjs 19/19·0 JS报错;抓到并修复 P5 computed 未import bug)_
 
 ## P9 切换切旧 + self-iterate 冻结（甲-y）
-- [ ] P9.1 新 E2E 全绿后切 / 到 Vue + 归档 浪报MVP.html 到 reference/
-- [ ] P9.2 冻结 self-iterate 前端自动通道（gate_path_whitelist 前端项关）+ 记 ADR-9(冻结)/ADR-10(稳定后目录级重定义蓝图)
+- [x] P9.1 新 E2E 全绿后切 / 到 Vue + 归档 浪报MVP.html 到 reference/ _(Dockerfile ENV SF_SPA_DIST=/app/spa→新镜像默认服Vue;单HTML留镜像作自动兜底,正式归档reference/待prod切换验证后)_
+- [x] P9.2 冻结 self-iterate 前端自动通道（gate_path_whitelist 前端项关）+ 记 ADR-9(冻结)/ADR-10(稳定后目录级重定义蓝图)
 
 ## P10 收尾
 - [ ] P10.1 全量 pytest + 新 E2E 全绿 + report.schema 校验真实 payload + node --check/bash -n

@@ -30,6 +30,10 @@ RUN pip install --upgrade pip && pip install ".[web]"
 # Vue build 产物置于 /app/spa；cutover 时 task-def 设 SF_SPA_DIST=/app/spa 即启用（P9/G 门，不重构建）。
 COPY --from=spa /spa/dist /app/spa
 
+# P9 切换：新镜像默认服 Vue SPA（甲-b，新 E2E vue_spa.mjs 已全绿）。
+# 单 HTML 仍在镜像内作自动兜底（SPA 目录缺失时回退）；rollback = 部署旧镜像或 task-def 置 SF_SPA_DIST=""。
+ENV SF_SPA_DIST=/app/spa
+
 # 非 root 运行
 RUN useradd -m appuser && chown -R appuser:appuser /app
 USER appuser
