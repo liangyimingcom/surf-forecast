@@ -128,8 +128,9 @@ def refresh_spots(spots, writer, report_fn=default_report_fn,
 
 # —— R4 动态刷新编排（注册表驱动，替代硬编码 DEFAULT_SPOTS）——
 
-REFRESH_BUDGET = 50   # 每次调度预算上限 N（超出冷点降级按需）
-COLD_DAYS = 14        # last_viewed 超 K 天 → 暂停定时刷新
+REFRESH_BUDGET = 80   # 每次调度预算上限 N。须 ≥ 上架目录规模(现58)否则按last_viewed降序截断→无view的demo点被饿死、
+                      # 首屏 recommend 覆盖缺口(R0.2 教训)。80=58+成长冗余；冷点回收仍由 recycle_cold_spots 独立管。
+COLD_DAYS = 14        # last_viewed 超 K 天 → 暂停定时刷新（仅对"曾被查看后转冷"的点；无view的demo点被 skip 不回收）
 
 
 def _reg_to_cfg(row: dict) -> dict:
