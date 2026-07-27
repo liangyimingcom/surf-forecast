@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { api } from '../api'
 import { scoreColor } from '../charts'
+import SpotsMap from '../components/SpotsMap.vue'
 
 const FAV_KEY = 'sf_fav_v1'
 const spots = ref([])
@@ -9,6 +10,7 @@ const scores = ref({})
 const region = ref('全部')
 const q = ref('')
 const liveOnly = ref(false)
+const view = ref('list')   // list | map
 const loading = ref(true)
 const error = ref('')
 const favs = ref(new Set(JSON.parse(localStorage.getItem(FAV_KEY) || '[]')))
@@ -59,9 +61,16 @@ onMounted(load)
       <button v-for="r in regions" :key="r" :class="{ on: r === region }" @click="region = r">{{ r }}</button>
     </div>
     <label class="liveonly"><input type="checkbox" v-model="liveOnly" /> 仅看有直播</label>
+    <div class="viewtoggle">
+      <button :class="{ on: view === 'list' }" @click="view = 'list'">☰ 列表</button>
+      <button :class="{ on: view === 'map' }" @click="view = 'map'">🗺️ 地图</button>
+    </div>
 
     <p v-if="loading">加载中…</p>
     <p v-else-if="error" class="degraded">⚠️ {{ error }}</p>
+
+    <SpotsMap v-else-if="view === 'map'" :spots="list" :favs="favs" />
+
     <p v-else-if="!list.length" class="empty">没有匹配的浪点，换个筛选或搜索词试试。</p>
 
     <ul v-else class="cards">
@@ -86,6 +95,9 @@ h1 { font-size: 18px; color: var(--sea1); }
 .chips button { white-space: nowrap; padding: 5px 11px; border: 1px solid #cbd5e1; border-radius: 999px; background: #fff; font-size: 13px; }
 .chips button.on { background: var(--sea2); color: #fff; border-color: var(--sea2); }
 .liveonly { display: inline-block; font-size: 13px; color: var(--ink2); margin: 6px 0; }
+.viewtoggle { display: flex; gap: 6px; margin: 6px 0; }
+.viewtoggle button { padding: 5px 12px; border: 1px solid #cbd5e1; border-radius: 999px; background: #fff; font-size: 13px; }
+.viewtoggle button.on { background: var(--sea1); color: #fff; border-color: var(--sea1); }
 .cards { list-style: none; padding: 0; }
 .card { display: flex; align-items: center; gap: 8px; background: #fff; border-radius: 12px; padding: 10px 12px; margin: 6px 0; }
 .fav { border: none; background: none; font-size: 18px; color: #cbd5e1; cursor: pointer; }
