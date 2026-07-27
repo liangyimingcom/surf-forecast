@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# pre-commit 密钥/端点扫描——阻止把密钥或内部网关端点提交进(public)仓库。
+# 启用：git config core.hooksPath .githooks
+set -u
+staged=$(git diff --cached --name-only --diff-filter=ACM)
+[ -z "$staged" ] && exit 0
+
+# 危险模式(命中即拦)：OpenAI风格key / AWS AccessKey / 私钥块 / 内部网关host / people.aws.dev
+patterns='sk-[A-Za-z0-9_-]{16,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----|[a-z0-9-]+\.people\.aws\.dev|SF_LLM_KEY[[:space:]]*=[[:space:]]*[A-Za-z0-9]'
+# 白名单占位/示例(不拦)：sk-ABCDEF…/AKIAIOSFODNN7EXAMPLE/<...>/EXAMPLE
+allow='sk-ABCDEF|AKIAIOSFODNN7EXAMPLE|<llm-gateway|<LLM_GATEWAY|EXAMPLE|sk-ecdsa'
+
+hit=0
+for f in $staged; do
+  [ -f "$f" ] || continue
+  case "$f" in .venv/*|*/site-packages/*) continue;; esac
+  m=$(grep -nEI "$patterns" "$f" 2>/dev/null | grep -vE "$allow")
+  if [ -n "$m" ]; then
+    echo "🔴 pre-commit 拦截：$f 疑似含密钥/内部端点：" >&2
+    echo "$m" | head -3 >&2
+    hit=1
+  fi
+done
+if [ "$hit" = 1 ]; then
+  echo "" >&2
+  echo "密钥只放 AWS Secrets Manager；端点用占位符(<LLM_GATEWAY_URL>)。确认误报可 git commit --no-verify。" >&2
+  exit 1
+fi
+exit 0

@@ -18,3 +18,14 @@ crash.log
 .terraform.lock.hcl
 override.tf
 override.tf.json
+
+# 密钥/敏感(SECURITY.md)
+.env
+.env.*
+*.key
+*.pem
+secrets/
+# 运行时产物
+reference/data/pipeline_audit.jsonl
+ddd/
+.pipeline-artifacts/
