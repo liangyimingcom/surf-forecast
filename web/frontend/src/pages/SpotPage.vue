@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import { api } from '../api'
 import { setFacing } from '../charts'
 import ChartBox from '../components/ChartBox.vue'
+import LockBadge from '../components/LockBadge.vue'
 
 const route = useRoute()
 const report = ref(null)
@@ -77,6 +78,7 @@ onMounted(load)
       <div class="modes">
         <button :class="{ on: mode === 'novice' }" @click="setMode('novice')">🌱 小白</button>
         <button :class="{ on: mode === 'expert' }" @click="setMode('expert')">🎯 高手</button>
+        <LockBadge />
       </div>
 
       <!-- 日期条 -->
