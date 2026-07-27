@@ -8,6 +8,7 @@ import ChartBox from '../components/ChartBox.vue'
 const route = useRoute()
 const report = ref(null)
 const history = ref(null)
+const bias = ref(null)
 const sel = ref(0)          // 选中日索引
 const loading = ref(true)
 const error = ref('')
@@ -27,6 +28,7 @@ async function load() {
     sel.value = (rep.ranking && rep.ranking[0]) || rep.days.findIndex(d => d.best) || 0
     if (sel.value < 0) sel.value = 0
     history.value = (await hp)?.history || null
+    bias.value = await api.bias(s.name).catch(() => null)
   } catch (e) {
     error.value = '实时浪报暂不可用，请稍后重试'
   } finally { loading.value = false }
@@ -121,6 +123,9 @@ onMounted(load)
           </div>
           <p v-if="voted" class="vthx">已记录「{{ VOTE_LABELS[voted] }}」——多次自评会校准本浪点的系统性偏差，越用越准。</p>
         </div>
+        <p v-if="bias && bias.bias && bias.bias !== 'insufficient'" class="bias">
+          📊 根据你 {{ bias.samples }} 次自评：本浪点预报<b>{{ bias.bias }}</b>——{{ bias.suggestion }}
+        </p>
       </section>
 
       <!-- 下水核对 + 免责（动态，去硬编码）-->
@@ -146,6 +151,7 @@ h1 { font-size: 18px; color: var(--sea1); }
 .vbtns button { padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; font-size: 13px; }
 .vbtns button.on { background: #10b981; color: #fff; border-color: #10b981; }
 .vthx { font-size: 12px; color: #059669; margin-top: 6px; }
+.bias { font-size: 12.5px; background: #eff6ff; border-radius: 10px; padding: 8px 10px; margin-top: 8px; color: #1e40af; }
 .strip { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
 .strip button { display: flex; flex-direction: column; align-items: center; min-width: 52px; padding: 6px; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; }
 .strip button.on { border-color: var(--sea2); box-shadow: 0 0 0 2px rgba(14,165,233,.2); }

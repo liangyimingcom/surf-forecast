@@ -140,8 +140,9 @@ def accuracy_vote(body: Vote, user: dict = Depends(deps.current_user)) -> dict:
 
 
 @app.get("/api/accuracy/bias")
-def accuracy_bias(spot: str, user: dict = Depends(deps.current_user)) -> dict:
-    return feedback.compute_bias(db.get_store(), user["email"], spot)
+def accuracy_bias(spot: str, user: dict | None = Depends(flags.member_gate)) -> dict:
+    # Fable5 §2.3：偏差校准展示。一期公开(匿名无投票→自然空);二期锁会员(member_gate)。
+    return feedback.compute_bias(db.get_store(), (user or {}).get("email", ""), spot)
 
 
 # —— 浪点管理（custom-spots R2，全 401 保护）——
