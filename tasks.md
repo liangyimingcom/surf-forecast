@@ -1,33 +1,49 @@
-# Tasks — 在线 LLM 澄清 + coder 实现（L1-L5）
+# Tasks — 甲·忠实整体重建（Vite+Vue3）
 
-> 单一驱动器(auto-nudge,禁 task_run)。LLM 全程 mock 测试(不触网/不烧钱);真调网关/Secrets/部署留 G 门。
-> 改前 codelens-dev 摸底;红线逻辑测试随层双侧钉死+mutation。全程 GMT+8;据实勾选。
-> 基线：pytest 211 · 冻结E2E 64/0 · 生产 v0.1.3 · ADR-5~8 定案+连通性已实测 · 设计 docs/自迭代-在线LLM澄清与coder-设计v6.md。
+> 单一驱动器（dashboard auto-nudge），**绝不调 task_run**。每轮改前先查 STOP + grep 实际文件确认存在性。真部署留 G 门。
+> 遇边缘选保守选项，记 `docs/implementation-notes.md` Deviations，继续推进不停等。
 
-## R0 摸底
-- [x] R0.1 注入点定位：前端降级基点 openFeedback→fbRender(1kind/2topic/3text)→fbSubmit(零LLM模板) · 后端 RequirementIn(app.py:224)+submit_feedback 旁加 /api/clarify · LLM key 走 env(SF_LLM_KEY/URL/MODEL,Secrets valueFrom 同 SF_CACHE_BUCKET) · coder 挂 req_pipeline.apply_edit(find/replace 声明式,--llm-coder 让 LLM 生成 edit 再走既有门)
+## R0 摸底 + 降级态根因
+- [x] R0.1 CodeLens SOP 摸底（render_json/api/scores 形状+爆炸半径；demoAuth/#gate/SAMPLE_*/硬编码泄漏定位）
+- [x] R0.2 排查线上降级态根因（评分缓存流水线/EventBridge refresh/scores 完备性）→ 结论记 implementation-notes；不可信则先修或确保显式降级
 
-## L1 数据模型
-- [x] L1.1 `src/web/llm_guard.py`：RateLimiter(per-IP滑窗) + DailyBudget(全局每日硬闸,GMT+8跨天重置) + option_cache_key + validate_clarify(options≤8/≤60字 或 requirement{kind,text} schema校验)。纯stdlib注入时钟。选项缓存值复用 cache.TTLCache
-- [x] L1.2 `tests/test_llm_guard.py` 15 用例边界双侧钉死+mutation(限流N/N+1·预算max/max+1·跨天重置·options 0/8/9·60/61字·kind非法·空text)。pytest 211→**226**
+## P1 后端契约重塑（甲-q）
+- [x] P1.1 Recommendation 派生模型 + `GET /api/recommend` + `GET /api/regions`（公开，degraded 显式）
+- [x] P1.2 报告动态化：checklist 按浪点生成 + 免责通用口径（清硬编码泄漏 §1.3）+ #extras 处置
+- [x] P1.3 FeatureFlags.member_lock_enabled + 诚实分层鉴权设计（中间件就位开关关）+ 微信占位路由 501 + User 可空字段
+- [x] P1.4 report.schema.json 同步 + 后端测试（新接口/降级/契约红线双侧钉死）
 
-## L2 接口
-- [x] L2.1 `src/web/llm_client.py`(OpenAI兼容stdlib,env配置SF_LLM_URL/KEY/MODEL,is_configured,chat抛LLMError) + `POST /api/clarify`(缓存→per-IP限流→日预算硬闸→调网关(可注入mock)→schema校验→任一不过降级模板;反注入prompt)。tests/test_clarify.py 5用例(降级/LLM/畸形/网关错/缓存命中,全mock)。pytest 226→**231**
-- [x] L2.2 `req_pipeline --llm-coder`：`_llm_generate_edit`(自包含urllib,锚点find/replace patch,禁全文重写/禁碰web-e2e/需求当数据) → 无edit时生成 → 走既有硬门 → draft PR;**LLM-authored一律人工审**(永不自动合并,守G1)
-- [x] L2.3 tests/test_req_pipeline_coder.py 4用例(生成→过门AUTO_OK/生成失败→NEEDS_HUMAN/无flag→人工/未配置抛错,全mock)。pytest 231→**235**
+## P2 前端脚手架 + build/ 服务（甲-1）
+- [x] P2.1 Vite+Vue3+Router+Pinia 脚手架（web/frontend/，不碰浪报MVP.html）
+- [x] P2.2 FastAPI StaticFiles 挂 build/ + SPA 回退 + Dockerfile 加 npm run build（不改 terraform）
+- [ ] P2.3 SVG 图表封装为 Vue 组件原样迁移（不引 ECharts）+ hls.js/Leaflet 懒加载
 
-## L3 用户可见
-- [x] L3.1 前端 `_fbClarifyEnhance()`：澄清步骤2 模板即显 + 后台调 /api/clarify,LLM 选项替换(标🤖AI追问);未配/降级/失败保持模板不阻塞。渐进增强(接key前行为=现状)
-- [x] L3.2 冻结 E2E **64/0** 不倒退(本地未配LLM→降级模板) + /api/clarify 降级冒烟(template)。pytest 仍 **235**
+## P3 /spots 目录页迁移
+- [ ] P3.1 列表+区域筛选+搜索+评分徽标+Leaflet 地图+收藏置顶+仅直播 checkbox
 
-## L4 内部逻辑(护栏)
-- [x] L4.1 per-IP 限流 + 全局日预算硬闸(超限→降级不再调网关) + 反注入(系统/数据分隔) — 已在 /api/clarify 实现(llm_guard)
-- [x] L4.2 coder 锚点patch(禁全文重写)+禁碰web/e2e/(gate_path_whitelist)+diff secret扫描(gate_secret_scan)+需求当数据 — L2.2 实现+既有 test_req_pipeline 覆盖
-- [x] L4.3 tests/test_clarify_guard.py 3用例(限流超限→降级/预算超限→降级/反注入prompt结构)。pytest 235→**238**
+## P4 /spot/:slug 详情页迁移（体量最大）
+- [ ] P4.1 日期条/必冲卡/逐日卡片（五维/SVG/风质条/物理/行动方案）/小白·高手模式/回看+自评
+- [ ] P4.2 偏差校准展示（接 /api/accuracy/bias）+ 直播内嵌 hls.js 弹层（替代直播墙）+ checklist/免责动态
 
-## L5 收尾
-- [x] L5.1 全量 pytest **238**(LLM全mock) + 冻结 E2E 64/0 + py语法OK + schema同步;提交PR + STOP
+## P5 / 首页新建（决策助手）
+- [ ] P5.1 首访选地区引导（localStorage）+ 一屏答案 + 亚军≤2 + 三渐进入口 + 降级态显式
 
-## [生产写操作门 G]（停下发 blocker 等人工确认）
-- [x] G.1 Secrets(surf-forecast-dev/llm-key)存SF_LLM_KEY + ECS执行角色surf-forecast-dev-exec授GetSecretValue + task def:11 valueFrom注入 + SF_LLM_URL/MODEL env
-- [x] G.2 构建:v0.1.4(含LLM代码)→td:11滚动COMPLETED→金丝雀64/0→/api/clarify source=llm(页面感知选项)→git tag v0.1.4+CHANGELOG。开始LLM计费
+## P6 会员锁占位
+- [ ] P6.1 锁屏组件+会员专享角标（一期不拦截）+ 中间件读开关(false 全放行) + 微信占位前端入口
+
+## P7 删旧内容
+- [ ] P7.1 删 SAMPLE_* 四数组/「其他」Tab 全模块 + #gate/demoAuth/surf2026(代码+文档) + 隐藏查询栏/墓碑/排水量残留
+
+## P8 新 E2E 全套重写（甲-b 护栏）
+- [ ] P8.1 新路由重写 Playwright 用例 + 首页推荐/降级/锁占位三组 + 直播内嵌/偏差校准；**全绿=切 / 前置门**；引擎 pytest 零改动
+
+## P9 切换切旧 + self-iterate 冻结（甲-y）
+- [ ] P9.1 新 E2E 全绿后切 / 到 Vue + 归档 浪报MVP.html 到 reference/
+- [ ] P9.2 冻结 self-iterate 前端自动通道（gate_path_whitelist 前端项关）+ 记 ADR-9(冻结)/ADR-10(稳定后目录级重定义蓝图)
+
+## P10 收尾
+- [ ] P10.1 全量 pytest + 新 E2E 全绿 + report.schema 校验真实 payload + node --check/bash -n
+- [ ] P10.2 文档回写（product.md 范围边界/README 状态/structure.md 前端结构+甲-y ADR）+ implementation-notes Progress
+
+## G 门 · 真部署（人工授权）
+- [ ] G.1 build v0.2.0(major) → redeploy → 金丝雀跑新 E2E(失败自动 rollback) → git tag v0.2.0 → CHANGELOG

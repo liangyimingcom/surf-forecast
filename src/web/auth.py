@@ -46,6 +46,8 @@ def register(store, email: str, password: str, level: str = "free") -> dict:
         "passwordHash": hash_password(password),  # 绝不存明文
         "level": level,
         "createdAt": int(time.time()),
+        "wechat_openid": None,   # 二期微信扫码登录写入（一期不使用）
+        "membership": "free",    # free | member；一期全 free 且不拦截
     }
     store.put_user(user)
     return _public(user)

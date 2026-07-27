@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fable5 实施计划 · 浪报页面重规划</title>
+<style>
+  :root{
+    --ink:#1a2332; --sub:#5a6a7e; --line:#e3e8ef; --bg:#fbfcfe; --card:#ffffff;
+    --accent:#0b6e8f; --accent-soft:#e8f4f8; --warn:#b45309; --warn-soft:#fef3e2;
+    --del:#b91c1c; --del-soft:#fdeaea; --ok:#15803d; --ok-soft:#e9f7ee;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:16px/1.75 -apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;}
+  .wrap{max-width:920px;margin:0 auto;padding:48px 28px 96px}
+  header.doc{border-bottom:3px solid var(--ink);padding-bottom:20px;margin-bottom:36px}
+  h1{font-size:30px;margin:0 0 8px;letter-spacing:.5px}
+  .meta{color:var(--sub);font-size:14px}
+  .meta code{background:var(--accent-soft);padding:1px 6px;border-radius:4px;font-size:13px}
+  h2{font-size:21px;margin:52px 0 14px;padding-left:12px;border-left:4px solid var(--accent)}
+  h2 .no{color:var(--accent);margin-right:8px;font-variant-numeric:tabular-nums}
+  h3{font-size:17px;margin:28px 0 8px}
+  p{margin:8px 0}
+  table{width:100%;border-collapse:collapse;margin:14px 0;background:var(--card);font-size:14.5px}
+  th,td{border:1px solid var(--line);padding:8px 12px;text-align:left;vertical-align:top}
+  th{background:#f2f5f9;font-weight:600;white-space:nowrap}
+  code,pre{font-family:"SF Mono",Menlo,Consolas,monospace}
+  code{font-size:13.5px;background:#f0f3f7;padding:1px 5px;border-radius:4px}
+  pre{background:#182230;color:#dce6f2;padding:16px 18px;border-radius:8px;overflow-x:auto;
+    font-size:13px;line-height:1.6}
+  pre code{background:none;padding:0;color:inherit}
+  .tag{display:inline-block;font-size:12px;font-weight:600;padding:1px 8px;border-radius:10px;white-space:nowrap}
+  .tag.keep{background:var(--ok-soft);color:var(--ok)}
+  .tag.del{background:var(--del-soft);color:var(--del)}
+  .tag.new{background:var(--accent-soft);color:var(--accent)}
+  .tag.p2{background:#eef0f4;color:var(--sub)}
+  .callout{border-left:4px solid;border-radius:0 8px 8px 0;padding:12px 16px;margin:16px 0;font-size:15px}
+  .callout.warn{border-color:var(--warn);background:var(--warn-soft)}
+  .callout.rule{border-color:var(--accent);background:var(--accent-soft)}
+  .callout b:first-child{display:block;margin-bottom:4px}
+  ol,ul{padding-left:26px;margin:8px 0}
+  li{margin:5px 0}
+  .phase{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px 22px;margin:18px 0}
+  .phase h3{margin-top:0}
+  .phase .accept{font-size:14px;color:var(--sub);border-top:1px dashed var(--line);
+    margin-top:12px;padding-top:10px}
+  .accept b{color:var(--ok)}
+  .toc{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 22px;font-size:14.5px}
+  .toc a{color:var(--accent);text-decoration:none}
+  .toc a:hover{text-decoration:underline}
+  footer.doc{margin-top:64px;padding-top:16px;border-top:1px solid var(--line);
+    color:var(--sub);font-size:13px}
+  @media print{ body{background:#fff} .wrap{padding:0} pre{white-space:pre-wrap} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+  <h1>Fable5 实施计划 · 浪报页面重规划</h1>
+  <div class="meta">
+    2026-07-27 · 依据 <code>docs/Fable5迭代建议.md</code>（八项决策已确认）·
+    线上站 <code>d2hmhl7n8yga53.cloudfront.net</code><br>
+    排序原则：<b>最可能调整的决策在前</b>（数据模型 → 接口 → 用户可见变动），机械性重构放最后。
+  </div>
+</header>
+
+<nav class="toc">
+  <b>目录</b> ·
+  <a href="#s0">0 决策与执行规则</a> ·
+  <a href="#s1">1 数据模型变更</a> ·
+  <a href="#s2">2 新类型接口</a> ·
+  <a href="#s3">3 用户可见的变动</a> ·
+  <a href="#s4">4 实施阶段与验收</a> ·
+  <a href="#s5">5 机械性重构（最后）</a>
+</nav>
+
+<!-- ============================================================ -->
+<h2 id="s0"><span class="no">0</span>已确认决策 &amp; 执行规则</h2>
+
+<table>
+  <tr><th>#</th><th>决策点</th><th>结论</th></tr>
+  <tr><td>1</td><td>产品重心</td><td><b>方向C·决策助手</b>：首屏一屏回答「这周该去哪冲、哪天去」</td></tr>
+  <tr><td>2</td><td>推荐范围</td><td><b>按地区自动圈定</b>：选城市/地区后区域内跨浪点排名，不做用户画像</td></tr>
+  <tr><td>3</td><td>「其他」Tab 示例模块</td><td><b>全部删除</b>（公告/活动墙/拼车/周边推荐/关于商务）</td></tr>
+  <tr><td>4</td><td>直播（摄像头）</td><td><b>降为详情页内嵌</b>，删除独立直播墙；定位为验证预报的信任工具</td></tr>
+  <tr><td>5</td><td>前端形态</td><td><b>Vite + Vue 3 重建</b>（微信仅扫码登录、网站独立，选型可逆）</td></tr>
+  <tr><td>6</td><td>会员体系</td><td><b>真会员制</b>；微信小程序扫码登录<b>二期</b>开发，一期只预留接口</td></tr>
+  <tr><td>7</td><td>游客可见度</td><td><b>首屏结论公开，深度内容锁会员</b></td></tr>
+  <tr><td>8</td><td>一期锁行为</td><td><b>一期全公开，锁仅占位</b>：角标显示但不拦截，开关二期启用</td></tr>
+</table>
+
+<div class="callout rule">
+  <b>⚙️ 执行规则（贯穿全程）</b>
+  全程维护 <code>docs/implementation-notes.md</code>。遇到边缘情况迫使偏离本计划时：
+  <b>选保守选项</b>（改动面最小、可逆性最高的那个），把偏离记录在该文件的
+  <b>Deviations</b> 小节（日期 / 触发情况 / 计划原文 / 实际做法 / 理由），<b>然后继续推进，不停下等确认</b>。
+  每个阶段完成时在 Progress 小节记一行验收结果。
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s1"><span class="no">1</span>数据模型变更 <span class="tag new">最可能调整</span></h2>
+
+<h3>1.1 新增：区域推荐 Recommendation（派生结构，不建新表）</h3>
+<p>由每日评分缓存（现 <code>/api/catalog/scores</code> 数据源）派生，服务端组装：</p>
+<pre><code>Recommendation {
+  region: str            # 复用 catalog 已有 region 字段
+  generated_at: datetime # GMT+8 显式
+  best: {
+    spot_slug, spot_name, day, score,
+    headline: str        # 「早上7点到，带鱼板」— 引擎行动方案首句
+    key_factors: [str]   # ≤3 项：1.2m涌 · 离岸风 · Tp 9s
+  }
+  alternatives: [{spot_slug, spot_name, day, score}]  # ≤2 条
+  degraded: bool         # 评分缓存不全时 true
+  coverage: {scored: int, total: int}   # 本区域 X/Y 点有分
+}</code></pre>
+
+<div class="callout warn">
+  <b>⚠️ 硬性约束：降级必须显式</b>
+  区域排名正确性完全取决于 58 点评分缓存的完备性，而线上<b>当前就处于降级态</b>（"示例数据"横幅）。
+  缓存缺点时只推有分的浪点并展示 coverage，<b>绝不能拿旧分或样例分冒充</b>——首屏造假等于自毁"信任"信条。
+  因此阶段 P0（排查缓存流水线）是本计划第一步，先于一切前端工作。
+</div>
+
+<h3>1.2 变更：用户模型（二期微信预埋，一期不使用）</h3>
+<pre><code>User {
+  ...现有字段...
+  wechat_openid: str | null    # 二期扫码登录写入
+  membership: str = "free"     # free | member；一期全部 free 且不拦截
+}</code></pre>
+
+<h3>1.3 变更：报告模型 — 清除硬编码泄漏（正确性修复）</h3>
+<p>三处硬编码青岛六月内容在任何浪点下原样展示（checklist「核对青岛潮汐表」、"周三王者日"叙事、footer 具体水温潮汐值）——切到三亚就是<b>错误信息</b>：</p>
+<ul>
+  <li><code>Report</code> 增加 <code>checklist: [str]</code>，引擎按浪点/当周生成（大浪日→离岸流/结伴/脚绳等规则化文案）；</li>
+  <li>footer 免责只留<b>通用</b>口径（数据源、Tm/Tp 约定、GMT+8、近岸折减），具体数值从当次 report 取；</li>
+  <li><code>#extras</code>（涌浪生命周期/王者日）引擎暂不能按浪点生成 → <b>一期直接砍掉</b>，不留硬编码版。</li>
+</ul>
+
+<h3>1.4 新增：功能开关</h3>
+<pre><code>FeatureFlags { member_lock_enabled: bool = false }   # 环境变量即可；二期置 true</code></pre>
+<p>后端鉴权中间件与前端锁屏组件共同读取，二期上线只改配置不改代码。</p>
+
+<h3>1.5 删除：前端虚构数据</h3>
+<p><code>ANNOUNCEMENTS</code> / <code>SAMPLE_NEWS</code> / <code>SAMPLE_CARPOOL</code> / <code>SAMPLE_ADS</code> 四个硬编码数组及配套弹层随模块删除，无后端模型、无迁移成本。</p>
+
+<!-- ============================================================ -->
+<h2 id="s2"><span class="no">2</span>新类型接口 <span class="tag new">最可能调整</span></h2>
+
+<h3>2.1 新增接口</h3>
+<table>
+  <tr><th>接口</th><th>鉴权</th><th>说明</th></tr>
+  <tr><td><code>GET /api/recommend?region=</code></td><td>公开</td>
+      <td>返回 §1.1 Recommendation。<b>游客首屏唯一请求</b>——性能与转化的关键设计</td></tr>
+  <tr><td><code>GET /api/regions</code></td><td>公开</td>
+      <td>区域列表（从 catalog 聚合），供首访选地区引导</td></tr>
+  <tr><td><code>POST /api/auth/wechat/qr</code> 等</td><td>—</td>
+      <td><span class="tag p2">二期</span> 仅占位路由（返回 501 + 注释），二期实现生成二维码/轮询/换 session 三步</td></tr>
+</table>
+
+<h3>2.2 鉴权属性变更（一期开关态）</h3>
+<p>现状是<b>伪门禁</b>：后端全要登录，前端 demo 账号静默自动登录绕过 = 实际全公开。改为诚实分层：</p>
+<table>
+  <tr><th>接口</th><th>一期</th><th>二期（开关开）</th></tr>
+  <tr><td><code>/api/recommend</code> <code>/api/regions</code> <code>/api/catalog(+scores)</code> <code>/api/changelog</code> <code>/api/feedback</code> <code>/api/clarify</code></td>
+      <td>公开</td><td>公开（拉新鱼饵）</td></tr>
+  <tr><td><code>/api/report</code> <code>/api/report/history</code> <code>/api/cams</code></td>
+      <td>公开</td><td>锁会员</td></tr>
+  <tr><td><code>/api/accuracy/vote|bias</code> <code>/api/spots</code> CRUD</td>
+      <td>公开</td><td>锁会员（个性化数据必须归属账号）</td></tr>
+  <tr><td><code>/api/auth/register|login</code>（账号密码）</td>
+      <td>保留但前端不暴露</td><td>视微信上线情况下线</td></tr>
+</table>
+<p>同时删除前端 <code>demoAuth()</code> 静默登录与 <code>#gate</code> 假门禁；demo 密码 <code>surf2026</code> 从代码与全部文档移除。</p>
+
+<h3>2.3 接入既有闲置接口：<code>GET /api/accuracy/bias</code></h3>
+<p>后端已实现、前端从未使用——信任闭环只接了一半。新详情页昨日回看区展示：
+「根据你 N 次自评，本浪点预报系统性偏差约 −0.3 分，已在展示中标注」。零后端成本，直接补完北极星信条。</p>
+
+<!-- ============================================================ -->
+<h2 id="s3"><span class="no">3</span>用户可见的变动 <span class="tag new">最可能调整</span></h2>
+
+<h3>3.1 信息架构：3 Tab → 3 路由页</h3>
+<pre><code>/                首页 · 一屏答案（公开，新建）
+/spot/:slug      浪点详情页（≈现「浪报详情」Tab；一期公开，二期锁）
+/spots           全国目录页（公开，评分徽标作鱼饵）</code></pre>
+
+<table>
+  <tr><th>页面</th><th>内容</th></tr>
+  <tr><td><b>首页</b>（新建）</td><td>
+    首访选地区引导（一次性，localStorage 记忆）→ 一屏答案：
+    <code>✅ 周三 · 石老人 ｜ 1.2m涌 · 离岸风 · 8.2分 ｜「早上7点到，带鱼板」</code>
+    + 其他选择 ≤2 条 + 三个渐进入口（为什么是周三？→详情页评分锚点 ｜
+    昨天报得准吗？→回看锚点 ｜ 看全国浪况→/spots）。
+    降级态显式：「本区域 X/Y 个浪点今日评分可用」。
+  </td></tr>
+  <tr><td><b>详情页</b>（收编重组）</td><td>
+    <span class="tag keep">保留</span> 日期条 · 本周必冲卡 · 逐日深度卡片（五维/SVG图表/风质条/物理小课堂/行动方案）· 小白/高手模式 · 昨日回看+自评<br>
+    <span class="tag new">新增</span> 偏差校准展示（§2.3）· 直播内嵌入口（有摄像头浪点，hls.js 弹层）· 二期「会员专享」占位角标<br>
+    <span class="tag del">修正</span> checklist/免责按浪点动态生成（§1.3）
+  </td></tr>
+  <tr><td><b>目录页</b></td><td>
+    <span class="tag keep">保留</span> 58点列表 · 区域筛选 · 搜索 · 评分徽标 · Leaflet 地图 · 收藏置顶 · 「仅直播」改为 checkbox 筛选维度
+  </td></tr>
+</table>
+
+<h3>3.2 删除清单（用户可感知）</h3>
+<table>
+  <tr><th>删除项</th><th>理由</th></tr>
+  <tr><td>「其他」整个 Tab：公告 / 活动墙 / 拼车 / 周边推荐 / 关于商务</td>
+      <td>无后端的硬编码示例，超出 product.md 边界，缝合感最大来源</td></tr>
+  <tr><td>独立「直播」子导航 / 摄像头墙</td><td>降为详情页内嵌（决策4）</td></tr>
+  <tr><td>假门禁 <code>#gate</code>（demo 密码）</td><td>一期全公开，真会员制二期</td></tr>
+  <tr><td>内联「意见反馈」假表单（演示不写库）</td>
+      <td>与真实 💡提建议 FAB（LLM 澄清向导）重复——<b>FAB 为唯一反馈入口</b></td></tr>
+  <tr><td>排水量计算器墓碑注释 · 隐藏位置查询栏</td><td>死代码</td></tr>
+  <tr><td><code>#extras</code> 硬编码叙事面板</td><td>引擎能按浪点生成前不保留</td></tr>
+</table>
+<p><b>保留但降级</b>：更新日志&amp;建议进展（真实数据）收进页脚链接，不占一级导航。</p>
+
+<h3>3.3 首访动线（新）</h3>
+<pre><code>游客 → 选地区(10秒) → 一屏答案 → 「为什么」→ 详情页深度内容
+                                └→(二期) 触锁 → 微信扫码 → 解锁</code></pre>
+<p>旧动线（假密码 → 三 Tab 自找 → 报告淹没在示例模块间）到达核心价值 ~4 步 → 新动线 <b>0 步</b>。</p>
+
+<!-- ============================================================ -->
+<h2 id="s4"><span class="no">4</span>实施阶段与验收标准</h2>
+<p>每阶段独立可部署、可验证；完成后在 <code>implementation-notes.md</code> 的 Progress 记一行。引擎内核（pytest 126）全程零改动。</p>
+
+<div class="phase">
+  <h3>P0 · 排查线上降级态根因（先于一切前端工作）</h3>
+  <ul>
+    <li>定位为何线上显示「示例数据（非实时）」：每日评分缓存流水线（deployment-and-ops spec 范畴）哪一环挂了；</li>
+    <li>修复并确认 58 点评分缓存连续 2 天稳定产出。</li>
+  </ul>
+  <div class="accept"><b>验收：</b>线上横幅消失；<code>/api/catalog/scores</code> 覆盖率 ≥ 90% 且有当日时间戳。</div>
+</div>
+
+<div class="phase">
+  <h3>P1 · 后端：新接口 + 鉴权分层 + 模型预埋</h3>
+  <ul>
+    <li><code>GET /api/regions</code>、<code>GET /api/recommend</code>（含 degraded/coverage 逻辑）；</li>
+    <li>鉴权按 §2.2 一期表调整为公开；<code>FeatureFlags.member_lock_enabled</code> 中间件就位（关闭态）；</li>
+    <li>User 增加 <code>wechat_openid</code>/<code>membership</code> 可空字段；微信占位路由返回 501；</li>
+    <li>Report 增加 <code>checklist</code> 字段（规则化按浪点生成）。</li>
+  </ul>
+  <div class="accept"><b>验收：</b>pytest 全绿（126 + 新接口用例）；curl 匿名可取 recommend/report；开关置 true 时 report 返回 401。</div>
+</div>
+
+<div class="phase">
+  <h3>P2 · 前端脚手架 + /spots 目录页（打通全链路）</h3>
+  <ul>
+    <li>Vite + Vue 3 + Vue Router(history) + Pinia（spot/auth/region 三 store）；</li>
+    <li>目录页迁移（列表/筛选/搜索/徽标/Leaflet 懒加载/收藏）；</li>
+    <li>deploy.sh + CloudFront：build 产物上传、SPA 回退（403/404→index.html）、静态资源长缓存 + index.html 短缓存。</li>
+  </ul>
+  <div class="accept"><b>验收：</b>CloudFront 上 /spots 可用，刷新不 404；Playwright 目录页用例组通过。</div>
+</div>
+
+<div class="phase">
+  <h3>P3 · /spot/:slug 详情页迁移（体量最大）</h3>
+  <ul>
+    <li>日期条/必冲卡/逐日卡片/SVG 图表组件化原样迁移（不引 ECharts）；小白/高手模式；</li>
+    <li>昨日回看 + 自评 + <b>新增偏差校准展示</b>（/api/accuracy/bias）；</li>
+    <li>直播内嵌入口（hls.js 懒加载弹层）；checklist/免责动态化；分享深链 <code>/spot/:slug</code> 替代旧 hash。</li>
+  </ul>
+  <div class="accept"><b>验收：</b>任选 3 个浪点（含无摄像头点）内容全部随点切换、无青岛硬编码残留；E2E 详情页组通过。</div>
+</div>
+
+<div class="phase">
+  <h3>P4 · 首页一屏答案（依赖 P1 recommend）</h3>
+  <ul>
+    <li>首访选地区引导 + localStorage 记忆 + 可更换；</li>
+    <li>一屏答案 + 其他选择 + 三个渐进入口；降级态 coverage 展示；</li>
+    <li>💡提建议 FAB（LLM 澄清向导）迁移，全站唯一反馈入口。</li>
+  </ul>
+  <div class="accept"><b>验收：</b>游客首屏仅 1 个 API 请求；Lighthouse 移动端 primary render &lt; 2s；降级态人工注入验证展示正确。</div>
+</div>
+
+<div class="phase">
+  <h3>P5 · 切换与下线</h3>
+  <ul>
+    <li>旧 <code>web/浪报MVP.html</code> 归档至 <code>reference/</code>；根路由指向新首页；</li>
+    <li>锁屏占位组件（「会员专享·即将上线」角标）挂到详情页深度区，读开关；</li>
+    <li>旧 hash 深链（<code>#spot=lat,lon,name</code>）301/JS 跳转到新路由。</li>
+  </ul>
+  <div class="accept"><b>验收：</b>全站 E2E 重写后全绿 + 0 JS 报错；旧分享链接可达新详情页。</div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s5"><span class="no">5</span>机械性重构（放最后）</h2>
+<ol>
+  <li><b>删代码</b>：四个 SAMPLE_* 数组、<code>#gate</code>、<code>demoAuth()</code>、隐藏查询栏、排水量墓碑注释、<code>#extras</code>；<code>surf2026</code> 从所有代码与文档移除。</li>
+  <li><b>E2E 重写</b>：25 个 Playwright 用例按新路由重排——删除示例模块用例；新增首页推荐 / 降级态 / 锁占位三组。</li>
+  <li><b>文档回写</b>：
+    <ul>
+      <li><code>product.md</code> 范围边界：纳入「区域推荐」「直播作为信任工具」，移出被删模块；</li>
+      <li><code>README.md</code> 当前状态表与快速导航更新；</li>
+      <li>新建产品 roadmap 取代 <code>north_star.md</code> 的工程冲刺占位（该文件实为 LLM 自迭代冲刺目标，非产品北极星）。</li>
+    </ul>
+  </li>
+  <li><b>iac/部署收尾</b>：CloudFront 缓存策略固化进 iac；deploy.sh 加 build 步骤幂等化。</li>
+  <li><b>依赖治理</b>：hls.js / Leaflet 路由级懒加载确认；无其他新增运行时依赖。</li>
+</ol>
+
+<footer class="doc">
+  依据 <code>docs/Fable5迭代建议.md</code> · 偏离与进度记录见 <code>docs/implementation-notes.md</code> ·
+  引擎内核零改动 · 全程 GMT+8
+</footer>
+
+</div>
+</body>
+</html>
