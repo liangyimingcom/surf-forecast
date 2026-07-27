@@ -9,6 +9,7 @@ const route = useRoute()
 const report = ref(null)
 const history = ref(null)
 const bias = ref(null)
+const hasLive = ref(false)
 const sel = ref(0)          // 选中日索引
 const loading = ref(true)
 const error = ref('')
@@ -20,6 +21,7 @@ async function load() {
     const cat = (await api.catalog()).catalog || []
     const s = cat.find(x => x.slug === route.params.slug)
     if (!s) throw new Error('浪点不存在')
+    hasLive.value = !!s.has_live
     // 并行取 report + history（沿用提速思路）
     const hp = api.history(s.lat, s.lon, s.name).catch(() => null)
     const rep = await api.report(s.lat, s.lon, s.name, 6)
@@ -69,6 +71,8 @@ onMounted(load)
 
     <template v-else-if="report">
       <p class="ts">校准 {{ report.calibratedAt }}</p>
+
+      <div v-if="hasLive" class="livehint">📹 该浪点有实时直播——登录后可看（二期开放；作校验预报的信任工具）</div>
 
       <div class="modes">
         <button :class="{ on: mode === 'novice' }" @click="setMode('novice')">🌱 小白</button>
@@ -143,7 +147,7 @@ onMounted(load)
 h1 { font-size: 18px; color: var(--sea1); }
 .ts { font-size: 11px; color: var(--ink2); }
 .modes { display: flex; gap: 6px; margin: 6px 0; }
-.modes button { padding: 5px 14px; border: 1px solid #cbd5e1; border-radius: 999px; background: #fff; font-size: 13px; }
+.livehint { font-size: 12.5px; background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 10px; padding: 8px 10px; margin: 6px 0; color: #3730a3; }.modes button { padding: 5px 14px; border: 1px solid #cbd5e1; border-radius: 999px; background: #fff; font-size: 13px; }
 .modes button.on { background: var(--sea1); color: #fff; border-color: var(--sea1); }
 .vote { margin-top: 10px; }
 .vq { font-size: 13px; font-weight: 600; }
