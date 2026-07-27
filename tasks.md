@@ -16,7 +16,7 @@
 ## P2 前端脚手架 + build/ 服务（甲-1）
 - [x] P2.1 Vite+Vue3+Router+Pinia 脚手架（web/frontend/，不碰浪报MVP.html）
 - [x] P2.2 FastAPI StaticFiles 挂 build/ + SPA 回退 + Dockerfile 加 npm run build（不改 terraform）
-- [ ] P2.3 SVG 图表封装为 Vue 组件原样迁移（不引 ECharts）+ hls.js/Leaflet 懒加载
+- [x] P2.3 SVG 图表封装为 Vue 组件原样迁移（不引 ECharts）+ hls.js/Leaflet 懒加载
 
 ## P3 /spots 目录页迁移
 - [ ] P3.1 列表+区域筛选+搜索+评分徽标+Leaflet 地图+收藏置顶+仅直播 checkbox
