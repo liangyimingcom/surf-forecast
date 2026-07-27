@@ -103,9 +103,10 @@ def _validate_coord(lat: float, lon: float) -> None:
 
 @app.get("/api/report")
 def report(lat: float, lon: float, spot: str = "未命名浪点", days: int = 3,
-           user: dict = Depends(deps.current_user)) -> dict:
+           user: dict | None = Depends(flags.member_gate)) -> dict:
+    # Fable5 §8：一期(member_lock 关)全公开;二期锁会员(member_gate 抛 401/402)。匿名默认 free 配额。
     _validate_coord(lat, lon)
-    days = deps.clamp_days(user["level"], days)
+    days = deps.clamp_days((user or {}).get("level", "free"), days)
     try:
         return deps.get_report(lat, lon, days, spot)
     except Exception as e:  # noqa: BLE001
@@ -115,7 +116,7 @@ def report(lat: float, lon: float, spot: str = "未命名浪点", days: int = 3,
 
 @app.get("/api/report/history")
 def report_history(lat: float, lon: float, spot: str = "未命名浪点",
-                   user: dict = Depends(deps.current_user)) -> dict:
+                   user: dict | None = Depends(flags.member_gate)) -> dict:
     _validate_coord(lat, lon)
     try:
         history = deps.get_history(lat, lon, 6, spot)
