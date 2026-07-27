@@ -10,4 +10,5 @@ export const api = {
   recommend: (region) => getJSON(`/api/recommend?region=${encodeURIComponent(region || '')}`),
   flags: () => getJSON('/api/flags'),
   catalog: () => getJSON('/api/catalog'),
+  catalogScores: () => getJSON('/api/catalog/scores'),
 }

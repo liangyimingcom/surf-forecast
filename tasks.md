@@ -19,7 +19,7 @@
 - [x] P2.3 SVG 图表封装为 Vue 组件原样迁移（不引 ECharts）+ hls.js/Leaflet 懒加载
 
 ## P3 /spots 目录页迁移
-- [ ] P3.1 列表+区域筛选+搜索+评分徽标+Leaflet 地图+收藏置顶+仅直播 checkbox
+- [x] P3.1 列表+区域筛选+搜索+评分徽标+Leaflet 地图+收藏置顶+仅直播 checkbox _(Leaflet 地图待加 leaflet dep 的懒加载组件,列为 P3 后续;其余全落地)_
 
 ## P4 /spot/:slug 详情页迁移（体量最大）
 - [ ] P4.1 日期条/必冲卡/逐日卡片（五维/SVG/风质条/物理/行动方案）/小白·高手模式/回看+自评

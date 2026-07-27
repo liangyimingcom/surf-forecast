@@ -202,9 +202,9 @@ def spots_select(slug: str, user: dict = Depends(deps.current_user)) -> dict:
 
 
 @app.get("/api/catalog")
-def catalog_list(user: dict = Depends(deps.current_user)) -> dict:
-    """P3 形态C：全国浪点目录(58+)。登录可见；从注册表返回基础信息+区域+是否有直播。
-    lat/lon 兼容 Decimal(DynamoDB)/float(内存)。评分留待前端按点取报(用缓存)。"""
+def catalog_list() -> dict:
+    """P3 形态C：全国浪点目录(58+)。**公开**(Fable5 §2.2 拉新鱼饵,两期皆公开)；
+    从注册表返回基础信息+区域+是否有直播。lat/lon 兼容 Decimal/float。评分留待 /catalog/scores。"""
     rows = db.get_store().list_listed_registry() or []
     catalog = []
     for r in rows:
@@ -223,8 +223,8 @@ def catalog_list(user: dict = Depends(deps.current_user)) -> dict:
 
 
 @app.get("/api/catalog/scores")
-def catalog_scores(user: dict = Depends(deps.current_user)) -> dict:
-    """P3.2 形态C：批量评分(从每日预算缓存读，避免 58×实时)。
+def catalog_scores() -> dict:
+    """P3.2 形态C：批量评分(从每日预算缓存读，避免 58×实时)。**公开**(Fable5 §2.2)。
     无缓存桶(本地/未配置)→ scores 空、cached=False；前端可用点击已看浪点回填徽标兜底。"""
     reader = deps._cache_reader()
     if reader is None:

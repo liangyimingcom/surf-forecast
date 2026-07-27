@@ -52,17 +52,17 @@ def test_build_skips_missing_coord():
     assert seed.build_registry_rows(snap) == []
 
 
-# —— 401 保护 ——
-def test_catalog_requires_auth(client):
-    assert client.get("/api/catalog").status_code == 401
+# —— 鉴权分层（Fable5 §2.2）：catalog/scores 公开(拉新鱼饵)，cams 仍保护 ——
+def test_catalog_public(client):
+    assert client.get("/api/catalog").status_code == 200          # 公开(Fable5 §2.2)
 
 
 def test_cams_requires_auth(client):
     assert client.get("/api/cams").status_code == 401
 
 
-def test_catalog_scores_requires_auth(client):
-    assert client.get("/api/catalog/scores").status_code == 401
+def test_catalog_scores_public(client):
+    assert client.get("/api/catalog/scores").status_code == 200    # 公开(Fable5 §2.2)
 
 
 # —— 契约 ——
