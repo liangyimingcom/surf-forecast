@@ -42,8 +42,8 @@
 - [x] P9.2 冻结 self-iterate 前端自动通道（gate_path_whitelist 前端项关）+ 记 ADR-9(冻结)/ADR-10(稳定后目录级重定义蓝图)
 
 ## P10 收尾
-- [ ] P10.1 全量 pytest + 新 E2E 全绿 + report.schema 校验真实 payload + node --check/bash -n
-- [ ] P10.2 文档回写（product.md 范围边界/README 状态/structure.md 前端结构+甲-y ADR）+ implementation-notes Progress
+- [x] P10.1 全量 pytest + 新 E2E 全绿 + report.schema 校验真实 payload + node --check/bash -n _(pytest 267·Vue E2E 19/0·冻结单HTML E2E 50/0 双前端并存)_
+- [x] P10.2 文档回写（product.md 范围边界/README 状态/structure.md 前端结构+甲-y ADR）+ implementation-notes Progress
 
 ## G 门 · 真部署（人工授权）
 - [ ] G.1 build v0.2.0(major) → redeploy → 金丝雀跑新 E2E(失败自动 rollback) → git tag v0.2.0 → CHANGELOG

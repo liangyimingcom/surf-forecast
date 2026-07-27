@@ -37,6 +37,7 @@
 
 - ✅ Kiro 文档体系完整（4 steering + 6 spec三件套(5产品+1工具) + 2 hooks）
 - ✅ `web/浪报MVP.html`：会员视图功能完整 MVP（双模式、三类 SVG 图表、离岸风质条、昨日回看、GMT+8）
+- 🚧 `web/frontend/`：**甲·Vite+Vue3 决策助手整体重建**（feature 分支 `feat/vue-rebuild`）——3 路由页(首页决策助手/详情/目录)+后端契约重塑(recommend/regions/动态报告/诚实分层鉴权/会员锁占位)+图表组件化(charts.js/ChartBox 零依赖)+新 E2E vue_spa.mjs 19/0；后端 `SF_SPA_DIST` 门控切换，单 HTML 作兜底；真部署 v0.2.0 待 G 门
 - ✅ `src/surf_forecast/physics.py` 已实现并通过校验（含风向判定）
 - ⬜ 引擎其余模块、Web 后端、校验持久化为脚手架，按各 spec 的 tasks 推进
 
