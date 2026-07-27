@@ -58,8 +58,15 @@ def test_login_wrong_password_401(client):
     assert r.status_code == 401
 
 
-def test_report_requires_auth_401(client):
-    # W1：未登录无法获取浪报数据
+def test_report_public_phase1(client, fake_report):
+    # Fable5 §8 一期(member_lock 关)：report 公开可取（匿名 free 配额）
+    r = client.get("/api/report?lat=36.092&lon=120.468&spot=山东头&days=3")
+    assert r.status_code == 200
+
+
+def test_report_locked_phase2(client, monkeypatch):
+    # 二期(member_lock 开)：匿名访问深度内容 → 401（member_gate 拦截）
+    monkeypatch.setenv("SF_MEMBER_LOCK", "1")
     r = client.get("/api/report?lat=36.092&lon=120.468&spot=山东头")
     assert r.status_code == 401
 

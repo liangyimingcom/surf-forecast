@@ -1,0 +1,11 @@
+.venv/
+**/node_modules/
+web/frontend/dist/
+.git/
+.pytest_cache/
+**/__pycache__/
+*.pyc
+.DS_Store
+docs/screenshots/
+reference/
+tests/

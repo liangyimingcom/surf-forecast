@@ -17,16 +17,36 @@ from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel, Field
 
-from . import auth, cache, db, deps, feedback, llm_client, llm_guard, spots
+from . import auth, cache, db, deps, feedback, flags, llm_client, llm_guard, recommend, spots
 
 app = FastAPI(title="Surf Forecast API", version="0.1.0")
 
 # 前端 HTML 由后端在 `/` 直供（去 CloudFront 后，ALB 直接服务前端）
 _FRONTEND = os.getenv("SF_FRONTEND", "/app/frontend/浪报MVP.html")
+# 甲-1：Vue build 产物目录。设置且存在 → `/` 服 SPA（切换点，P9/G 门 flip env，不改代码）；
+# 未设 → 继续服单 HTML（并行安全，冻结 E2E 保绿）。
+_SPA_DIST = os.getenv("SF_SPA_DIST", "")
+
+
+def _spa_index() -> str | None:
+    if _SPA_DIST:
+        idx = os.path.join(_SPA_DIST, "index.html")
+        if os.path.exists(idx):
+            return idx
+    return None
+
+
+# SPA 静态资源挂载（仅当 dist 就位）：hash 化 assets 长缓存。
+if _SPA_DIST and os.path.isdir(os.path.join(_SPA_DIST, "assets")):
+    from fastapi.staticfiles import StaticFiles
+    app.mount("/assets", StaticFiles(directory=os.path.join(_SPA_DIST, "assets")), name="assets")
 
 
 @app.get("/", response_class=HTMLResponse)
 def index() -> FileResponse:
+    spa = _spa_index()
+    if spa:
+        return FileResponse(spa, media_type="text/html; charset=utf-8")
     if os.path.exists(_FRONTEND):
         return FileResponse(_FRONTEND, media_type="text/html; charset=utf-8")
     raise HTTPException(status_code=404, detail="前端未内置")
@@ -83,9 +103,10 @@ def _validate_coord(lat: float, lon: float) -> None:
 
 @app.get("/api/report")
 def report(lat: float, lon: float, spot: str = "未命名浪点", days: int = 3,
-           user: dict = Depends(deps.current_user)) -> dict:
+           user: dict | None = Depends(flags.member_gate)) -> dict:
+    # Fable5 §8：一期(member_lock 关)全公开;二期锁会员(member_gate 抛 401/402)。匿名默认 free 配额。
     _validate_coord(lat, lon)
-    days = deps.clamp_days(user["level"], days)
+    days = deps.clamp_days((user or {}).get("level", "free"), days)
     try:
         return deps.get_report(lat, lon, days, spot)
     except Exception as e:  # noqa: BLE001
@@ -95,7 +116,7 @@ def report(lat: float, lon: float, spot: str = "未命名浪点", days: int = 3,
 
 @app.get("/api/report/history")
 def report_history(lat: float, lon: float, spot: str = "未命名浪点",
-                   user: dict = Depends(deps.current_user)) -> dict:
+                   user: dict | None = Depends(flags.member_gate)) -> dict:
     _validate_coord(lat, lon)
     try:
         history = deps.get_history(lat, lon, 6, spot)
@@ -119,8 +140,9 @@ def accuracy_vote(body: Vote, user: dict = Depends(deps.current_user)) -> dict:
 
 
 @app.get("/api/accuracy/bias")
-def accuracy_bias(spot: str, user: dict = Depends(deps.current_user)) -> dict:
-    return feedback.compute_bias(db.get_store(), user["email"], spot)
+def accuracy_bias(spot: str, user: dict | None = Depends(flags.member_gate)) -> dict:
+    # Fable5 §2.3：偏差校准展示。一期公开(匿名无投票→自然空);二期锁会员(member_gate)。
+    return feedback.compute_bias(db.get_store(), (user or {}).get("email", ""), spot)
 
 
 # —— 浪点管理（custom-spots R2，全 401 保护）——
@@ -182,9 +204,9 @@ def spots_select(slug: str, user: dict = Depends(deps.current_user)) -> dict:
 
 
 @app.get("/api/catalog")
-def catalog_list(user: dict = Depends(deps.current_user)) -> dict:
-    """P3 形态C：全国浪点目录(58+)。登录可见；从注册表返回基础信息+区域+是否有直播。
-    lat/lon 兼容 Decimal(DynamoDB)/float(内存)。评分留待前端按点取报(用缓存)。"""
+def catalog_list() -> dict:
+    """P3 形态C：全国浪点目录(58+)。**公开**(Fable5 §2.2 拉新鱼饵,两期皆公开)；
+    从注册表返回基础信息+区域+是否有直播。lat/lon 兼容 Decimal/float。评分留待 /catalog/scores。"""
     rows = db.get_store().list_listed_registry() or []
     catalog = []
     for r in rows:
@@ -203,8 +225,8 @@ def catalog_list(user: dict = Depends(deps.current_user)) -> dict:
 
 
 @app.get("/api/catalog/scores")
-def catalog_scores(user: dict = Depends(deps.current_user)) -> dict:
-    """P3.2 形态C：批量评分(从每日预算缓存读，避免 58×实时)。
+def catalog_scores() -> dict:
+    """P3.2 形态C：批量评分(从每日预算缓存读，避免 58×实时)。**公开**(Fable5 §2.2)。
     无缓存桶(本地/未配置)→ scores 空、cached=False；前端可用点击已看浪点回填徽标兜底。"""
     reader = deps._cache_reader()
     if reader is None:
@@ -219,6 +241,37 @@ def catalog_scores(user: dict = Depends(deps.current_user)) -> dict:
         except Exception:  # noqa: BLE001
             pass
     return {"scores": scores, "cached": True}
+
+
+# —— P1.1 决策助手首屏（公开·无鉴权）：区域推荐 + 区域列表 ——
+# 数据诚实：recommend 只排「当日新鲜」浪点 + degraded 显式；缓存覆盖缺口不冒充旧分。
+@app.get("/api/regions")
+def regions_list() -> dict:
+    rows = db.get_store().list_listed_registry() or []
+    return {"regions": recommend.list_regions(rows)}
+
+
+@app.get("/api/recommend")
+def recommend_region(region: str = "") -> dict:
+    rows = db.get_store().list_listed_registry() or []
+    return recommend.build_recommendation(region, rows, deps._cache_reader())
+
+
+# —— P1.3 功能开关 + 微信扫码登录占位（二期实现，一期仅预留路由）——
+@app.get("/api/flags")
+def feature_flags() -> dict:
+    """公开：前端读功能开关决定「会员专享」占位角标是否显示（一期不拦截）。"""
+    return flags.get_flags()
+
+
+@app.post("/api/auth/wechat/qr")
+def wechat_qr() -> Response:
+    raise HTTPException(status_code=501, detail="微信扫码登录二期实现（一期仅预留路由）")
+
+
+@app.get("/api/auth/wechat/status")
+def wechat_status() -> Response:
+    raise HTTPException(status_code=501, detail="微信扫码登录二期实现（一期仅预留路由）")
 
 
 # —— 用户建议/需求提交（B: 匿名可提，落 DynamoDB 需求库，status=new+认领码；长度上限防滥用）——
@@ -344,3 +397,15 @@ def track_feedback(claim: str) -> dict:
 from .cams import router as cams_router  # noqa: E402
 
 app.include_router(cams_router)
+
+
+# —— SPA history 回退（甲-1）：非 /api、非 /assets 的未匹配路径 → index.html（Vue Router history）。
+# 放文件末尾，注册在所有 API 路由之后 → 绝不遮蔽 /api/*。仅 SF_SPA_DIST 启用时返回 SPA，否则 404（行为同前）。
+@app.get("/{full_path:path}", response_class=HTMLResponse)
+def spa_fallback(full_path: str) -> FileResponse:
+    if full_path.startswith(("api/", "assets/")):
+        raise HTTPException(status_code=404, detail="not found")
+    spa = _spa_index()
+    if spa:
+        return FileResponse(spa, media_type="text/html; charset=utf-8")
+    raise HTTPException(status_code=404, detail="not found")

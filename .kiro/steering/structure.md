@@ -23,7 +23,8 @@ surf-forecast-kiro-v2/
 │   │   └── self-iterate-ops/          # 用户建议自迭代闭环（工具/流程 spec，v2 新增）
 │   └── hooks/
 ├── web/
-│   └── 浪报MVP.html              # 当前会员视图实现（单文件 MVP）
+│   └── 浪报MVP.html              # 单文件 MVP（甲重建后作兜底/归档，见 web/frontend）
+│   └── frontend/                 # Vite+Vue3 决策助手重建（甲）：pages(/·/spots·/spot)+components(ChartBox/LockBadge)+charts.js+stores(region/auth/spot)
 ├── prompts/                      # 原始提示词归档
 ├── reference/
 │   ├── reports/

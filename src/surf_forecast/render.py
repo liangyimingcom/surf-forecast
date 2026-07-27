@@ -62,6 +62,36 @@ def _tide_text(df) -> str:
     return "，".join(parts)
 
 
+def _checklist(context) -> list[str]:
+    """下水前动态核对项（按当次报告数据生成，无硬编码浪点/月份/月相）。"""
+    items = ["潮汐为模型推算（±1h），下水前核对当地官方潮汐表。"]
+    max_hs = 0.0
+    has_midterm = False
+    for da in context.days:
+        df = da.forecast
+        for p in _daytime(df):
+            if p.wave_height_m > max_hs:
+                max_hs = p.wave_height_m
+        if getattr(df, "is_midrange", False):
+            has_midterm = True
+    if max_hs > 1.0:
+        items.append(f"本周有大浪日（最高约 {max_hs:.1f}m）：检查离岸流、结伴下水、系脚绳、先看 5 分钟流向。")
+    if has_midterm:
+        items.append("D+5/6 中期预报误差 ±30%，临场复核浪高/无风窗口。")
+    return items
+
+
+def _disclaimer(context) -> str:
+    """通用免责口径 + 动态水温（去硬编码具体值/地名）。"""
+    ssts = [p.sst_c for da in context.days for p in _daytime(da.forecast)
+            if getattr(p, "sst_c", 0) and p.sst_c > 0]
+    base = ("数据源 Open-Meteo（ECMWF WAM/IFS，免 key）；周期 Tm(实线)/Tp(虚线) 双口径；"
+            "近岸浪高≈外海 Hs×0.7-0.8；所有时间 GMT+8（Asia/Shanghai）。")
+    if ssts:
+        base += f" 水温：模型 SST 约 {min(ssts):.1f}-{max(ssts):.1f}°C（按浪况选防晒衣/2mm/薄3-2）。"
+    return base
+
+
 def _window_pair(window_str: str):
     """'HH:MM-HH:MM' → [起小时, 止小时] 数字对（前端图表最佳窗口高亮 sx(w[0])/sx(w[1]) 依赖）。"""
     try:
@@ -181,6 +211,8 @@ def render_json(context: ReportContext) -> dict:
         "ranking": context.ranking,
         "days": days,
         "story": story,
+        "checklist": _checklist(context),
+        "disclaimer": _disclaimer(context),
         "history": history,
         "lifecycle": context.lifecycle,
         "confidenceNotes": context.warnings,

@@ -12,6 +12,8 @@
     "calibratedAt": {"type": "string", "pattern": "GMT\\+8$"},
     "ranking": {"type": "array", "items": {"type": "integer"}},
     "story": {"type": "string"},
+    "checklist": {"type": "array", "items": {"type": "string"}},
+    "disclaimer": {"type": "string"},
     "lifecycle": {"type": "array"},
     "confidenceNotes": {"type": "array"},
     "days": {"type": "array", "minItems": 1, "items": {"$ref": "#/definitions/day"}},

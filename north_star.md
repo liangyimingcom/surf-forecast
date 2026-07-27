@@ -1,34 +1,42 @@
-# North Star — 在线 LLM 澄清 + LLM coder 实现（L1-L5，按 v6 设计）
+# North Star — 甲·忠实整体重建（Vite+Vue3 决策助手）
 
-## 目标
-按 `docs/自迭代-在线LLM澄清与coder-设计v6.md`（ADR-5~8）实现两块 AI 环节：
-- **在线匿名 LLM 澄清**（ECS 调 <llm-gateway>；每步自动；仅应用层护栏）。
-- **LLM coder**（写实现但一律人工审 draft PR，守 v5 G1）。
-本地全程 **mock LLM 测试**（不真烧钱/不触网）；真调网关 + Secrets 注入 + 部署 = **生产写操作门 G**。
+> 依据 `docs/Fable5迭代建议.md`（八项已确认决策）+ `docs/implementation-notes.md`（保守自治协议）。
+> 用户在本 session 显式选定 **方向甲·忠实整体重建**，并逐题拍板四项架构决策（见下）。
+> ⚠️ 这是本项目**爆炸半径最大**的一次改动——同时动前端框架 + 后端契约 + E2E + 契约门四线。已如实警示裸奔风险，用户明确承担。
 
-## 范围（决策优先排序；红线逻辑测试随层）
-- **L1 数据模型**：per-IP 限流 + 全局日预算计数（DynamoDB，float→Decimal）；选项缓存键(page-schema+步骤+已选)；LLM 输出结构化需求 schema + 校验器。
-- **L2 接口**：后端 `POST /api/clarify`（匿名+限流→缓存→调网关(key from Secrets)→schema校验→写缓存；超限/不通/报错降级模板）；`req_pipeline --llm-coder`（生成锚点 patch→硬门→draft PR，永远人工审）。
-- **L3 用户可见**：前端澄清 UI 每步调 /api/clarify（loading 态；≤4 轮收敛；跳过逃生；降级无缝切模板）。
-- **L4 内部逻辑**：per-IP 限流 + 日预算硬闸 + 反注入(系统/数据分隔) + coder 锚点patch/禁碰web-e2e/diff扫描/需求当数据。
-- **L5 机械/测试**：限流/预算/缓存/schema校验/降级 单测(边界双侧+mutation) + /api/clarify 降级集成 + coder patch+门 集成（全 mock LLM）。
+## 一句话目标
 
-## DoD
-- pytest 全绿（LLM 全 mock，不触网/不烧钱）+ 冻结 E2E 64/0 + 0 JS 报错。
-- 降级链可证：网关不通/超限 → 无缝退预置模板、不报错、不白屏。
-- 数据诚实/反注入/缓存不碰可见性 红线守住；全程 GMT+8。
+把现有 2000 行单 HTML（`web/浪报MVP.html`）忠实重建为 **Vite + Vue 3 决策助手**：首屏一屏答案（`/`）+ 浪点详情（`/spot/:slug`）+ 全国目录（`/spots`），删除示例模块、清硬编码泄漏、诚实分层鉴权、真会员制预埋（一期占位不拦截），并同步重塑后端契约与新接口。
 
-## 红线
-- **单一驱动器**（禁 task_run）；与每日 triage cron/其他 goal 不并发写同文件。
-- **人主导**：LLM coder 产出一律停 draft PR 等人工审，**无自动合并/部署**（守 v5 G1）。
-- 匿名 LLM 仅**应用层**护栏（per-IP + 全局日预算硬闸 + 选项缓存 + 降级模板），**不引 WAF**。
-- 反注入（用户/需求文本作 data 段）；CodeLens/源码/key 不外露；LLM 输出 schema 校验。
-- 沿用：GMT+8 / DATA CONTRACT / float→Decimal(_to_decimal) / 全401 / SG禁0.0.0.0/0 / terraform禁-auto-approve。
-- 每轮 codelens-dev 摸底+爆炸半径；pytest/E2E 零倒退；**真调网关/Secrets/部署留 G 门**。
+## 四项已锁架构决策（不可在 loop 内擅自推翻）
 
-## 范围外
-无人值守自动合并/部署；WAF/CloudFront；LLM 略过人眼上线；pytest 里真调网关(必须 mock)。
+| # | 决策 | 结论 |
+|---|------|------|
+| **甲-1** | 前端 build/ 服务方式 | **后端 `StaticFiles` 挂 Vite build/ + SPA 回退，`/api` 照旧，单镜像** → **不动 terraform/CloudFront**（deployment-and-ops 基本不改） |
+| **甲-b** | 迁移策略 | **Big-bang 直接切换 + 同一 goal 内重写 E2E**；但**新 E2E 必须先全绿、才切 `/` 到 Vue**，把裸奔窗口压到最小 |
+| **甲-y** | self-iterate 白名单 | 重建高动荡期**冻结 self-iterate 前端自动通道**（只留后端/bug 类）；Vue 站稳后再按目录级（甲-x）重定义解冻。记 ADR |
+| **甲-q** | 前后端契约 | **前端重建 + 后端契约同步重塑一步到位**：新增 `/api/recommend`·`/api/regions`、接 `/api/accuracy/bias`、报告动态 checklist、清硬编码、`report.schema.json` 随之更新 |
 
-## 停止
-L1-L5 本地完成+全绿、仅剩 G 门（Secrets+部署）时创建 STOP：
-`/Users/yiming/.meshclaw/workspace-surf-forecast/.stop-chat-3-1783779532`
+## Fable5 八项产品决策（承载内容）
+
+1. 决策助手（首屏一屏答案）· 2. 按地区自动圈定推荐 · 3. 删「其他」5 模块 · 4. 直播降为详情页内嵌 · 5. Vite+Vue3 重建 · 6. 真会员制（微信扫码二期，一期预留接口）· 7. 首屏公开·深度锁会员 · 8. 一期全公开·锁仅占位（`member_lock_enabled=false`）。
+
+## 完成定义（DoD）
+
+- Vite+Vue3 三路由页（`/`·`/spot/:slug`·`/spots`）功能对齐并**取代**单 HTML；旧文件归档 `reference/`。
+- 后端：`/api/recommend`·`/api/regions` 上线、`/api/accuracy/bias` 前端接线、报告 checklist/免责动态化、`FeatureFlags.member_lock_enabled` 开关、诚实分层鉴权（删 `demoAuth`/`#gate`/`surf2026`）、微信占位路由（501）。
+- 契约：`web/report.schema.json` 随 payload 变更同步、契约测试全绿。
+- **新 E2E 全套重写并全绿**（新路由 + 首页推荐/降级/锁占位三组）后才切 `/`；引擎 pytest 零改动。
+- SVG 图表逻辑封装为 Vue 组件**原样迁移**（不引 ECharts，保持零重依赖视觉）。
+- 文档回写：product.md 范围边界、README 状态、structure.md（前端结构 + self-iterate 甲-y 冻结 ADR）。
+- 真部署留 **G 门**（生产写操作，人工授权）。
+
+## 红线（继承 + 本 goal 专属）
+
+- **数据诚实**：首屏推荐强依赖每日评分缓存——缓存不全**必须显式降级**（只推有分的点 + 标注），绝不拿旧分/样例分冒充（首屏=产品信誉）。清硬编码泄漏是**正确性 bug**（切三亚不能显"青岛潮汐表"）。
+- **降级态根因**：Fable5 §4.5 指出线上此刻在降级横幅下运行；R0 必须先排查评分缓存流水线为何降级，**不在坏缓存上建首屏**。
+- **裸奔最小化**：新 E2E 绿之前不切 `/`（甲-b 的护栏）。
+- **单一驱动器**：仅 dashboard auto-nudge 驱动，**绝不调 task_run**。
+- **DATA CONTRACT**：wdeg 数组 + 数字图表数组 + GMT+8 + 预报/历史日期互斥；float→Decimal；受保护接口鉴权只在后端。
+- **CodeLens 先摸底**（SOP）· ALB SG 永不含 0.0.0.0/0 · terraform 禁 -auto-approve。
+- **self-iterate G1**：LLM coder 一律人工审，无自动合并/部署。

@@ -80,6 +80,10 @@
 - **ADR-7 限流护栏层**：**定案 = 仅应用层**（FastAPI per-IP 限流 + **全局日预算硬闸** + **同页同类选项缓存**(page-schema+步骤+已选→复用) + 超限/不通/报错**降级预置模板**）。**不引 WAF/CloudFront 基建**。多实例计数走 DynamoDB。LLM 输出须 schema 校验(防畸形需求对象)；网关 key 存 Secrets Manager，ECS 任务角色 valueFrom 注入。用户自由文本进 prompt 须系统指令/数据分隔(反注入)。
 - **ADR-8 LLM coder 边界**：**定案 = LLM 可写实现，但 LLM-authored 变更一律停 draft PR 等人工审**（守 v5 G1，**无自动合并/部署**，即便纯前端+全绿）。coder 出**锚点 patch(禁全文重写)**、**禁碰 web/e2e/**(冻结基线)、过硬门+secret/后门扫描；需求文本当**数据**处理(反注入)；"删除功能"永不自动。
 
+### ADR-9~10（甲·Vue 整体重建期的 self-iterate 处置 — **定案 2026-07-27**）
+- **ADR-9 重建期冻结前端自动通道**：Vue 重建高动荡期，self-iterate 的 `gate_path_whitelist` **前端项暂关**——只接受后端/bug 类需求的 draft PR，**不在移动的靶子(Vue 重建中)上打前端补丁**（避免与重建互踩）。理由：v5 的"改动⊆单文件 web/浪报MVP.html"锚点在多组件 Vue 下瓦解，冻结期最稳。
+- **ADR-10 稳定后目录级重定义（蓝图）**：Vue 站稳定并切换(P9)后，把 `gate_path_whitelist` 从 `{web/浪报MVP.html}` 重定义为 `{web/frontend/src/**}`（冻结 E2E 目录 web/e2e/ 仍禁碰、非前端目录仍需人工），"纯前端"重定义为"只碰 Vue app 目录+build 产物"，再解冻前端自动通道。多组件爆炸半径大，LLM coder 锚点 patch 仍守 ADR-8 一律人工审。
+
 ## 8. 范围外（更新后）
 无人值守自动合并/部署（含 LLM-authored，守 v5 G1）；LLM 略过人眼自动上线；新增公网审阅端点；WAF/CloudFront 基建（ADR-7 定为仅应用层）。
 （原"云端 LLM 澄清 / LLM coder 自动写实现"已由 ADR-5~8 转入在场并加护栏，不再范围外。）
