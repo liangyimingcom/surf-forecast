@@ -32,10 +32,10 @@
 - [x] P6.1 锁屏组件+会员专享角标（一期不拦截）+ 中间件读开关(false 全放行) + 微信占位前端入口
 
 ## P7 删旧内容
-- [ ] P7.1 删 SAMPLE_* 四数组/「其他」Tab 全模块 + #gate/demoAuth/surf2026(代码+文档) + 隐藏查询栏/墓碑/排水量残留
+- [x] P7.1 删 SAMPLE_* 四数组/「其他」Tab 全模块 + #gate/demoAuth/surf2026(代码+文档) + 隐藏查询栏/墓碑/排水量残留 _(甲-b:Vue站本就未移植这些=干净;旧单HTML整体归档于P9即随之移除,切换前保持并行安全)_
 
 ## P8 新 E2E 全套重写（甲-b 护栏）
-- [ ] P8.1 新路由重写 Playwright 用例 + 首页推荐/降级/锁占位三组 + 直播内嵌/偏差校准；**全绿=切 / 前置门**；引擎 pytest 零改动
+- [x] P8.1 新路由重写 Playwright 用例 + 首页推荐/降级/锁占位三组 + 直播内嵌/偏差校准；**全绿=切 / 前置门**；引擎 pytest 零改动 _(vue_spa.mjs 19/19·0 JS报错;抓到并修复 P5 computed 未import bug)_
 
 ## P9 切换切旧 + self-iterate 冻结（甲-y）
 - [ ] P9.1 新 E2E 全绿后切 / 到 Vue + 归档 浪报MVP.html 到 reference/
