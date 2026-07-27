@@ -33,6 +33,25 @@ async function load() {
 }
 
 const day = computed(() => report.value?.days?.[sel.value] || null)
+
+// 小白/高手模式（localStorage 记忆）
+const mode = ref(localStorage.getItem('sf_mode_v1') || 'novice')
+function setMode(m) { mode.value = m; localStorage.setItem('sf_mode_v1', m) }
+
+// 昨日自评（best-effort：登录态落库，匿名/失败仅本地致谢，不阻塞）
+const voted = ref('')
+const VOTE_LABELS = { accurate: '准', optimistic: '偏乐观', conservative: '偏保守', nosurf: '没下水' }
+async function vote(kind) {
+  voted.value = kind
+  if (!history.value) return
+  try {
+    await fetch('/api/accuracy/vote', {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ spot: report.value.spot, date: history.value.date, kind }),
+    })
+  } catch (_) { /* best-effort，失败不打断本地反馈 */ }
+}
 onMounted(load)
 </script>
 
@@ -48,6 +67,11 @@ onMounted(load)
 
     <template v-else-if="report">
       <p class="ts">校准 {{ report.calibratedAt }}</p>
+
+      <div class="modes">
+        <button :class="{ on: mode === 'novice' }" @click="setMode('novice')">🌱 小白</button>
+        <button :class="{ on: mode === 'expert' }" @click="setMode('expert')">🎯 高手</button>
+      </div>
 
       <!-- 日期条 -->
       <div class="strip">
@@ -73,12 +97,12 @@ onMounted(load)
 
         <ChartBox :day="day" />
 
-        <div v-if="day.dims" class="dims">
+        <div v-if="mode === 'expert' && day.dims" class="dims">
           <span v-for="(v, k) in day.dims" :key="k" class="dim">{{ k }} <b>{{ v }}</b></span>
         </div>
 
         <div v-if="day.plan" class="plan"><b>{{ day.plan[0] }}</b><p>{{ day.plan[1] }}</p></div>
-        <div v-if="day.lesson" class="lesson"><b>📖 {{ day.lesson[0] }}</b><p>{{ day.lesson[1] }}</p></div>
+        <div v-if="mode === 'expert' && day.lesson" class="lesson"><b>📖 {{ day.lesson[0] }}</b><p>{{ day.lesson[1] }}</p></div>
         <div v-if="day.safety && day.safety.length" class="safety"><b>{{ day.safety[0] }}</b><p>{{ day.safety[1] }}</p></div>
       </section>
 
@@ -90,6 +114,13 @@ onMounted(load)
         <h3>🔁 昨日回看（{{ history.week }} {{ history.date }}）</h3>
         <p>系统当时预报：{{ history.predict?.height }} · {{ history.predict?.period }} · {{ history.predict?.wind }} · {{ history.predict?.verdict }}</p>
         <ChartBox :day="history" />
+        <div class="vote">
+          <p class="vq">昨天报得准吗？</p>
+          <div class="vbtns">
+            <button v-for="(lbl, k) in VOTE_LABELS" :key="k" :class="{ on: voted === k }" @click="vote(k)">{{ lbl }}</button>
+          </div>
+          <p v-if="voted" class="vthx">已记录「{{ VOTE_LABELS[voted] }}」——多次自评会校准本浪点的系统性偏差，越用越准。</p>
+        </div>
       </section>
 
       <!-- 下水核对 + 免责（动态，去硬编码）-->
@@ -106,6 +137,15 @@ onMounted(load)
 .bar { display: flex; align-items: center; gap: 10px; }
 h1 { font-size: 18px; color: var(--sea1); }
 .ts { font-size: 11px; color: var(--ink2); }
+.modes { display: flex; gap: 6px; margin: 6px 0; }
+.modes button { padding: 5px 14px; border: 1px solid #cbd5e1; border-radius: 999px; background: #fff; font-size: 13px; }
+.modes button.on { background: var(--sea1); color: #fff; border-color: var(--sea1); }
+.vote { margin-top: 10px; }
+.vq { font-size: 13px; font-weight: 600; }
+.vbtns { display: flex; gap: 6px; flex-wrap: wrap; }
+.vbtns button { padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; font-size: 13px; }
+.vbtns button.on { background: #10b981; color: #fff; border-color: #10b981; }
+.vthx { font-size: 12px; color: #059669; margin-top: 6px; }
 .strip { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
 .strip button { display: flex; flex-direction: column; align-items: center; min-width: 52px; padding: 6px; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; }
 .strip button.on { border-color: var(--sea2); box-shadow: 0 0 0 2px rgba(14,165,233,.2); }
