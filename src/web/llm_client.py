@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-llm_client.py — alblitellm 网关轻客户端（OpenAI 兼容，stdlib urllib）。
+llm_client.py — <llm-gateway> 网关轻客户端（OpenAI 兼容，stdlib urllib）。
 
 env：SF_LLM_URL(网关基址) / SF_LLM_KEY(Secrets 注入) / SF_LLM_MODEL。
 未配置 key → is_configured()=False（调用方直接降级模板，本地/测试零依赖）。

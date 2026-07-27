@@ -3,7 +3,7 @@
 > 目的：动手前退掉三大未知。逐项更新，E4 汇总取舍。GMT+8。
 
 ## E1 · ECS → 外部 LLM 网关连通性 ✅（强推可达，定论级实测待接线时）
-- 网关 `alblitellm.liangym.people.aws.dev` DNS → **公网 IP** 34.193.201.46 / 98.90.116.88（AWS 公网，非内网专用）。
+- 网关 `<llm-gateway-host>` DNS → **公网 IP** <redacted-ip> / <redacted-ip>（AWS 公网，非内网专用）。
 - 本地 `GET /v1/models`（Bearer key）→ **HTTP 200**，返回模型列表（含 `bedrock-claude-sonnet-4-6`）。→ 端点**公网可达 + key 鉴权，无需 Midway**。
 - 生产 ECS：`enableExecuteCommand=False`（无法直接进容器 curl）；任务在**私有子网 + `assignPublicIp=DISABLED`（NAT 出网）**。
 - 判断：app **已成功调用 Open-Meteo 公网 HTTPS**（同 NAT 路径），网关又是公网端点 → **ECS→网关强推可达**。

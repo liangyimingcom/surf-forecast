@@ -75,7 +75,7 @@
 - **ADR-4（D-d）triage 摘要渠道**：**定案 = dashboard 通知（`send_message` 默认，非 Slack）**。低打扰，贴"不打断既定开发"取向；每日 cron 已按此实现。
 
 ### ADR-5~8（云端 LLM 澄清 + LLM coder — **已定案 2026-07-26**；覆盖旧"范围外"）
-- **ADR-5 在线 LLM 澄清接入**：**定案 = LLM 进"面向匿名终端用户的在线澄清"**（ECS 调 alblitellm 网关，OpenAI 兼容，模型 bedrock-claude-sonnet-4-6）。**前置连通性已实测确认**（2026-07-26 一次性 run-task 从生产私有子网+NAT 探测 → `PROBE_REACHABLE http 401`，TLS+HTTP 往返成功；401 因未带 key）→ ECS→网关可达，加 key 即可用；不通场景退模板仍作降级兜底。
+- **ADR-5 在线 LLM 澄清接入**：**定案 = LLM 进"面向匿名终端用户的在线澄清"**（ECS 调 <llm-gateway> 网关，OpenAI 兼容，模型 bedrock-claude-sonnet-4-6）。**前置连通性已实测确认**（2026-07-26 一次性 run-task 从生产私有子网+NAT 探测 → `PROBE_REACHABLE http 401`，TLS+HTTP 往返成功；401 因未带 key）→ ECS→网关可达，加 key 即可用；不通场景退模板仍作降级兜底。
 - **ADR-6 触发模式**：**定案 = 每步自动调**（澄清每轮选项由 LLM 生成，最智能）；代价=延迟/成本，靠 ADR-7 护栏收敛。
 - **ADR-7 限流护栏层**：**定案 = 仅应用层**（FastAPI per-IP 限流 + **全局日预算硬闸** + **同页同类选项缓存**(page-schema+步骤+已选→复用) + 超限/不通/报错**降级预置模板**）。**不引 WAF/CloudFront 基建**。多实例计数走 DynamoDB。LLM 输出须 schema 校验(防畸形需求对象)；网关 key 存 Secrets Manager，ECS 任务角色 valueFrom 注入。用户自由文本进 prompt 须系统指令/数据分隔(反注入)。
 - **ADR-8 LLM coder 边界**：**定案 = LLM 可写实现，但 LLM-authored 变更一律停 draft PR 等人工审**（守 v5 G1，**无自动合并/部署**，即便纯前端+全绿）。coder 出**锚点 patch(禁全文重写)**、**禁碰 web/e2e/**(冻结基线)、过硬门+secret/后门扫描；需求文本当**数据**处理(反注入)；"删除功能"永不自动。

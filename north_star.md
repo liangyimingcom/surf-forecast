@@ -2,7 +2,7 @@
 
 ## 目标
 按 `docs/自迭代-在线LLM澄清与coder-设计v6.md`（ADR-5~8）实现两块 AI 环节：
-- **在线匿名 LLM 澄清**（ECS 调 alblitellm；每步自动；仅应用层护栏）。
+- **在线匿名 LLM 澄清**（ECS 调 <llm-gateway>；每步自动；仅应用层护栏）。
 - **LLM coder**（写实现但一律人工审 draft PR，守 v5 G1）。
 本地全程 **mock LLM 测试**（不真烧钱/不触网）；真调网关 + Secrets 注入 + 部署 = **生产写操作门 G**。
 
