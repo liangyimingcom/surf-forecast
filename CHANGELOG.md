@@ -21,3 +21,4 @@
 - 2026-07-27 01:17 GMT+8 · v0.1.5 · c790858 · 提建议第3步 LLM 页面感知多选(与手动并存) · 已部署(taskdef:12,补tag)
 - 2026-07-27 01:17 GMT+8 · v0.1.6 · 0098166 · 修缓存显示(澄清增强接受source=cache,每次都显chips) · 已滚动部署(taskdef:13)+金丝雀64/0
 - 2026-07-27 12:10 GMT+8 · v0.2.0 · 340ee97 · 甲·Vite+Vue3决策助手整体重建(3路由页+后端契约重塑+诚实分层鉴权+会员锁占位+图表组件化);SF_SPA_DIST默认服Vue;REFRESH_BUDGET 50→80 · 已滚动部署(taskdef:14)·金丝雀vue_spa 19/0·刷新scheduler→:14
+- 2026-07-27 12:45 GMT+8 · v0.2.1 · 3d96c31 · fix:recycle_cold_spots豁免seeded基线目录(source!=user),解首屏recommend覆盖缺口(冷点炸弹撤销refresh_enabled) · 已部署taskdef:15·金丝雀vue_spa 19/0·刷新覆盖3→58点·scheduler→:15
