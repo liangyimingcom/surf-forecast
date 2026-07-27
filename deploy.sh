@@ -68,6 +68,7 @@ cmd_build(){
   log "打包代码 → S3 → 临时 t4g EC2 构建推镜像…"
   local tgz=/tmp/$NAME_PREFIX-build.tgz
   ( cd "$ROOT" && tar --exclude='./.venv' --exclude='./.git' --exclude='./iac/terraform/.terraform' \
+      --exclude='./web/frontend/node_modules' --exclude='./web/frontend/dist' \
       --exclude='*.tfstate*' --exclude='__pycache__' -czf "$tgz" pyproject.toml src config templates web Dockerfile )
   aws s3api put-object --bucket "$CACHE_BUCKET" --key build/build.tgz --body "$tgz" >/dev/null
   local stamp; stamp=$(date +%s)
