@@ -184,6 +184,10 @@ def recycle_cold_spots(store, cold_days: int = COLD_DAYS, clock=now_gmt8) -> lis
     now = clock()
     recycled = []
     for r in list(store.list_active_registry() or []):
+        # 豁免 seeded 基线目录(source!="user")：Fable5 §1.1 首屏需全目录每日刷新，基线点永不冷回收；
+        # 仅回收用户自建(source=="user")的冷点。防冷点炸弹撤销基线 refresh_enabled(v0.2.1 修复)。
+        if r.get("source") != "user":
+            continue
         lv = r.get("last_viewed_at_gmt8")
         if not lv:
             continue

@@ -66,7 +66,22 @@ def test_recycle_cold_spots():
     old = (datetime.now(GMT8) - timedelta(days=20)).isoformat(timespec="seconds")
     store.upsert_registry({"slug": "cold", "spot": "C", "lat": 35, "lon": 120, "days": 6,
                            "dedup_key": "kc", "ref_count": 1, "status": "active",
-                           "refresh_enabled": True, "last_viewed_at_gmt8": old})
+                           "refresh_enabled": True, "source": "user",
+                           "last_viewed_at_gmt8": old})
     recycled = refresh.recycle_cold_spots(store, cold_days=14)
-    assert "cold" in recycled
-    assert store.list_active_registry() == []   # 冷点退出 active 刷新集
+    assert "cold" in recycled                     # 用户自建冷点被回收
+    assert store.list_active_registry() == []     # 冷点退出 active 刷新集
+
+
+def test_recycle_exempts_seeded_baseline():
+    """v0.2.1：seeded 基线目录(source!=user)永不冷回收（Fable5 §1.1 首屏需全目录每日刷）。"""
+    db.reset_store()
+    store = db.get_store()
+    old = (datetime.now(GMT8) - timedelta(days=99)).isoformat(timespec="seconds")
+    store.upsert_registry({"slug": "sl74", "spot": "石老人", "lat": 36, "lon": 120, "days": 6,
+                           "dedup_key": "ks", "ref_count": 1, "status": "active",
+                           "refresh_enabled": True, "source": "shilaoren",
+                           "last_viewed_at_gmt8": old})
+    recycled = refresh.recycle_cold_spots(store, cold_days=14)
+    assert "sl74" not in recycled                 # 基线豁免,即便 99 天未 view
+    assert len(store.list_active_registry()) == 1  # 仍在 active 刷新集
