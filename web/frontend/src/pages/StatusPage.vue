@@ -1,16 +1,19 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { api } from '../api'
+import { swr } from '../swr'
 
 // R2 §3.2 公开状态页：站长运维仪表 + 用户信任背书（系统坦白数据健康）。
 const st = ref(null)
 const error = ref('')
 const loading = ref(true)
 
-onMounted(async () => {
-  try { st.value = await api.status() }
-  catch (e) { error.value = '状态数据暂不可用' }
-  finally { loading.value = false }
+onMounted(() => {
+  const has = swr('status', () => api.status(), (v, fresh, err) => {
+    if (v) { st.value = v; loading.value = false }
+    else if (err && !st.value) { error.value = '状态数据暂不可用'; loading.value = false }
+  })
+  loading.value = !has
 })
 </script>
 

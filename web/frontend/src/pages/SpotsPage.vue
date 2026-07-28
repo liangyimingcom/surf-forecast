@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { api } from '../api'
+import { swr } from '../swr'
 import { scoreColor } from '../charts'
 import SpotsMap from '../components/SpotsMap.vue'
 
@@ -15,14 +16,15 @@ const loading = ref(true)
 const error = ref('')
 const favs = ref(new Set(JSON.parse(localStorage.getItem(FAV_KEY) || '[]')))
 
-async function load() {
-  loading.value = true; error.value = ''
-  try {
-    spots.value = (await api.catalog()).catalog || []
-    try { scores.value = (await api.catalogScores()).scores || {} }
-    catch { scores.value = {} }
-  } catch (e) { error.value = '目录加载失败，请稍后重试' }
-  finally { loading.value = false }
+// SWR：目录/评分缓存秒出 + 后台静默刷新（scores 是最慢接口，缓存后切页 0 等待）
+function load() {
+  error.value = ''
+  const hasCat = swr('catalog', () => api.catalog(), (v, fresh, err) => {
+    if (v) { spots.value = v.catalog || []; loading.value = false }
+    else if (err && !spots.value.length) { error.value = '目录加载失败，请稍后重试'; loading.value = false }
+  })
+  swr('scores', () => api.catalogScores(), (v) => { if (v) scores.value = v.scores || {} })
+  loading.value = !hasCat && !spots.value.length
 }
 
 const regions = computed(() => ['全部', ...Array.from(new Set(spots.value.map(s => s.region))).filter(Boolean)])

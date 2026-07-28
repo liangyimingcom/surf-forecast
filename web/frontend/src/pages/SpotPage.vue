@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { api } from '../api'
+import { swr, cached } from '../swr'
 import { setFacing } from '../charts'
 import ChartBox from '../components/ChartBox.vue'
 import LiveCam from '../components/LiveCam.vue'
@@ -19,26 +20,45 @@ const sel = ref(0)          // 选中日索引
 const loading = ref(true)
 const error = ref('')
 
+function applyReport(rep) {
+  setFacing(rep.spotFacingDeg || 157)
+  report.value = rep
+  sel.value = (rep.ranking && rep.ranking[0]) || rep.days.findIndex(d => d.best) || 0
+  if (sel.value < 0) sel.value = 0
+  loading.value = false
+}
+
 async function load() {
-  loading.value = true; error.value = ''
-  try {
-    // slug → 坐标（复用公开 catalog）
-    const cat = (await api.catalog()).catalog || []
-    const s = cat.find(x => x.slug === route.params.slug)
+  error.value = ''
+  const slug = route.params.slug
+  // catalog 走 SWR（目录页来过则 0 请求即得坐标）
+  const catCached = cached('catalog')
+  let cat = catCached?.catalog || null
+  // report SWR：来过该浪点则秒渲染旧报告，后台刷新
+  const repKey = `report|${slug}`
+  const hasRep = swr(repKey, async () => {
+    if (!cat) cat = ((await api.catalog()).catalog || [])
+    const s = cat.find(x => x.slug === slug)
     if (!s) throw new Error('浪点不存在')
     hasLive.value = !!s.has_live
-    // 并行取 report + history（沿用提速思路）
-    const hp = api.history(s.lat, s.lon, s.name).catch(() => null)
-    const rep = await api.report(s.lat, s.lon, s.name, 6)
-    setFacing(rep.spotFacingDeg || 157)
-    report.value = rep
-    sel.value = (rep.ranking && rep.ranking[0]) || rep.days.findIndex(d => d.best) || 0
-    if (sel.value < 0) sel.value = 0
-    history.value = (await hp)?.history || null
-    bias.value = await api.bias(s.name).catch(() => null)
-  } catch (e) {
-    error.value = '实时浪报暂不可用，请稍后重试'
-  } finally { loading.value = false }
+    const [rep, hist, b] = await Promise.all([
+      api.report(s.lat, s.lon, s.name, 6),
+      api.history(s.lat, s.lon, s.name).catch(() => null),
+      api.bias(s.name).catch(() => null),
+    ])
+    return { rep, hist: hist?.history || null, bias: b, hasLive: !!s.has_live }
+  }, (v, fresh, err) => {
+    if (v) {
+      applyReport(v.rep)
+      history.value = v.hist
+      bias.value = v.bias
+      hasLive.value = v.hasLive
+    } else if (err && !report.value) {
+      error.value = '实时浪报暂不可用，请稍后重试'
+      loading.value = false
+    }
+  })
+  loading.value = !hasRep && !report.value
 }
 
 const day = computed(() => report.value?.days?.[sel.value] || null)

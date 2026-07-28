@@ -78,12 +78,14 @@ def build_recommendation(
     reader: Any,
     now: Optional[_dt.datetime] = None,
     manifest: Optional[dict] = None,
+    reports: Optional[dict] = None,
 ) -> dict:
     """返回 Recommendation（Fable5 §1.1）。region 空 = 全部浪点。
 
     reader: 具 .get(key)->dict|None 的缓存读取器（deps._cache_reader()），None=无缓存桶。
     manifest: 当日刷新 manifest（R2 决策9）。今日 manifest 存在 → 只认 succeeded 集
     （刷新中间态对外不可见）；无/非今日 → 退回逐报告 calibratedAt 判新鲜（兼容旧缓存）。
+    reports: 可选预取的 slug->report 映射（bulk_latest 并发读）；提供则不再逐点打 reader。
     """
     n = _now_gmt8(now)
     today = n.strftime("%Y-%m-%d")
@@ -102,14 +104,17 @@ def build_recommendation(
     scored: list[dict] = []
     for r in pool:
         slug = r.get("slug")
-        if not slug or reader is None:
+        if not slug or (reader is None and reports is None):
             continue
         if succeeded is not None and slug not in succeeded:
             continue
-        try:
-            rep = reader.get(f"{slug}/latest.json")
-        except Exception:  # noqa: BLE001  一个坏缓存不拖垮整体推荐
-            rep = None
+        if reports is not None:
+            rep = reports.get(slug)
+        else:
+            try:
+                rep = reader.get(f"{slug}/latest.json")
+            except Exception:  # noqa: BLE001  一个坏缓存不拖垮整体推荐
+                rep = None
         if not rep or not _is_fresh(rep, today):
             continue
         bd = _best_day(rep)

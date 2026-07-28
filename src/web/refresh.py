@@ -126,6 +126,27 @@ def refresh_spots(spots, writer, report_fn=default_report_fn,
     return summary
 
 
+def bulk_latest(reader, slugs, max_workers: int = 12) -> dict:
+    """并发读多点 {slug}/latest.json（提速：61 点串行 S3 ~2.5s → 并发 ~0.3s）。
+    boto3 client 线程安全；单点异常吞掉返回 None（与串行语义一致）。"""
+    out: dict = {}
+    if reader is None or not slugs:
+        return out
+    import concurrent.futures
+
+    def _get(slug):
+        try:
+            return slug, reader.get(f"{slug}/latest.json")
+        except Exception:  # noqa: BLE001
+            return slug, None
+
+    with concurrent.futures.ThreadPoolExecutor(
+            max_workers=min(max_workers, max(1, len(slugs)))) as ex:
+        for slug, rep in ex.map(_get, slugs):
+            out[slug] = rep
+    return out
+
+
 # —— R2 决策9/10：刷新运行 manifest（一致性契约 + /status 数据源 + 补跑缺失点识别）——
 
 MANIFEST_KEY = "manifest.json"

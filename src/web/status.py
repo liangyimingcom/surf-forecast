@@ -10,6 +10,7 @@ import datetime as _dt
 from typing import Any, Optional
 
 from . import governance, recommend
+from . import refresh as refresh_mod  # 避免与本模块局部变量 refresh（manifest 摘要）遮蔽
 
 GMT8 = _dt.timezone(_dt.timedelta(hours=8))
 
@@ -35,11 +36,16 @@ def build_status(registry_rows: list[dict], reader: Any,
         "is_today": m_today,
     } if m else None
 
+    # 并发预取一次全量 latest（原实现每区域串行逐点 S3 读 → /api/status ~2s）
+    all_slugs = [r.get("slug") for r in pool if r.get("slug")]
+    reports = refresh_mod.bulk_latest(reader, all_slugs)
+
     regions = []
     for item in recommend.list_regions(rows):
         reg = item["region"]
         rec = recommend.build_recommendation(reg, registry_rows, reader,
-                                             now=n, manifest=manifest)
+                                             now=n, manifest=manifest,
+                                             reports=reports)
         regions.append({
             "region": reg,
             "spots": item["count"],
