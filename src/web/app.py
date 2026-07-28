@@ -86,6 +86,15 @@ def login(body: Credentials, request: Request, response: Response) -> dict:
     return {"ok": True}
 
 
+@app.get("/api/auth/me")
+def auth_me(request: Request) -> dict:
+    """公开：返回当前登录态（前端渲染登录/登出与直播解锁用）。匿名不 401。"""
+    user = flags._session_user(request)
+    if not user:
+        return {"authenticated": False}
+    return {"authenticated": True, "email": user["email"], "level": user["level"]}
+
+
 @app.post("/api/auth/logout")
 def logout(request: Request, response: Response,
            user: dict = Depends(deps.current_user)) -> dict:

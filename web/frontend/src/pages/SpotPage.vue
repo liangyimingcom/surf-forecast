@@ -1,16 +1,20 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { api } from '../api'
 import { setFacing } from '../charts'
 import ChartBox from '../components/ChartBox.vue'
+import LiveCam from '../components/LiveCam.vue'
 import LockBadge from '../components/LockBadge.vue'
+import { useAuthStore } from '../stores/auth'
 
 const route = useRoute()
+const auth = useAuthStore()
 const report = ref(null)
 const history = ref(null)
 const bias = ref(null)
 const hasLive = ref(false)
+const liveSrc = ref('')     // 登录后从 /api/cams 取到的 HLS 源（测试期账号解锁）
 const sel = ref(0)          // 选中日索引
 const loading = ref(true)
 const error = ref('')
@@ -44,6 +48,18 @@ const mode = ref(localStorage.getItem('sf_mode_v1') || 'novice')
 function setMode(m) { mode.value = m; localStorage.setItem('sf_mode_v1', m) }
 
 // 昨日自评（best-effort：登录态落库，匿名/失败仅本地致谢，不阻塞）
+// 直播解锁：登录且该浪点有摄像头 → 取 cams 目录里的 HLS 源
+async function loadLive() {
+  liveSrc.value = ''
+  if (!hasLive.value || !auth.authenticated) return
+  try {
+    const { cams } = await api.cams()
+    const cam = (cams || []).find(c => c.slug === route.params.slug)
+    liveSrc.value = cam?.live_src || ''
+  } catch { /* 未登录/接口失败 → 维持占位条 */ }
+}
+watch(() => [auth.authenticated, hasLive.value], loadLive)
+
 const voted = ref('')
 const VOTE_LABELS = { accurate: '准', optimistic: '偏乐观', conservative: '偏保守', nosurf: '没下水' }
 async function vote(kind) {
@@ -73,7 +89,10 @@ onMounted(load)
     <template v-else-if="report">
       <p class="ts">校准 {{ report.calibratedAt }}</p>
 
-      <div v-if="hasLive" class="livehint">📹 该浪点有实时直播——登录后可看（二期开放；作校验预报的信任工具）</div>
+      <LiveCam v-if="liveSrc" :src="liveSrc" :key="liveSrc" />
+      <div v-else-if="hasLive" class="livehint">
+        📹 该浪点有实时直播——登录后可看（测试期：右上角 👤 账号登录；作校验预报的信任工具）
+      </div>
 
       <div class="modes">
         <button :class="{ on: mode === 'novice' }" @click="setMode('novice')">🌱 小白</button>
