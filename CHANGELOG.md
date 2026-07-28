@@ -24,3 +24,5 @@
 - 2026-07-27 12:45 GMT+8 · v0.2.1 · 3d96c31 · fix:recycle_cold_spots豁免seeded基线目录(source!=user),解首屏recommend覆盖缺口(冷点炸弹撤销refresh_enabled) · 已部署taskdef:15·金丝雀vue_spa 19/0·刷新覆盖3→58点·scheduler→:15
 - 2026-07-28 · v0.3.0 · (R2) · **P0根因修复**:scheduler IAM/调度钉死taskdef:5→family级ARN(发版后EventBridge RunTask AccessDenied=空首页真根因,CloudTrail实证) + 目录治理三字段(op_status/beach_group/is_test,生产61行已迁移,E2E测试点滤出公开接口,X-Test-Access密钥访问) + recommend三道过滤(coverage分母=可推荐池) + manifest一致性契约(逐点写+汇总,retry合并) + 06:00补跑哨兵schedule + /api/status + /status数据健康页 · pytest 288·vue_spa E2E 22/0
 - 2026-07-28 11:47 GMT+8 · v0.3.0 · 8415a7b · rollback → v0.3.0 · 已切 task def+滚动
+- 2026-07-28 13:03 GMT+8 · v0.3.1 · 65c40df · rollback → v0.3.1 · 已切 task def+滚动
+- 2026-07-28 13:12 GMT+8 · v0.3.1 · b1f60c1 · rollback → v0.3.1 · 已切 task def+滚动
