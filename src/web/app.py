@@ -151,7 +151,12 @@ def accuracy_vote(body: Vote, user: dict = Depends(deps.current_user)) -> dict:
 @app.get("/api/accuracy/bias")
 def accuracy_bias(spot: str, user: dict | None = Depends(flags.member_gate)) -> dict:
     # Fable5 §2.3：偏差校准展示。一期公开(匿名无投票→自然空);二期锁会员(member_gate)。
-    return feedback.compute_bias(db.get_store(), (user or {}).get("email", ""), spot)
+    email = (user or {}).get("email", "")
+    if not email:
+        # 匿名：无个人投票可算；且 DynamoDB Key 条件不接受空串（空 email 查询会 500）
+        return {"bias": "insufficient", "samples": 0, "min": 3,
+                "suggestion": "登录后自评「昨天报得准吗」可积累个人校准。"}
+    return feedback.compute_bias(db.get_store(), email, spot)
 
 
 # —— 浪点管理（custom-spots R2，全 401 保护）——
