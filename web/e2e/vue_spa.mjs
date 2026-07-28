@@ -82,18 +82,27 @@ await page.waitForTimeout(600)
 ok('详情 浪点名', (await page.locator('h1').first().innerText()).includes('测试浪点'))
 ok('详情 日期条', await page.locator('.strip button').count() === 2)
 ok('详情 日卡评分', (await page.locator('.score').innerText()).includes('7.6'))
-ok('详情 ChartBox SVG(≥3图)', await page.locator('.chartbox svg').count() >= 3)
-ok('详情 风质条', await page.locator('.windq').count() >= 1)
 ok('详情 动态checklist(无青岛硬编码)', !(await page.locator('.checklist').innerText()).includes('青岛官方'))
 ok('详情 直播占位入口', await page.locator('.livehint').count() === 1)
-// 高手模式 → 显五维
-await page.click('.modes button:has-text("高手")')
+// 小白模式：无图表/五维，有「为什么」引导（模式差异恢复旧版）
+await page.click('.modes button:has-text("小白")')
 await page.waitForTimeout(200)
+ok('详情 小白无图表', await page.locator('.daycard .chartbox svg').count() === 0)
+ok('详情 小白引导按钮', await page.locator('.whybtn').count() === 1)
+// 点「为什么」→ 进高手模式：图表+五维+课堂全出
+await page.click('.whybtn')
+await page.waitForTimeout(300)
 ok('详情 高手模式五维', await page.locator('.dims').count() === 1)
-// 昨日自评
+ok('详情 高手 ChartBox SVG(浪高+风潮≥2图)', await page.locator('.daycard .chartbox svg').count() >= 2)
+ok('详情 风质条', await page.locator('.windq').count() >= 1)
+ok('详情 物理课堂', await page.locator('.lesson').count() === 1)
+// 昨日回看：默认折叠（边缘化），展开后可自评
+ok('详情 回看默认折叠', !(await page.locator('.review[open]').count()))
+await page.click('.review summary')
+await page.waitForTimeout(300)
 await page.click('.vbtns button:has-text("准")')
 await page.waitForTimeout(200)
-ok('详情 自评致谢', await page.locator('.vthx').count() === 1)
+ok('详情 回看展开自评致谢', await page.locator('.vthx').count() === 1)
 
 // —— 状态页（R2 §3.2）——
 await page.goto(BASE + '/status', { waitUntil: 'networkidle', timeout: 30000 })

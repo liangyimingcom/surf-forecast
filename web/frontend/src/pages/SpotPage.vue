@@ -115,8 +115,12 @@ onMounted(load)
       </div>
 
       <div class="modes">
-        <button :class="{ on: mode === 'novice' }" @click="setMode('novice')">🌱 小白</button>
-        <button :class="{ on: mode === 'expert' }" @click="setMode('expert')">🎯 高手</button>
+        <button :class="{ on: mode === 'novice' }" @click="setMode('novice')">
+          🐣 小白模式<small>哪天能冲，一句话</small>
+        </button>
+        <button :class="{ on: mode === 'expert' }" @click="setMode('expert')">
+          🏄 高手模式<small>为什么好，图解分析</small>
+        </button>
         <LockBadge />
       </div>
 
@@ -130,7 +134,8 @@ onMounted(load)
         </button>
       </div>
 
-      <!-- 选中日卡片 -->
+      <!-- 选中日卡片：小白=一句话结论+窗口/板型+行动方案；
+           高手=图表/五维/物理课堂全解（恢复旧版大差异，图表只在高手态渲染） -->
       <section v-if="day" class="daycard">
         <div class="head">
           <span class="score">{{ day.score }}<small>/10</small></span>
@@ -142,23 +147,34 @@ onMounted(load)
           <span v-if="day.board">🏄 {{ day.board }}</span>
         </div>
 
-        <ChartBox :day="day" />
+        <button v-if="mode === 'novice'" class="whybtn" @click="setMode('expert')">
+          🤔 为什么是 {{ day.score }} 分？看图解分析 →
+        </button>
 
-        <div v-if="mode === 'expert' && day.dims" class="dims">
-          <span v-for="(v, k) in day.dims" :key="k" class="dim">{{ k }} <b>{{ v }}</b></span>
-        </div>
+        <template v-if="mode === 'expert'">
+          <div v-if="day.dims" class="dims">
+            <span v-for="(v, k) in day.dims" :key="k" class="dim">{{ k }} <b>{{ v }}</b></span>
+          </div>
+          <ChartBox :day="day" />
+          <div v-if="day.lesson" class="lesson"><b>📖 {{ day.lesson[0] }}</b><p>{{ day.lesson[1] }}</p></div>
+        </template>
 
         <div v-if="day.plan" class="plan"><b>{{ day.plan[0] }}</b><p>{{ day.plan[1] }}</p></div>
-        <div v-if="mode === 'expert' && day.lesson" class="lesson"><b>📖 {{ day.lesson[0] }}</b><p>{{ day.lesson[1] }}</p></div>
         <div v-if="day.safety && day.safety.length" class="safety"><b>{{ day.safety[0] }}</b><p>{{ day.safety[1] }}</p></div>
       </section>
 
       <!-- 一句话剧情 -->
       <p v-if="report.story" class="story" v-html="report.story" />
 
-      <!-- 昨日回看（P4d 接自评/偏差；此处先展示预报对照）-->
-      <section v-if="history" class="review">
-        <h3>🔁 昨日回看（{{ history.week }} {{ history.date }}）</h3>
+      <!-- 下水核对 + 免责（动态，去硬编码）-->
+      <section v-if="report.checklist?.length" class="checklist">
+        <h3>✅ 下水前核对</h3>
+        <ul><li v-for="c in report.checklist" :key="c">{{ c }}</li></ul>
+      </section>
+
+      <!-- 昨日回看：边缘化处理——默认折叠，移到页面底部，展开才渲染图表 -->
+      <details v-if="history" class="review">
+        <summary>🔁 昨日回看（{{ history.week }} {{ history.date }}）· 校验预报准度<span class="hint">展开 ▾</span></summary>
         <p>系统当时预报：{{ history.predict?.height }} · {{ history.predict?.period }} · {{ history.predict?.wind }} · {{ history.predict?.verdict }}</p>
         <ChartBox :day="history" />
         <div class="vote">
@@ -171,13 +187,8 @@ onMounted(load)
         <p v-if="bias && bias.bias && bias.bias !== 'insufficient'" class="bias">
           📊 根据你 {{ bias.samples }} 次自评：本浪点预报<b>{{ bias.bias }}</b>——{{ bias.suggestion }}
         </p>
-      </section>
+      </details>
 
-      <!-- 下水核对 + 免责（动态，去硬编码）-->
-      <section v-if="report.checklist?.length" class="checklist">
-        <h3>✅ 下水前核对</h3>
-        <ul><li v-for="c in report.checklist" :key="c">{{ c }}</li></ul>
-      </section>
       <p v-if="report.disclaimer" class="disclaimer">{{ report.disclaimer }}</p>
     </template>
   </main>
@@ -188,8 +199,12 @@ onMounted(load)
 h1 { font-size: 18px; color: var(--sea1); }
 .ts { font-size: 11px; color: var(--ink2); }
 .modes { display: flex; gap: 6px; margin: 6px 0; }
-.livehint { font-size: 12.5px; background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 10px; padding: 8px 10px; margin: 6px 0; color: #3730a3; }.modes button { padding: 5px 14px; border: 1px solid #cbd5e1; border-radius: 999px; background: #fff; font-size: 13px; }
+.livehint { font-size: 12.5px; background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 10px; padding: 8px 10px; margin: 6px 0; color: #3730a3; }
+.modes button { display: flex; flex-direction: column; align-items: flex-start; padding: 6px 14px; border: 1px solid #cbd5e1; border-radius: 12px; background: #fff; font-size: 13.5px; font-weight: 600; }
+.modes button small { font-size: 10.5px; font-weight: 400; color: var(--ink2); }
 .modes button.on { background: var(--sea1); color: #fff; border-color: var(--sea1); }
+.modes button.on small { color: #cfe8f5; }
+.whybtn { display: block; width: 100%; margin-top: 10px; padding: 9px 12px; border: 1px dashed var(--sea2); border-radius: 10px; background: #f0f9ff; color: var(--sea1); font-size: 13px; text-align: left; }
 .vote { margin-top: 10px; }
 .vq { font-size: 13px; font-weight: 600; }
 .vbtns { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -216,8 +231,13 @@ h1 { font-size: 18px; color: var(--sea1); }
 .lesson { background: #eff6ff; border-radius: 10px; padding: 8px 10px; }
 .safety { background: #fff7ed; border-radius: 10px; padding: 8px 10px; color: #9a3412; }
 .story { background: #fff; border-radius: 12px; padding: 10px; font-size: 13px; }
-.review { background: #fff; border-radius: 12px; padding: 12px; margin: 10px 0; }
-.review h3, .checklist h3 { font-size: 14px; color: var(--sea1); }
+.review { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 12px; margin: 10px 0; }
+.review summary { font-size: 13px; color: var(--ink2); cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; }
+.review summary::-webkit-details-marker { display: none; }
+.review summary .hint { font-size: 11px; color: var(--sea2); }
+.review[open] summary { color: var(--sea1); font-weight: 600; margin-bottom: 8px; }
+.review[open] summary .hint { display: none; }
+.checklist h3 { font-size: 14px; color: var(--sea1); }
 .checklist { background: #fff7ed; border: 1px solid #fdba74; border-radius: 12px; padding: 10px 14px; margin: 10px 0; }
 .checklist ul { padding-left: 18px; font-size: 12.5px; color: #7c2d12; }
 .disclaimer { font-size: 11px; color: var(--ink2); line-height: 1.6; }
