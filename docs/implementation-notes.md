@@ -53,3 +53,9 @@
 - Vue 3 vs React：计划采用 Vue 3，可逆，P2 开工前最终确认。
 - 匿名态 `/api/accuracy/vote` 去重策略（设备指纹 vs 放任）：P1 实现时定，默认放任（保守）。
 - 更新日志入口最终位置（页脚 vs 详情页底）：视觉稿阶段定，默认页脚（保守）。
+
+## v0.3.2 切页提速（2026-07-28）
+
+- 服务端：`bulk_latest` 61 点 S3 并发读 + 聚合接口 5min TTL（SF_AGG_TTL，键含 test_access 维度）。scores 2.25s→0.55s、recommend 3.2s→0.53s、status 1.85s→0.49s（余下 ~0.5s 为跨洋 RTT）。
+- 前端：swr.js（stale-while-revalidate，内存+sessionStorage 5min）接入四页——切页秒出旧数据后台静默刷新，「加载中…」仅首次出现。实测回访 home 0.04s / spots 0.03s / detail 1.3s。
+- **顺手揪出存量 bug**：DynamoDB `find_registry_by_coord` 用 round(入参,4) 与库中 6 位小数原值做精确相等 → seeded 点永远匹配不上 → slug 解析失败 → **详情页 S3 缓存从未命中**，每次实时调 Open-Meteo 现算（首访 5.9s 的真凶）。修为两侧同 round(4) 比较后 detail 首访 5.9s→1.3s，calibratedAt 回到刷新时刻（缓存命中实证）。
