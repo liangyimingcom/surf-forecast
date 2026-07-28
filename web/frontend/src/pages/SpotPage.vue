@@ -159,7 +159,8 @@ onMounted(load)
           <div v-if="day.lesson" class="lesson"><b>📖 {{ day.lesson[0] }}</b><p>{{ day.lesson[1] }}</p></div>
         </template>
 
-        <div v-if="day.plan" class="plan"><b>{{ day.plan[0] }}</b><p>{{ day.plan[1] }}</p></div>
+        <!-- 行动建议与顶部结论(novice)同文时不重复渲染（遗留：文案一字不差出现两次） -->
+        <div v-if="day.plan && day.plan[1] !== day.novice" class="plan"><b>{{ day.plan[0] }}</b><p>{{ day.plan[1] }}</p></div>
         <div v-if="day.safety && day.safety.length" class="safety"><b>{{ day.safety[0] }}</b><p>{{ day.safety[1] }}</p></div>
       </section>
 
