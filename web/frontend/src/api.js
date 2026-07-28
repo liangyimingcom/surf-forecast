@@ -14,4 +14,5 @@ export const api = {
   report: (lat, lon, spot, days = 6) => getJSON(`/api/report?lat=${lat}&lon=${lon}&spot=${encodeURIComponent(spot)}&days=${days}`),
   history: (lat, lon, spot) => getJSON(`/api/report/history?lat=${lat}&lon=${lon}&spot=${encodeURIComponent(spot)}`),
   bias: (spot) => getJSON(`/api/accuracy/bias?spot=${encodeURIComponent(spot)}`),
+  status: () => getJSON('/api/status'),
 }

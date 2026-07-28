@@ -48,6 +48,14 @@ await page.route('**/api/report/history*', r => r.fulfill({ json: { history: REP
 await page.route('**/api/report*', r => r.fulfill({ json: REPORT }))
 await page.route('**/api/accuracy/bias*', r => r.fulfill({ json: { bias: 'insufficient', samples: 0, min: 3 } }))
 await page.route('**/api/accuracy/vote', r => r.fulfill({ json: { ok: true } }))
+await page.route('**/api/status', r => r.fulfill({ json: {
+  generated_at: '2026-07-27 10:00 GMT+8',
+  refresh: { date: '2026-07-27', kind: 'main', run_at: '2026-07-27 02:00 GMT+8', expected: 2, succeeded: 2, failed: [], is_today: true },
+  coverage: { pool: 2, fresh: 2 },
+  regions: [{ region: '山东', spots: 1, pool: 1, fresh: 1, available: true, degraded: false },
+            { region: '海南', spots: 1, pool: 1, fresh: 1, available: true, degraded: false }],
+  history: [{ run_id: '2026-07-27-main', run_at: '2026-07-27 02:00 GMT+8', kind: 'main', expected_n: 2, ok_n: 2, duration_s: 60 }],
+} }))
 
 // —— 首页 ——
 await page.goto(BASE + '/', { waitUntil: 'networkidle', timeout: 30000 })
@@ -86,6 +94,13 @@ ok('详情 高手模式五维', await page.locator('.dims').count() === 1)
 await page.click('.vbtns button:has-text("准")')
 await page.waitForTimeout(200)
 ok('详情 自评致谢', await page.locator('.vthx').count() === 1)
+
+// —— 状态页（R2 §3.2）——
+await page.goto(BASE + '/status', { waitUntil: 'networkidle', timeout: 30000 })
+await page.waitForTimeout(500)
+ok('状态页 标题', (await page.locator('h1').first().innerText()).includes('数据健康'))
+ok('状态页 今日覆盖', (await page.locator('.card').first().innerText()).includes('2/2'))
+ok('状态页 区域可用性表', await page.locator('table').count() >= 2)
 
 ok('0 控制台/页面 JS 报错', errors.length === 0)
 if (errors.length) console.log('  JS errors:', errors.slice(0, 5))

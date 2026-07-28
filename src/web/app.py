@@ -17,7 +17,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel, Field
 
-from . import auth, cache, db, deps, feedback, flags, llm_client, llm_guard, recommend, spots
+from . import auth, cache, db, deps, feedback, flags, governance, llm_client, llm_guard, recommend, refresh as refresh_mod, spots, status as status_mod
 
 app = FastAPI(title="Surf Forecast API", version="0.1.0")
 
@@ -203,11 +203,20 @@ def spots_select(slug: str, user: dict = Depends(deps.current_user)) -> dict:
         raise HTTPException(status_code=404, detail=str(e))
 
 
+def _test_access(request: Request) -> bool:
+    """R2 决策6：E2E 单环境隔离。请求带 X-Test-Access 且与 SF_TEST_ACCESS_KEY 一致
+    → 可见 is_test 点。密钥未配置则任何请求都不可见测试点（默认安全）。"""
+    key = os.getenv("SF_TEST_ACCESS_KEY", "")
+    return bool(key) and request.headers.get("X-Test-Access", "") == key
+
+
 @app.get("/api/catalog")
-def catalog_list() -> dict:
+def catalog_list(request: Request) -> dict:
     """P3 形态C：全国浪点目录(58+)。**公开**(Fable5 §2.2 拉新鱼饵,两期皆公开)；
-    从注册表返回基础信息+区域+是否有直播。lat/lon 兼容 Decimal/float。评分留待 /catalog/scores。"""
-    rows = db.get_store().list_listed_registry() or []
+    从注册表返回基础信息+区域+是否有直播。lat/lon 兼容 Decimal/float。评分留待 /catalog/scores。
+    R2 治理：默认剔 is_test；带 op_status/beach_group 字段（名称已干净化）。"""
+    rows = governance.visible_rows(db.get_store().list_listed_registry() or [],
+                                   include_test=_test_access(request))
     catalog = []
     for r in rows:
         try:
@@ -220,18 +229,21 @@ def catalog_list() -> dict:
             "facing": float(r.get("spot_facing_deg", 0) or 0),
             "facing_calibrated": bool(r.get("facing_calibrated", False)),
             "has_live": str(r.get("live_src") or "").startswith("https://"), "days": int(r.get("days", 6) or 6),
+            "op_status": r.get("op_status", "open"),
+            "beach_group": r.get("beach_group"),
         })
     return {"catalog": catalog}
 
 
 @app.get("/api/catalog/scores")
-def catalog_scores() -> dict:
+def catalog_scores(request: Request) -> dict:
     """P3.2 形态C：批量评分(从每日预算缓存读，避免 58×实时)。**公开**(Fable5 §2.2)。
     无缓存桶(本地/未配置)→ scores 空、cached=False；前端可用点击已看浪点回填徽标兜底。"""
     reader = deps._cache_reader()
     if reader is None:
         return {"scores": {}, "cached": False}
-    rows = db.get_store().list_listed_registry() or []
+    rows = governance.visible_rows(db.get_store().list_listed_registry() or [],
+                                   include_test=_test_access(request))
     scores = {}
     for r in rows:
         try:
@@ -247,14 +259,27 @@ def catalog_scores() -> dict:
 # 数据诚实：recommend 只排「当日新鲜」浪点 + degraded 显式；缓存覆盖缺口不冒充旧分。
 @app.get("/api/regions")
 def regions_list() -> dict:
-    rows = db.get_store().list_listed_registry() or []
+    rows = governance.visible_rows(db.get_store().list_listed_registry() or [])
     return {"regions": recommend.list_regions(rows)}
 
 
 @app.get("/api/recommend")
 def recommend_region(region: str = "") -> dict:
+    # is_test/op_status/beach_group 三道过滤在 build_recommendation 内（R2 §1.3）
     rows = db.get_store().list_listed_registry() or []
-    return recommend.build_recommendation(region, rows, deps._cache_reader())
+    reader = deps._cache_reader()
+    manifest = refresh_mod.load_manifest(reader)
+    return recommend.build_recommendation(region, rows, reader, manifest=manifest)
+
+
+@app.get("/api/status")
+def data_status() -> dict:
+    """R2 §2 公开状态页数据源：今日刷新概况 + 各区域推荐可用性 + 最近运行记录。
+    决策5：无推送告警，本端点+前端 /status 页是唯一的故障发现渠道（兼信任背书）。"""
+    rows = db.get_store().list_listed_registry() or []
+    reader = deps._cache_reader()
+    manifest = refresh_mod.load_manifest(reader)
+    return status_mod.build_status(rows, reader, manifest)
 
 
 # —— P1.3 功能开关 + 微信扫码登录占位（二期实现，一期仅预留路由）——

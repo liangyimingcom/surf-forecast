@@ -50,6 +50,7 @@ onMounted(load)
       </div>
       <p v-else class="degraded">
         本区域暂无「当日新鲜」评分（{{ rec.fresh_count }}/{{ rec.total_count }}），不展示陈旧数据。
+        <router-link to="/status">查看数据健康 ▸</router-link>
       </p>
       <ul v-if="rec.alternatives && rec.alternatives.length" class="alts">
         <li v-for="a in rec.alternatives" :key="a.spot_slug">
@@ -59,7 +60,7 @@ onMounted(load)
       <p v-if="rec.degraded && rec.best" class="note">
         ⓘ 本区域今日 {{ rec.fresh_count }}/{{ rec.total_count }} 个浪点评分可用。
       </p>
-      <p class="ts">{{ rec.generated_at }}</p>
+      <p class="ts">{{ rec.generated_at }} · <router-link to="/status">数据健康</router-link></p>
     </section>
   </main>
 </template>
