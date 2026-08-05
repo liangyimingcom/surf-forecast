@@ -4,7 +4,8 @@ import { useRoute } from 'vue-router'
 import { api } from '../api'
 import { swr, cached } from '../swr'
 import { countdown, departure } from '../countdown'
-import { setFacing } from '../charts'
+import { compass, windKind, WIND_META, setFacing } from '../charts'
+import { unit, toggleUnit, convertHeights } from '../units'
 import ChartBox from '../components/ChartBox.vue'
 import LiveCam from '../components/LiveCam.vue'
 import LockBadge from '../components/LockBadge.vue'
@@ -21,6 +22,7 @@ const fallbackSource = computed(() => {
   return ds.some(s => String(s).includes('fallback'))
 })
 const history = ref(null)
+const facingMeta = ref({ spot: null, calibrated: false })
 const bias = ref(null)
 const hasLive = ref(false)
 const liveSrc = ref('')     // 登录后从 /api/cams 取到的 HLS 源（测试期账号解锁）
@@ -49,18 +51,24 @@ async function load() {
     const s = cat.find(x => x.slug === slug)
     if (!s) throw new Error('浪点不存在')
     hasLive.value = !!s.has_live
+    // 目录里带该点的朝向估计与校准标记 —— 只用于诚实标注，**不**拿来改判定源：
+    // 判定必须与后端风向评分同源（thresholds.yaml 的全站 spot_facing_deg），否则口径分叉。
+    facingMeta.value = { spot: typeof s.facing === 'number' ? s.facing : null, calibrated: !!s.facing_calibrated }
     const [rep, hist, b] = await Promise.all([
       api.report(s.lat, s.lon, s.name, 6),
       api.history(s.lat, s.lon, s.name).catch(() => null),
       api.bias(s.name).catch(() => null),
     ])
-    return { rep, hist: hist?.history || null, bias: b, hasLive: !!s.has_live }
+    return { rep, hist: hist?.history || null, bias: b, hasLive: !!s.has_live,
+             facingMeta: { spot: typeof s.facing === 'number' ? s.facing : null, calibrated: !!s.facing_calibrated } }
   }, (v, fresh, err) => {
     if (v) {
       applyReport(v.rep)
       history.value = v.hist
       bias.value = v.bias
       hasLive.value = v.hasLive
+      // 缓存命中时 fetcher 不跑 → 这里必须一并回填（旧缓存无此字段则保持默认）
+      if (v.facingMeta) facingMeta.value = v.facingMeta
     } else if (err && !report.value) {
       error.value = '实时浪报暂不可用，请稍后重试'
       loading.value = false
@@ -88,6 +96,37 @@ function setCommute(delta) {
 }
 const cdown = computed(() => (day.value ? countdown(day.value, new Date(nowTick.value)) : null))
 const depart = computed(() => (day.value ? departure(day.value, commute.value) : null))
+
+// 🧭 罗盘（高手模式）。晨风结论也走 windKind，避免与罗盘/风质条口径分叉。
+// 单位切换只影响**显示**。后端已格式化的高度文本里，当前 UI 只渲染了昨日回看的 predict.height
+// （`pa` 五维解释与 `tideText` 原型和现有页面都不呈现 → 不为它们预留死代码）。
+const histHeight = computed(() => convertHeights(history.value && history.value.predict && history.value.predict.height))
+
+const facingDeg = computed(() => {
+  const f = report.value && report.value.spotFacingDeg
+  return typeof f === 'number' && !Number.isNaN(f) ? Math.round(f) : null
+})
+// 🔍 诚实标注：`spotFacingDeg` 来自 config/thresholds.yaml 的**全站统一** spot_facing_deg，
+//    不是逐点实测朝向（注册表里另有逐点估计 `facing`，但 facing_calibrated 全为 false，
+//    且引擎并未采用它）。既然离岸/向岸是一等参数，就不能把这个度数说得像测量值。
+const facingNote = computed(() => {
+  if (facingDeg.value == null) return null
+  if (facingMeta.value.calibrated) return null      // 真校准过 → 无需附注
+  const spot = facingMeta.value.spot
+  const differs = typeof spot === 'number' && Math.abs(spot - facingDeg.value) >= 10
+  return differs
+    ? `分析口径，未逐点校准（目录另记该点约 ${Math.round(spot)}°，引擎暂未采用）`
+    : '分析口径，未逐点校准'
+})
+const compassSvg = computed(() => (day.value ? compass(day.value) : ''))
+const dawnKind = computed(() => {
+  const d = day.value
+  if (!d || !Array.isArray(d.times) || !Array.isArray(d.wdeg)) return null
+  const i = d.times.indexOf(6)
+  if (i < 0 || typeof d.wdeg[i] !== 'number') return null
+  const k = windKind(d.wdeg[i])
+  return { kind: k, label: WIND_META[k].label, desc: WIND_META[k].desc }
+})
 function setMode(m) { mode.value = m; localStorage.setItem('sf_mode_v1', m) }
 
 // 昨日自评（best-effort：登录态落库，匿名/失败仅本地致谢，不阻塞）
@@ -149,6 +188,8 @@ onMounted(load)
           🏄 高手模式<small>为什么好，图解分析</small>
         </button>
         <LockBadge />
+        <button v-if="mode === 'expert'" class="unitbtn" @click="toggleUnit()"
+                :aria-label="'切换浪高单位，当前 ' + unit">{{ unit === 'm' ? 'm ⇄ ft' : 'ft ⇄ m' }}</button>
       </div>
 
       <!-- 日期条 -->
@@ -185,6 +226,20 @@ onMounted(load)
             <span v-for="(v, k) in day.dims" :key="k" class="dim">{{ k }} <b>{{ v }}</b></span>
           </div>
           <ChartBox :day="day" />
+
+          <!-- 🧭 风向罗盘：扇区=浪点朝向，三支箭=06/12/18 时风矢量；判定复用 windKind -->
+          <div v-if="compassSvg" class="compasscard">
+            <div class="cmp" v-html="compassSvg" />
+            <div class="cmptext">
+              <b>🧭 风向罗盘</b>
+              <p>扇区＝接浪朝向<template v-if="facingDeg != null">（{{ facingDeg }}°<template v-if="facingNote"><abbr :title="facingNote">*</abbr></template>）</template>。三支箭＝06/12/18 时风矢量。<br>
+                <template v-if="facingNote"><small class="fnote">＊{{ facingNote }}</small><br></template>
+                <template v-if="dawnKind">晨风<b :class="'wk-' + dawnKind.kind">{{ dawnKind.label }}</b>·{{ dawnKind.desc }}<template v-if="dawnKind.kind === 'off'">——箭头指向海面即离岸，梳面最佳。</template></template>
+                <template v-else>晨 06 时无风向数据，未作判定。</template>
+              </p>
+            </div>
+          </div>
+
           <div v-if="day.lesson" class="lesson"><b>📖 {{ day.lesson[0] }}</b><p>{{ day.lesson[1] }}</p></div>
         </template>
 
@@ -223,7 +278,7 @@ onMounted(load)
       <!-- 昨日回看：边缘化处理——默认折叠，移到页面底部，展开才渲染图表 -->
       <details v-if="history" class="review">
         <summary>🔁 昨日回看（{{ history.week }} {{ history.date }}）· 校验预报准度<span class="hint">展开 ▾</span></summary>
-        <p>系统当时预报：{{ history.predict?.height }} · {{ history.predict?.period }} · {{ history.predict?.wind }} · {{ history.predict?.verdict }}</p>
+        <p>系统当时预报：{{ histHeight }} · {{ history.predict?.period }} · {{ history.predict?.wind }} · {{ history.predict?.verdict }}</p>
         <ChartBox :day="history" />
         <div class="vote">
           <p class="vq">昨天报得准吗？</p>
@@ -266,6 +321,19 @@ h1 { font-size: 18px; color: var(--sea1); }
 .strip .wk { font-size: 11px; color: var(--ink2); }
 .strip .sc { font-size: 15px; font-weight: 700; color: var(--sea1); }
 .daycard { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px; margin: 10px 0; }
+.modes .unitbtn { margin-left: auto; align-self: center; font-size: 11.5px; color: var(--sea);
+                  border: 1px solid var(--line); background: var(--card); border-radius: 999px;
+                  padding: 4px 12px; cursor: pointer; font-weight: 600; }
+.compasscard { display: flex; gap: 12px; align-items: center; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px; margin: 10px 0; }
+.compasscard .cmp { width: 124px; flex-shrink: 0; }
+.compasscard .cmp :deep(svg) { width: 124px; height: auto; display: block; }
+.compasscard .cmptext { font-size: 12px; color: var(--ink2); line-height: 1.7; }
+.compasscard .cmptext b { color: var(--ink); }
+.compasscard .fnote { font-size: 10.5px; color: var(--ink2); opacity: .85; }
+.compasscard abbr { text-decoration: none; color: var(--warn); cursor: help; }
+.compasscard .wk-off { color: var(--ch-off); }
+.compasscard .wk-cross { color: var(--ch-cross); }
+.compasscard .wk-on { color: var(--ch-on); }
 .cdown { font-family: var(--serif); font-size: 13px; color: var(--hot); margin: 8px 0 0; }
 .cdown.during { color: var(--ok); font-weight: 700; }
 .cdown.after { color: var(--ink2); }

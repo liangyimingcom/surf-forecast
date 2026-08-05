@@ -2,6 +2,8 @@
 // 纯函数：输入 day 对象（times/hs/swell/tp/tp2/wind/gust/wdeg/tideEvents/windows）→ SVG 字符串。
 // 视觉与口径与原单 HTML 一致（Tm 橙实线 / Tp 红虚线 / 离岸蓝-侧岸紫-向岸橙）。
 
+import { fmtH, fmtHShort, hv, unit } from './units'
+
 let SPOT_FACING = 157 // 山东头 SSE；详情页按 report.spotFacingDeg 调 setFacing()
 export function setFacing(f) { if (typeof f === 'number' && !Number.isNaN(f)) SPOT_FACING = f }
 
@@ -22,6 +24,44 @@ export function windArrow(deg) {
   const to = (deg + 180) % 360
   const arrows = ['↑', '↗', '→', '↘', '↓', '↙', '←', '↖']
   return arrows[Math.round(to / 45) % 8]
+}
+
+/**
+ * 🧭 风向罗盘（S4）。扇区 = 浪点接浪朝向 SPOT_FACING（由详情页 setFacing(report.spotFacingDeg) 设，
+ * 原型写死 157° 只因它是单浪点 demo）；三支箭 = 06/12/18 时风矢量（箭头指风的"去向"=来向+180）。
+ * 🔒 风质判定一律走 windKind()，**不在此另写阈值** —— 否则罗盘与风质条/引擎口径会漂移。
+ * 缺哪个时刻就不画那支箭（不插值、不假点）；提示用 SVG 原生 <title>（Vue 版无 tooltip 机制）。
+ */
+export function compass(d) {
+  if (!d || !Array.isArray(d.times) || !Array.isArray(d.wdeg)) return ''
+  const C = 62, R = 46, cx = C, cy = C
+  const pt = (deg, r) => [cx + r * Math.sin(deg * Math.PI / 180), cy - r * Math.cos(deg * Math.PI / 180)]
+  const f = SPOT_FACING
+  const p0 = pt(f - 45, R), p1 = pt(f + 45, R)
+  let s = `<svg viewBox="0 0 ${C * 2} ${C * 2}" role="img" aria-label="风向罗盘：扇区为浪点接浪朝向 ${Math.round(f)} 度，箭头为 06/12/18 时风向">`
+  s += `<circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="var(--ch-axis)" stroke-width="1.5"/>`
+  s += `<path d="M${cx},${cy} L${p0[0].toFixed(1)},${p0[1].toFixed(1)} A${R},${R} 0 0 1 ${p1[0].toFixed(1)},${p1[1].toFixed(1)} Z" fill="var(--ch-facearc)"><title>浪点朝向 ${Math.round(f)}° — 接浪扇区</title></path>`
+  ;[['N', 0], ['E', 90], ['S', 180], ['W', 270]].forEach(([l, deg]) => {
+    const q = pt(deg, R + 9)
+    s += `<text x="${q[0].toFixed(1)}" y="${(q[1] + 3).toFixed(1)}" text-anchor="middle" font-size="9.5" fill="var(--ch-axis)">${l}</text>`
+  })
+  let drawn = 0
+  ;[6, 12, 18].forEach((hour, k) => {
+    const i = d.times.indexOf(hour)
+    if (i < 0 || typeof d.wdeg[i] !== 'number') return   // 缺该时刻 → 不画，不编造
+    const kind = windKind(d.wdeg[i])
+    const c = WIND_META[kind].color
+    const go = (d.wdeg[i] + 180) % 360
+    const pa = pt(go, R - 8), pb = pt(go, 10)
+    const kn = (d.wind && d.wind[i] != null) ? `${d.wind[i]}kn` : '—'
+    const tip = `${String(hour).padStart(2, '0')}时 ${WIND_META[kind].label}风 ${kn}（来向 ${Math.round(d.wdeg[i])}°，去向 ${Math.round(go)}°）`
+    s += `<line x1="${pb[0].toFixed(1)}" y1="${pb[1].toFixed(1)}" x2="${pa[0].toFixed(1)}" y2="${pa[1].toFixed(1)}" stroke="${c}" stroke-width="${3 - k * 0.5}" data-kind="${kind}" data-hour="${hour}"><title>${tip}</title></line>`
+    const tp = pt(go, R - 4)
+    s += `<circle cx="${tp[0].toFixed(1)}" cy="${tp[1].toFixed(1)}" r="3.5" fill="${c}"><title>${tip}</title></circle>`
+    drawn++
+  })
+  s += `<circle cx="${cx}" cy="${cy}" r="3" fill="var(--ch-axis)"/>`
+  return drawn ? s + '</svg>' : ''   // 一支都画不出 → 整个罗盘不渲染
 }
 
 export function scoreColor(score) {
@@ -73,7 +113,7 @@ export function waveChart(d) {
   })
   ;[0.5, 1.0].forEach(g => {
     s += `<line x1="${L}" y1="${syH(g)}" x2="${W - R}" y2="${syH(g)}" stroke="var(--ch-grid)" stroke-dasharray="3,3"/>`
-    s += `<text x="${L - 4}" y="${syH(g) + 3}" font-size="9" fill="var(--ch-mute)" text-anchor="end">${g.toFixed(1)}m</text>`
+    s += `<text x="${L - 4}" y="${syH(g) + 3}" font-size="9" fill="var(--ch-mute)" text-anchor="end">${fmtHShort(g)}</text>`
   })
   s += `<line x1="${L}" y1="${T + ph}" x2="${W - R}" y2="${T + ph}" stroke="var(--ch-grid)"/>`
   const bw = d.times.length > 5 ? 12 : 15
@@ -84,7 +124,10 @@ export function waveChart(d) {
     const hTot = ph * (d.hs[i] / HSMAX), hSw = ph * (Math.min(d.swell[i], d.hs[i]) / HSMAX)
     s += `<rect x="${x}" y="${T + ph - hTot}" width="${bw}" height="${hTot}" fill="var(--ch-win)" rx="3"/>`
     s += `<rect x="${x}" y="${T + ph - hSw}" width="${bw}" height="${hSw}" fill="var(--ch-bar)" rx="3"/>`
-    if (showLbl(i)) s += `<text x="${sx(t)}" y="${T + ph - hTot - 4}" font-size="9" fill="var(--ch-lab)" text-anchor="middle" font-weight="700">${d.hs[i]}</text>`
+    if (showLbl(i)) {
+      const lbl = unit.value === 'ft' ? hv(d.hs[i]).toFixed(1) : d.hs[i]
+      s += `<text x="${sx(t)}" y="${T + ph - hTot - 4}" font-size="9" fill="var(--ch-lab)" text-anchor="middle" font-weight="700">${lbl}</text>`
+    }
     if (showLbl(i)) s += `<text x="${sx(t)}" y="${H - 14}" font-size="9.5" fill="var(--ch-axis)" text-anchor="middle">${String(t).padStart(2, '0')}时</text>`
   })
   if (d.tp2) {
@@ -105,7 +148,7 @@ export function waveChart(d) {
   const cwW = pw / Math.max(1, d.times.length)
   d.times.forEach((t, i) => {
     const tp2v = (d.tp2 && d.tp2[i] != null) ? ` · Tp ${d.tp2[i]}s` : ''
-    const tip = `${String(t).padStart(2, '0')}时 · 浪高 <b>${d.hs[i]}m</b> · 涌 ${d.swell[i]}m · Tm ${d.tp[i]}s${tp2v}`
+    const tip = `${String(t).padStart(2, '0')}时 · 浪高 <b>${fmtH(d.hs[i])}</b> · 涌 ${fmtH(d.swell[i])} · Tm ${d.tp[i]}s${tp2v}`
     s += `<rect class="ctHit" x="${sx(t) - cwW / 2}" y="${T}" width="${cwW}" height="${ph}" fill="transparent" data-tip="${tip}"/>`
   })
   return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">${s}</svg>`

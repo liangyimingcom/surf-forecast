@@ -34,6 +34,7 @@
   --ch-win:    #e8f4ea;   /* 最佳窗口底 */
   --ch-winlab: #0f766e;   /* 窗口标签 */
   --ch-axis:   #5f6b77;   /* 轴/刻度 */
+  --ch-facearc: #e8f4ea;  /* 罗盘接浪扇区填充（逐字取原型 T().face 日值） */
   --ch-lab:    #1c2733;   /* 图内文字 */
   --ch-tide:   #0f766e;   /* 潮位 */
   --ch-off:    #0f6a8f;   /* 离岸风 */
@@ -75,6 +76,7 @@ body.night {
   --ch-win:    rgba(127,208,178,.15);
   --ch-winlab: #7fd0b2;
   --ch-axis:   #a89f8a;
+  --ch-facearc: rgba(127,208,178,.15);  /* 罗盘接浪扇区填充（逐字取原型 T().face 夜值） */
   --ch-lab:    #ece5d3;
   --ch-tide:   #7fd0b2;
   --ch-off:    #7cc4e0;

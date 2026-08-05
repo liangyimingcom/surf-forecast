@@ -128,6 +128,43 @@ ok('状态页 报出坐标非法点', govTxt.includes('sl75') && govTxt.includes
 ok('状态页 报出可疑重复组', govTxt.includes('sl54') && govTxt.includes('Kirra'))
 ok('状态页 合理重复只计数不报故障', govTxt.includes('2 组同海滩'))
 
+// —— S4 高手模式：风向罗盘（口径必须与 windKind 一致）+ m/ft 单位切换 ——
+await page.goto(BASE + '/spot/sl74', { waitUntil: 'networkidle', timeout: 30000 })
+await page.waitForTimeout(600)
+await page.click('.modes button:has-text("高手")'); await page.waitForTimeout(400)
+ok('罗盘出现（高手模式）', await page.locator('.compasscard svg').count() === 1)
+{
+  // 🔒 S4.3：逐支箭比对 data-kind 与前端 windKind(facing=canned spotFacingDeg) 的独立计算，
+  //    口径一旦分叉（有人在罗盘里另写阈值）这里立刻炸。
+  const facing = REPORT.spotFacingDeg
+  const arrows = await page.locator('.compasscard line[data-kind]').evaluateAll(ns =>
+    ns.map(n => [Number(n.getAttribute('data-hour')), n.getAttribute('data-kind')]))
+  ok('罗盘画出至少一支风矢量', arrows.length > 0)
+  const expect = (deg) => { const d = Math.abs((((deg - facing + 180) % 360) + 360) % 360 - 180); return d < 60 ? 'on' : (d > 120 ? 'off' : 'cross') }
+  const day0 = REPORT.days[(REPORT.ranking && REPORT.ranking[0]) || 0]
+  const bad = arrows.filter(([h, k]) => { const i = day0.times.indexOf(h); return i < 0 || k !== expect(day0.wdeg[i]) })
+  ok(`罗盘判定与 windKind 口径一致（${arrows.length} 支箭全对）`, bad.length === 0)
+}
+ok('罗盘说明含浪点朝向度数', /\d+°/.test(await page.locator('.compasscard .cmptext').innerText()))
+{
+  const axisM = await page.locator('.chart svg text').evaluateAll(ns => ns.map(n => n.textContent).filter(s => /\dm$/.test(s)))
+  ok(`浪高轴标签为米制（${axisM.slice(0, 2).join(',')}）`, axisM.length > 0)
+  await page.click('.modes .unitbtn'); await page.waitForTimeout(400)
+  const axisF = await page.locator('.chart svg text').evaluateAll(ns => ns.map(n => n.textContent).filter(s => /ft$/.test(s)))
+  ok(`切 ft：轴标签变英尺（${axisF.slice(0, 2).join(',')}）`, axisF.length > 0)
+  ok('切 ft：轴上已无米制标签（全同步，无混用单位）',
+     (await page.locator('.chart svg text').evaluateAll(ns => ns.map(n => n.textContent).filter(s => /\dm$/.test(s)))).length === 0)
+  ok('单位按钮文案翻转', (await page.locator('.modes .unitbtn').innerText()).includes('ft ⇄ m'))
+  await page.reload({ waitUntil: 'networkidle' }); await page.waitForTimeout(700)
+  await page.click('.modes button:has-text("高手")'); await page.waitForTimeout(350)
+  ok('单位刷新后保留（localStorage）', (await page.locator('.modes .unitbtn').innerText()).includes('ft ⇄ m'))
+  await page.click('.modes .unitbtn'); await page.waitForTimeout(300)   // 复位为米，避免污染后续断言
+}
+ok('单位按钮仅高手模式（小白不显）', await (async () => {
+  await page.click('.modes button:has-text("小白")'); await page.waitForTimeout(300)
+  return (await page.locator('.modes .unitbtn').count()) === 0
+})())
+
 // —— S3 小白模式：倒计时三态（假时钟钉双侧边界）+ 通勤倒推 ——
 // 独立 context 用假时钟，避免污染其余断言
 {

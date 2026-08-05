@@ -59,14 +59,25 @@
 
 ## S4 · 详情页 · 高手模式（原型③）
 
-- [ ] S4.1 五维 dims + 双周期图改纸感配色；**图表颜色取 CSS 变量**以适配夜读
-- [ ] S4.2 **风向罗盘**（新建）：扇区 = `spotFacingDeg`，三支箭 = 06/12/18 时 `wdeg` 风矢量
-- [ ] S4.3 罗盘判定**复用 `charts.js` 的 `windKind`**，不另写阈值（否则与引擎口径漂移）
-      + 加断言：离岸/侧岸/向岸三态与 `windKind` 一致
-- [ ] S4.4 物理小课堂（`lesson`）+ 昨日回看（`history` 含自评）改排版
-- [ ] S4.5 **m/ft 单位切换**（新建）：影响全部浪高显示 + localStorage；切换后所有数字同步
-- [ ] 🚫 浪点 DNA 契合%（🔴 派生指标无定义）· 涌浪溯源（🔴 无风暴追踪）· 季节志（🔴 需历史气候）
-- [ ] S4.6 验收：截图与原型③对照
+- [x] S4.1 五维 chips 与原型③一致（原型也用 chips，无需改结构）；图表色 S1 已全部令牌化，夜读自动跟随
+- [x] S4.2 **风向罗盘**：`charts.compass(d)`。扇区＝`SPOT_FACING`（原型写死 157 只因单点 demo，
+      生产按 `setFacing(report.spotFacingDeg)` 走）；三支箭＝06/12/18 时 `wdeg`；
+      缺某时刻就不画那支（不插值）；一支都画不出则整个罗盘不渲染；扇区色新增令牌 `--ch-facearc`（逐字取原型 `T().face` 日/夜值）
+- [x] S4.3 判定全走 `windKind`（罗盘内**零**阈值代码）。断言用 facing 独立重算逐支箭比对：
+      337°→off(diff180) · 247°→cross(diff90) · 157°→on(diff0)。晨风结论也复用 `windKind`。
+      🔍 **顺带查实**：`spotFacingDeg` 来自 `config/thresholds.yaml` 的**全站单一常量 157°**
+      （后端风向评分同源），注册表另有逐点 `facing`（110/135/157/160）但 `facing_calibrated` **全为 false**
+      且引擎未采用 → **前端不擅自换源**（会与后端「侧岸(ENE)」判定分叉，正是本条要防的漂移），
+      改为**诚实标注**：度数加「＊分析口径，未逐点校准（目录另记该点约 N°，引擎暂未采用）」
+- [x] S4.4 小课堂/昨日回看沿用既有块，配色随 S1 令牌切换（昨日回看的 `predict.height` 已接单位换算）
+- [x] S4.5 **m/ft 切换**：新建 `src/units.js` 作单一真源（`unit` ref + `fmtH`/`hv`/`convertHeights`）。
+      放 Vue `ref` 是为了让 charts.js 里读它的图表 computed **自动重绘**，不必给每个图表函数加参数。
+      覆盖：浪高轴刻度 · 柱顶数字 · tooltip（浪高/涌高）· 昨日回看 `predict.height`。1m=3.281ft（取原型 `mLab` 口径）。
+      `convertHeights` 只用于**已核实语义是高度**的字段，正则带前后守卫（避开 km/mm/m/s/min）——
+      绝不全局套后端文案。按钮仅高手模式（原型③报头位），存 `sf_unit_v1`
+- [x] 🚫 已按围栏跳过（DNA/溯源/季节志均无数据源）
+- [x] S4.6 验收：真数据截图 `48-s4-expert-day.png` / `48-s4-expert-night-ft.png`（夜读＋英尺同时生效）；
+      E2E **51→61 全绿**；pytest 329 不变
 
 ## S5 · 收口
 
