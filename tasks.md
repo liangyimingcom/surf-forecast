@@ -42,10 +42,12 @@
 
 ## R3 · 坐标解析歧义防护
 
-- [ ] R3.1 `find_registry_by_coord` 多行命中时：记日志告警 + **确定性选取**（如 slug 字典序最小），
-      不再静默取首个
-- [ ] R3.2 `InMemoryStore` 与 `DynamoDBStore` 两实现语义一致
-- [ ] R3.3 单测：单命中 / 多命中→确定性 + 告警 / 两 store 一致性
+- [x] R3.1 新增共享 `db.pick_registry_match`：多行命中 → 按 slug 字典序取最小 + WARNING 告警
+      （文案含全部候选、实际选中者，并指向 /status 的治理区块）
+- [x] R3.2 两 store 都改为「收全部匹配 → 委托 pick_registry_match」，语义一致由构造保证
+- [x] R3.3 `tests/test_coord_resolution.py` 10 例：无/单/多命中 · 反序输入同结果 ·
+      caplog 验告警含全部候选 · inactive 忽略 · 4dp 精度(6位入库4位查得中) ·
+      **moto 真跑双 store 选中同一行** · 无命中返回 None
 
 ## R4 · 上游格点巡检脚本（只读）
 

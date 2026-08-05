@@ -6,8 +6,40 @@ MVP/测试用内存实现；生产切 DynamoDB（同接口）。表：users / se
 
 from __future__ import annotations
 
+import logging
 import threading
 from typing import Optional
+
+logger = logging.getLogger(__name__)
+
+# 坐标匹配精度：与 spots_model.dedup_key 及 governance.coord_duplicate_groups 一致。
+COORD_NDIGITS = 4
+
+
+def pick_registry_match(matches: list[dict], lat: float, lon: float) -> Optional[dict]:
+    """多行同坐标(4dp)时的**确定性**选取 + 告警。两个 store 共用以保证语义一致。
+
+    为什么需要：注册表里确实存在同 4dp 坐标的多个浪点（2026-08-05 生产实测 3 组，
+    其中 `sl54 虹海湾山海里` / `sl84 Kirra` 跨滩跨区=真数据损坏）。旧实现两个 store
+    都「取迭代顺序里的第一个」——而 **DynamoDB scan 顺序不保证稳定**，同一坐标可能
+    今天解析成 A、明天解析成 B → S3 缓存键跟着翻 → 详情页可能显示另一个浪点的报告。
+    与 v0.3.2「坐标精度错位致缓存永不命中」同族，都是坐标解析这一层的坑。
+
+    处置：按 slug 字典序取最小（稳定、可预测、可复现），并告警把歧义暴露出来
+    （`/api/status` 的 data_issues.coord_duplicates 会列出 suspect 组）。
+    """
+    if not matches:
+        return None
+    if len(matches) == 1:
+        return matches[0]
+    ordered = sorted(matches, key=lambda r: str(r.get("slug")))
+    logger.warning(
+        "坐标 (%s, %s) 命中 %d 个注册表浪点 %s —— 存在解析歧义，按 slug 字典序取 %s。"
+        "请在 /status 的数据治理待办中核对该组坐标。",
+        round(float(lat), COORD_NDIGITS), round(float(lon), COORD_NDIGITS),
+        len(ordered), [r.get("slug") for r in ordered], ordered[0].get("slug"),
+    )
+    return ordered[0]
 
 
 def _to_decimal(obj):
@@ -109,13 +141,15 @@ class InMemoryStore:
             return None
 
     def find_registry_by_coord(self, lat: float, lon: float):
+        # R3：收集**全部**匹配后确定性选取（旧实现取迭代顺序首个 → 同坐标多点时不可预测）。
         with self._lock:
-            for r in self.registry.values():
+            matches = [
+                r for r in self.registry.values()
                 if (r.get("status") == "active"
-                        and round(r["lat"], 4) == round(lat, 4)
-                        and round(r["lon"], 4) == round(lon, 4)):
-                    return r
-            return None
+                    and round(r["lat"], COORD_NDIGITS) == round(lat, COORD_NDIGITS)
+                    and round(r["lon"], COORD_NDIGITS) == round(lon, COORD_NDIGITS))
+            ]
+        return pick_registry_match(matches, lat, lon)
 
     def list_active_registry(self) -> list[dict]:
         with self._lock:
@@ -281,14 +315,17 @@ class DynamoDBStore:
             r = self.registry_t.scan(FilterExpression=Attr("status").eq("active"),
                                      ExclusiveStartKey=r["LastEvaluatedKey"])
             items.extend(r.get("Items", []))
+        matches: list[dict] = []
         for row in items:
             try:
-                if (round(float(row["lat"]), 4) == round(lat, 4)
-                        and round(float(row["lon"]), 4) == round(lon, 4)):
-                    return row
+                if (round(float(row["lat"]), COORD_NDIGITS) == round(lat, COORD_NDIGITS)
+                        and round(float(row["lon"]), COORD_NDIGITS) == round(lon, COORD_NDIGITS)):
+                    matches.append(row)
             except (TypeError, ValueError, KeyError):
                 continue
-        return None
+        # R3：**DynamoDB scan 顺序不保证稳定**——取首个会让同坐标多点的解析结果在两次
+        # 调用间漂移（缓存键跟着翻）。收全部匹配后走共享的确定性选取 + 告警。
+        return pick_registry_match(matches, lat, lon)
 
     def list_active_registry(self):
         from boto3.dynamodb.conditions import Attr

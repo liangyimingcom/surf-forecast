@@ -95,3 +95,22 @@
   否则新 UI 分支不触发＝没被测）；前端 build 940ms。
 - **生产实测（只读）**：`coord_invalid` 空（sl75/sl76 已修，符合预期——它是复发探测器），
   `coord_duplicates` suspect 恰为 `sl54/sl84`。
+
+## 2026-08-05 · R3 坐标解析歧义防护（loop cycle 3）
+
+- **风险重估（比预想严重）**：旧实现两个 store 都「取迭代顺序里的第一个」。
+  InMemoryStore 至少受插入顺序决定，而 **DynamoDB scan 顺序不保证稳定** ——
+  同一坐标可能今天解析成 sl54、明天解析成 sl84，S3 缓存键随之翻转，
+  详情页可能显示**另一个浪点**的报告。不只是噪声，是正确性问题。
+- **实现**：新增共享 `db.pick_registry_match(matches, lat, lon)` ——
+  无匹配 → None；单命中 → 原样返回；多命中 → 按 slug 字典序取最小 + WARNING
+  （文案列出全部候选与实际选中者，并指向 `/status` 的数据治理待办，与 R2 闭环）。
+  两个 store 改为「收全部匹配 → 委托该函数」，语义一致由构造保证，不靠两处同步维护。
+  精度常量提为 `db.COORD_NDIGITS = 4`，与 `dedup_key` / `coord_duplicate_groups` 对齐。
+- **测试** `tests/test_coord_resolution.py` 10 例：含 caplog 验告警内容、
+  反序输入同结果（旧实现会翻）、4dp 精度（6 位入库 4 位查得中，防 v0.3.2 复发）、
+  **moto 真跑 DynamoDBStore 与 InMemoryStore 选中同一行**。
+- **验证**：pytest **310 → 320**。真实重复组实跑告警：
+  `坐标 (22.6017, 114.9073) 命中 2 个注册表浪点 ['sl54', 'sl84'] —— 存在解析歧义，
+  按 slug 字典序取 sl54。请在 /status 的数据治理待办中核对该组坐标。`
+- 注：这只是让行为**可预测且可见**；`sl84 Kirra` 坐标本身的修正属 🔒 G1（生产数据写）。
