@@ -128,6 +128,19 @@ ok('状态页 报出坐标非法点', govTxt.includes('sl75') && govTxt.includes
 ok('状态页 报出可疑重复组', govTxt.includes('sl54') && govTxt.includes('Kirra'))
 ok('状态页 合理重复只计数不报故障', govTxt.includes('2 组同海滩'))
 
+// —— S1 夜读模式（设计令牌切换 + localStorage 持久化）——
+await page.goto(BASE + '/', { waitUntil: 'networkidle', timeout: 30000 })
+await page.waitForTimeout(400)
+ok('夜读 开关存在', await page.locator('.nightbtn').count() === 1)
+const bgDay = await page.evaluate(() => getComputedStyle(document.body).backgroundColor)
+ok('夜读 日态背景取自 --bg', bgDay === 'rgb(250, 249, 245)')
+await page.locator('.nightbtn').click(); await page.waitForTimeout(500)
+ok('夜读 body.night 已挂', await page.evaluate(() => document.body.classList.contains('night')))
+const bgNight = await page.evaluate(() => getComputedStyle(document.body).backgroundColor)
+ok('夜读 夜态背景已切换（靠变量，非写死色）', bgNight === 'rgb(25, 23, 19)')
+await page.reload({ waitUntil: 'networkidle' }); await page.waitForTimeout(600)
+ok('夜读 刷新后仍生效（localStorage 持久化）', await page.evaluate(() => document.body.classList.contains('night')))
+
 ok('0 控制台/页面 JS 报错', errors.length === 0)
 if (errors.length) console.log('  JS errors:', errors.slice(0, 5))
 

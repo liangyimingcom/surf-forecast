@@ -211,48 +211,48 @@ onMounted(load)
 h1 { font-size: 18px; color: var(--sea1); }
 .ts { font-size: 11px; color: var(--ink2); }
 .modes { display: flex; gap: 6px; margin: 6px 0; }
-.livehint { font-size: 12.5px; background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 10px; padding: 8px 10px; margin: 6px 0; color: #3730a3; }
-.modes button { display: flex; flex-direction: column; align-items: flex-start; padding: 6px 14px; border: 1px solid #cbd5e1; border-radius: 12px; background: #fff; font-size: 13.5px; font-weight: 600; }
+.livehint { font-size: 12.5px; background: var(--seabg); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; margin: 6px 0; color: var(--sea); }
+.modes button { display: flex; flex-direction: column; align-items: flex-start; padding: 6px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); font-size: 13.5px; font-weight: 600; }
 .modes button small { font-size: 10.5px; font-weight: 400; color: var(--ink2); }
-.modes button.on { background: var(--sea1); color: #fff; border-color: var(--sea1); }
-.modes button.on small { color: #cfe8f5; }
-.whybtn { display: block; width: 100%; margin-top: 10px; padding: 9px 12px; border: 1px dashed var(--sea2); border-radius: 10px; background: #f0f9ff; color: var(--sea1); font-size: 13px; text-align: left; }
+.modes button.on { background: var(--sea1); color: var(--card); border-color: var(--sea1); }
+.modes button.on small { color: var(--seabg); }
+.whybtn { display: block; width: 100%; margin-top: 10px; padding: 9px 12px; border: 1px dashed var(--sea2); border-radius: 10px; background: var(--seabg); color: var(--sea1); font-size: 13px; text-align: left; }
 .vote { margin-top: 10px; }
 .vq { font-size: 13px; font-weight: 600; }
 .vbtns { display: flex; gap: 6px; flex-wrap: wrap; }
-.vbtns button { padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; font-size: 13px; }
-.vbtns button.on { background: #10b981; color: #fff; border-color: #10b981; }
-.vthx { font-size: 12px; color: #059669; margin-top: 6px; }
-.bias { font-size: 12.5px; background: #eff6ff; border-radius: 10px; padding: 8px 10px; margin-top: 8px; color: #1e40af; }
+.vbtns button { padding: 6px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); font-size: 13px; }
+.vbtns button.on { background: var(--ok); color: var(--card); border-color: var(--ok); }
+.vthx { font-size: 12px; color: var(--ok); margin-top: 6px; }
+.bias { font-size: 12.5px; background: var(--seabg); border-radius: 10px; padding: 8px 10px; margin-top: 8px; color: var(--sea); }
 .strip { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
-.strip button { display: flex; flex-direction: column; align-items: center; min-width: 52px; padding: 6px; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; }
+.strip button { display: flex; flex-direction: column; align-items: center; min-width: 52px; padding: 6px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
 .strip button.on { border-color: var(--sea2); box-shadow: 0 0 0 2px rgba(14,165,233,.2); }
 .strip .wk { font-size: 11px; color: var(--ink2); }
 .strip .sc { font-size: 15px; font-weight: 700; color: var(--sea1); }
-.daycard { background: #fff; border-radius: 16px; padding: 14px; margin: 10px 0; }
+.daycard { background: var(--card); border-radius: 16px; padding: 14px; margin: 10px 0; }
 .head { display: flex; align-items: baseline; gap: 10px; }
 .score { font-size: 28px; font-weight: 800; color: var(--sea1); }
 .tag { font-size: 14px; }
 .verdict { color: var(--ink); margin: 8px 0; }
 .kv { display: flex; gap: 12px; font-size: 13px; color: var(--ink2); }
 .dims { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
-.dim { font-size: 12px; background: #f1f5f9; border-radius: 8px; padding: 3px 9px; color: var(--ink2); }
+.dim { font-size: 12px; background: var(--soft); border-radius: 8px; padding: 3px 9px; color: var(--ink2); }
 .dim b { color: var(--sea1); }
 .plan, .lesson, .safety { margin-top: 10px; font-size: 13px; }
-.plan { background: #ecfdf5; border-radius: 10px; padding: 8px 10px; }
-.lesson { background: #eff6ff; border-radius: 10px; padding: 8px 10px; }
-.safety { background: #fff7ed; border-radius: 10px; padding: 8px 10px; color: #9a3412; }
-.story { background: #fff; border-radius: 12px; padding: 10px; font-size: 13px; }
-.review { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 12px; margin: 10px 0; }
+.plan { background: var(--okbg); border-radius: 10px; padding: 8px 10px; }
+.lesson { background: var(--seabg); border-radius: 10px; padding: 8px 10px; }
+.safety { background: var(--warnbg); border-radius: 10px; padding: 8px 10px; color: var(--bad); }
+.story { background: var(--card); border-radius: 12px; padding: 10px; font-size: 13px; }
+.review { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin: 10px 0; }
 .review summary { font-size: 13px; color: var(--ink2); cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; }
 .review summary::-webkit-details-marker { display: none; }
 .review summary .hint { font-size: 11px; color: var(--sea2); }
 .review[open] summary { color: var(--sea1); font-weight: 600; margin-bottom: 8px; }
 .review[open] summary .hint { display: none; }
-.srcnote { font-size: 12px; color: #6b7280; background: #f3f4f6; border-radius: 8px; padding: 6px 10px; margin: 6px 0; line-height: 1.6; }
+.srcnote { font-size: 12px; color: var(--ink2); background: var(--soft); border-radius: 8px; padding: 6px 10px; margin: 6px 0; line-height: 1.6; }
 .checklist h3 { font-size: 14px; color: var(--sea1); }
-.checklist { background: #fff7ed; border: 1px solid #fdba74; border-radius: 12px; padding: 10px 14px; margin: 10px 0; }
-.checklist ul { padding-left: 18px; font-size: 12.5px; color: #7c2d12; }
+.checklist { background: var(--warnbg); border: 1px solid var(--warnline); border-radius: 12px; padding: 10px 14px; margin: 10px 0; }
+.checklist ul { padding-left: 18px; font-size: 12.5px; color: var(--bad); }
 .disclaimer { font-size: 11px; color: var(--ink2); line-height: 1.6; }
-.degraded { background: #fff7ed; border: 1px solid #fdba74; border-radius: 12px; padding: 10px; color: #9a3412; }
+.degraded { background: var(--warnbg); border: 1px solid var(--warnline); border-radius: 12px; padding: 10px; color: var(--bad); }
 </style>

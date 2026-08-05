@@ -1,5 +1,108 @@
-:root { --sea1:#0369a1; --sea2:#0ea5e9; --ink:#0f172a; --ink2:#64748b; }
+/* ═══════════════════════════════════════════════════════════════════════════
+   设计令牌 —— 晨报纸感（A 方向）
+   规格来源：docs/design-v4-update1.html（v4 三屏收敛版原型，用户已选定）
+   前 11 个令牌值逐字取自原型 `.dirA` / `.dirA.night`；
+   其后 6 个状态色是本 App 独有需求（状态页/直播/角标/校验），原型没有这些面。
+
+   ⚠️ 组件里禁止写死颜色 —— 夜读模式靠切换这批变量实现，写死即破。
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root {
+  /* —— 纸与墨（原型 .dirA）—— */
+  --bg:    #faf9f5;   /* 纸底 */
+  --card:  #fff;      /* 卡片 */
+  --ink:   #1c2733;   /* 正文墨 */
+  --ink2:  #5f6b77;   /* 次级墨（说明/单位/时间戳）*/
+  --line:  #e8e5dc;   /* 分隔线/边框 */
+  --sea:   #0f6a8f;   /* 主色·海蓝（评分/链接）*/
+  --sea2:  #2596be;   /* 海蓝亮（强调下划线/图表）*/
+  --hot:   #c2410c;   /* 暖橙（倒计时/提醒）*/
+  --ok:    #0f766e;   /* 墨绿（正常/通过）*/
+  --soft:  #f1efe8;   /* 弱底（chip/表头）*/
+  --soft2: #f7f5ee;   /* 更弱底（hover/斑马纹）*/
+
+  /* —— 状态色（本 App 独有：/status、直播、会员角标、校验）—— */
+  --warn:     #b45309;  /* 警示文字 */
+  --warnbg:   #fdf3e3;  /* 警示底 */
+  --warnline: #e8c48f;  /* 警示边 */
+  --okbg:     #eef6f2;  /* 通过底 */
+  --seabg:    #eef5f9;  /* 海蓝底（信息块）*/
+  --bad:      #9a3412;  /* 故障/错误文字 */
+
+  /* —— 图表（值取自原型 T()，SVG 内联可继承 CSS 变量）—— */
+  --ch-bar:    #2596be;   /* 浪高柱 */
+  --ch-line:   #c2410c;   /* 周期线 */
+  --ch-win:    #e8f4ea;   /* 最佳窗口底 */
+  --ch-winlab: #0f766e;   /* 窗口标签 */
+  --ch-axis:   #5f6b77;   /* 轴/刻度 */
+  --ch-lab:    #1c2733;   /* 图内文字 */
+  --ch-tide:   #0f766e;   /* 潮位 */
+  --ch-off:    #0f6a8f;   /* 离岸风 */
+  --ch-cross:  #7c3aed;   /* 侧岸风 */
+  --ch-on:     #ea580c;   /* 向岸风 */
+  --ch-grid:   #cbd5e1;   /* 网格线 */
+  --ch-mute:   #94a3b8;   /* 弱化/无数据 */
+
+  /* —— 排版 —— */
+  --serif: Georgia, "Songti SC", "Times New Roman", serif;  /* 大标题/大数字用衬线，纸感来源 */
+  --radius: 14px;
+  --shadow: 0 1px 3px rgba(0,0,0,.06);
+}
+
+/* 夜读模式：surfer 睡前查浪报的真实场景。只覆盖变量，不碰任何组件规则。 */
+body.night {
+  --bg:    #191713;
+  --card:  #221f19;
+  --ink:   #ece5d3;
+  --ink2:  #a89f8a;
+  --line:  #3a352a;
+  --sea:   #7cc4e0;
+  --sea2:  #5aa8c8;
+  --hot:   #f0955f;
+  --ok:    #7fd0b2;
+  --soft:  #2b271f;
+  --soft2: #262218;
+
+  --warn:     #e0a86a;
+  --warnbg:   #2e2419;
+  --warnline: #57432a;
+  --okbg:     #1e2a25;
+  --seabg:    #1e2a30;
+  --bad:      #f0955f;
+  --shadow: 0 1px 3px rgba(0,0,0,.4);
+
+  --ch-bar:    #5aa8c8;
+  --ch-line:   #f0955f;
+  --ch-win:    rgba(127,208,178,.15);
+  --ch-winlab: #7fd0b2;
+  --ch-axis:   #a89f8a;
+  --ch-lab:    #ece5d3;
+  --ch-tide:   #7fd0b2;
+  --ch-off:    #7cc4e0;
+  --ch-cross:  #b39ddb;
+  --ch-on:     #f0955f;
+  --ch-grid:   #4a443a;
+  --ch-mute:   #a89f8a;
+}
+
+/* 兼容别名：迁移期保留旧变量名，避免一次性改动全部组件（逐页收敛后可删） */
+:root, body.night { --sea1: var(--sea); }
+
 * { box-sizing: border-box; }
-body { margin: 0; font-family: -apple-system, "PingFang SC", system-ui, sans-serif; color: var(--ink); background: #f8fafc; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, "PingFang SC", system-ui, sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+  transition: background .35s, color .35s;   /* 夜读切换不突兀 */
+}
+
 .wrap { max-width: 480px; margin: 0 auto; padding: 16px; }
-a { color: var(--sea1); }
+a { color: var(--sea); }
+
+/* 纸感排版原语（组件可直接用，避免各处重复定义） */
+.paper-title { font-family: var(--serif); font-size: 23px; line-height: 1.35; }
+.paper-num   { font-family: var(--serif); font-variant-numeric: tabular-nums; }
+.paper-sect  { font-size: 11px; letter-spacing: 2px; color: var(--ink2); }
+.paper-card  { background: var(--card); border: 1px solid var(--line);
+               border-radius: var(--radius); box-shadow: var(--shadow); }

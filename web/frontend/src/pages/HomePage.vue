@@ -75,14 +75,14 @@ onMounted(load)
 <style scoped>
 h1 { font-size: 20px; color: var(--sea1); }
 .onboard { font-size: 13.5px; color: var(--ink); margin: 4px 0 8px; }
-.regions button { margin: 3px; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 999px; background: #fff; font-size: 13px; }
-.regions button.on { background: var(--sea2); color: #fff; border-color: var(--sea2); }
-.answer { background: #fff; border-radius: 16px; padding: 16px; margin: 12px 0; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.regions button { margin: 3px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--card); font-size: 13px; }
+.regions button.on { background: var(--sea2); color: var(--card); border-color: var(--sea2); }
+.answer { background: var(--card); border-radius: 16px; padding: 16px; margin: 12px 0; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
 .verdict { font-size: 16px; font-weight: 700; }
 .headline { color: var(--sea1); margin: 6px 0; }
 .factors span { display: inline-block; margin-right: 8px; font-size: 12px; color: var(--ink2); }
 .entries { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; font-size: 13px; }
-.degraded { background: #fff7ed; border: 1px solid #fdba74; border-radius: 12px; padding: 10px; color: #9a3412; }
+.degraded { background: var(--warnbg); border: 1px solid var(--warnline); border-radius: 12px; padding: 10px; color: var(--bad); }
 .note, .ts { font-size: 11px; color: var(--ink2); }
 .alts { padding-left: 18px; }
 </style>

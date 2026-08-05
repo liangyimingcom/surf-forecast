@@ -7,19 +7,25 @@
 
 ## S0 · 起手
 
-- [ ] S0.1 查停止文件确认无停止信号
-- [ ] S0.2 在 `master` 且已 pull；建/切分支 `feat/v4-three-screen-ui`（不推 master）
-- [ ] S0.3 记基线：`pytest -q` = 329 · `vue_spa.mjs` = 32/0
-- [ ] S0.4 打开 `docs/design-v4-update1.html` 截三屏基准图存 `docs/screenshots/`，后续每阶段用它比对
+- [x] S0.1 查停止文件确认无停止信号
+- [x] S0.2 分支 `feat/v4-three-screen-ui`（off master `0a4db78`）
+- [x] S0.3 基线记录：pytest **329** · vue_spa **32/0**
+- [x] S0.4 基准图沿用上轮已入库的 `docs/screenshots/43-design-v4-update1-3screens.png`（同一文件、0 报错状态）
 
 ## S1 · 设计令牌 + 夜读模式（地基，先做）
 
-- [ ] S1.1 `style.css` 抽 CSS 变量（现在是 **0 个**）：纸底/卡片/墨色/次级墨/分隔线/海蓝/暖橙/警橙
-      + 衬线数字字族（原型用 Georgia 系）+ 圆角/阴影
-- [ ] S1.2 夜读模式：`body.night` 覆盖同一批变量 + localStorage 持久化 + 顶部 🌙 开关
-- [ ] S1.3 现有四页（Home/Spot/Spots/Status）改为引用变量，**不留硬编码颜色**
-- [ ] S1.4 验收：日/夜双态全站截图；`getComputedStyle` 抽查 3 个组件确认取变量值；
-      E2E 加「夜读模式刷新后仍生效」断言
+- [x] S1.1 `style.css` 从 5 行扩到 **29 个令牌**：11 个纸墨海（值逐字取自原型 `.dirA`）
+      + 6 个状态色（本 App 独有：/status、直播、角标、校验）+ 12 个图表色（取自原型 `T()`）
+      + 衬线字族/圆角/阴影 + 4 个纸感原语类（paper-title/num/sect/card）
+- [x] S1.2 夜读模式：`body.night` 只覆盖变量（不碰任何组件规则）+ 顶部 🌙 开关（🌙/☀️ 互切）
+      + localStorage `sf_night_v1`（沿用单 HTML 版键名，老用户偏好不丢）+ **无偏好时跟随系统深色**
+- [x] S1.3 令牌化 **126 处**硬编码色：四页 69 + 三组件 19 + App.vue 全清 + `charts.js` **51 处**
+      （图表原本写死 sky/emerald/amber，夜读必露馅；改取 `--ch-*` 变量，SVG 内联可继承）
+      现全前端硬编码色只剩 `LiveCam` 的 `#000`（视频信箱底，两态都该黑，已注明）
+- [x] S1.4 验收：日/夜双态截图 `45-s1-tokens-{day,night}.png`；`getComputedStyle` 抽查 3 处确认
+      取变量值（夜态链接 `rgb(124,196,224)`=`--sea` 夜值、按钮底 `rgb(43,39,31)`=`--soft` 夜值）；
+      E2E 加 **5 条**夜读断言（开关/日态/挂类/夜态/刷新持久化）→ **32→37 全绿**；
+      pytest **329 不变**（印证后端零改动围栏）
 
 ## S2 · 首页（原型①）
 

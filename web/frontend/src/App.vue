@@ -11,7 +11,24 @@ const password = ref('')
 const busy = ref(false)
 const err = ref('')
 
-onMounted(() => auth.loadFlags())
+// 夜读模式（原型那颗 🌙）：只切 body.night，靠 style.css 的变量覆盖生效。
+// 键名沿用单 HTML 版的 sf_night_v1，老用户偏好不丢。
+const NIGHT_KEY = 'sf_night_v1'
+const night = ref(false)
+function applyNight(on) {
+  night.value = !!on
+  document.body.classList.toggle('night', night.value)
+  try { localStorage.setItem(NIGHT_KEY, night.value ? '1' : '0') } catch (e) { /* 隐私模式忽略 */ }
+}
+function toggleNight() { applyNight(!night.value) }
+
+onMounted(() => {
+  auth.loadFlags()
+  let saved = null
+  try { saved = localStorage.getItem(NIGHT_KEY) } catch (e) { /* 忽略 */ }
+  // 无偏好时跟随系统（surfer 睡前查浪报，系统已是深色就别再刺眼）
+  applyNight(saved === null ? window.matchMedia?.('(prefers-color-scheme: dark)').matches : saved === '1')
+})
 
 async function doLogin() {
   if (!email.value || !password.value) { err.value = '请输入账号与密码'; return }
@@ -33,6 +50,10 @@ async function doLogout() {
 
 <template>
   <router-view />
+  <button class="nightbtn" :class="{ on: night }" @click="toggleNight"
+          :aria-label="night ? '切回日读模式' : '切到夜读模式'" :aria-pressed="night">
+    {{ night ? '☀️' : '🌙' }}
+  </button>
   <button class="wxlogin" :class="{ authed: auth.authenticated }" @click="show = true"
           :aria-label="auth.authenticated ? '账号' : '登录'">
     {{ auth.authenticated ? '🟢' : '👤' }}
@@ -59,16 +80,20 @@ async function doLogout() {
 </template>
 
 <style scoped>
-.wxlogin { position: fixed; top: 10px; right: 10px; z-index: 50; width: 38px; height: 38px; border-radius: 50%; border: none; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.15); font-size: 18px; }
+.nightbtn { position: fixed; top: 10px; right: 56px; z-index: 50; width: 38px; height: 38px;
+             border-radius: 50%; border: 1px solid var(--line); background: var(--card);
+             box-shadow: var(--shadow); font-size: 17px; cursor: pointer; }
+.nightbtn.on { background: var(--soft); }
+.wxlogin { position: fixed; top: 10px; right: 10px; z-index: 50; width: 38px; height: 38px; border-radius: 50%; border: none; background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow); font-size: 18px; }
 .wxlogin.authed { font-size: 14px; }
 .wxmask { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; z-index: 100; }
-.wxbox { background: #fff; border-radius: 16px; padding: 20px; width: min(320px, 88vw); text-align: center; }
+.wxbox { background: var(--card); border-radius: 16px; padding: 20px; width: min(320px, 88vw); text-align: center; }
 .wxbox h3 { color: var(--sea1); margin: 0 0 8px; }
 .wxbox p { font-size: 13px; color: var(--ink2); }
 .wxbox .who { font-weight: 600; color: var(--ink); }
-.wxbox input { display: block; width: 100%; box-sizing: border-box; margin: 8px 0; padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 14px; }
-.wxbox .err { color: #b91c1c; font-size: 12.5px; }
-.wxbox .primary { margin-top: 8px; width: 100%; padding: 9px 20px; border: none; border-radius: 10px; background: var(--sea2); color: #fff; font-size: 14px; }
+.wxbox input { display: block; width: 100%; box-sizing: border-box; margin: 8px 0; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 14px; background: var(--card); color: var(--ink); }
+.wxbox .err { color: var(--bad); font-size: 12.5px; }
+.wxbox .primary { margin-top: 8px; width: 100%; padding: 9px 20px; border: none; border-radius: 10px; background: var(--sea); color: var(--card); font-size: 14px; }
 .wxbox .primary:disabled { opacity: .6; }
-.wxbox .ghost { margin-top: 8px; width: 100%; padding: 8px 20px; border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; color: var(--ink2); font-size: 13px; }
+.wxbox .ghost { margin-top: 8px; width: 100%; padding: 8px 20px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--ink2); font-size: 13px; }
 </style>

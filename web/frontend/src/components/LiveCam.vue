@@ -61,10 +61,10 @@ onBeforeUnmount(stop)
 </template>
 
 <style scoped>
-.livecam { background: #0f172a; border-radius: 12px; padding: 10px; margin: 6px 0; }
+.livecam { background: var(--ink); border-radius: 12px; padding: 10px; margin: 6px 0; }
 video { width: 100%; border-radius: 8px; background: #000; aspect-ratio: 16 / 9; }
-.playbtn { width: 100%; padding: 14px; border: 1px dashed #475569; border-radius: 8px; background: #1e293b; color: #e2e8f0; font-size: 14px; }
-.stopbtn { margin-top: 6px; padding: 5px 12px; border: none; border-radius: 8px; background: #334155; color: #cbd5e1; font-size: 12.5px; }
-.err { color: #fca5a5; font-size: 12.5px; margin: 6px 0 0; }
-.disc { color: #64748b; font-size: 11px; margin: 6px 0 0; }
+.playbtn { width: 100%; padding: 14px; border: 1px dashed var(--ink2); border-radius: 8px; background: var(--ink); color: var(--line); font-size: 14px; }
+.stopbtn { margin-top: 6px; padding: 5px 12px; border: none; border-radius: 8px; background: var(--ink2); color: var(--line); font-size: 12.5px; }
+.err { color: var(--bad); font-size: 12.5px; margin: 6px 0 0; }
+.disc { color: var(--ink2); font-size: 11px; margin: 6px 0 0; }
 </style>
