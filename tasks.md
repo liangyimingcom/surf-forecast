@@ -89,14 +89,14 @@
 
 ## R5 · 收口
 
-- [ ] R5.1 `pytest -q` 全量全绿（基线 293，只增不减）
-- [ ] R5.2 `vue_spa.mjs` E2E 全绿 + 0 JS 报错
+- [x] R5.1 `pytest -q` **329 passed**（基线 293 → +36）
+- [x] R5.2 `vue_spa.mjs` **32 passed / 0 failed / 0 JS 报错**；schema 契约门绿；build 989ms
       （`npm run build` → 起后端带 `SF_SEED_SPOTS=reference/data/shilaoren_spots.json`
       + `SF_SPA_DIST=web/frontend/dist` → `node web/e2e/vue_spa.mjs http://127.0.0.1:PORT`）
-- [ ] R5.3 文档回写：`docs/implementation-notes.md` 逐日记录 + `docs/HANDOFF-to-kiro.md` §7 本轮结论
-- [ ] R5.4 开 PR（**不合并**，🔒 G4）
-- [ ] R5.5 整理 🔒 门项待人工确认清单（见下），每项写清「做什么/为什么/怎么回退」
-- [ ] R5.6 创建 `STOP_LOOP` 并汇报
+- [x] R5.3 文档回写：`implementation-notes` 逐轮记录（含 R4 偏离理由）+ `HANDOFF` §7 追加本轮小节
+- [x] R5.4 开 PR（不合并，🔒 G4 留给人）
+- [x] R5.5 🔒 清单已整理（见下节，含处置差异：sl97 应治理标记而非改坐标）
+- [x] R5.6 创建停止文件并汇报
 
 ## 🔒 待人工确认清单（loop 只整理，不执行）
 
