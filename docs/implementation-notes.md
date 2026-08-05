@@ -60,3 +60,22 @@
 - 前端：swr.js（stale-while-revalidate，内存+sessionStorage 5min）接入四页——切页秒出旧数据后台静默刷新，「加载中…」仅首次出现。实测回访 home 0.04s / spots 0.03s / detail 1.3s。
 - **顺手揪出存量 bug**：DynamoDB `find_registry_by_coord` 用 round(入参,4) 与库中 6 位小数原值做精确相等 → seeded 点永远匹配不上 → slug 解析失败 → **详情页 S3 缓存从未命中**，每次实时调 Open-Meteo 现算（首访 5.9s 的真凶）。修为两侧同 round(4) 比较后 detail 首访 5.9s→1.3s，calibratedAt 回到刷新时刻（缓存命中实证）。
 | 2026-08-05 | 交接 | 交接给 Kiro：docs/HANDOFF-to-kiro.md（现状/13个未push commit/遗留/运维知识/文档地图）。生产 v0.3.3 无人值守一周健康（主跑58/60·补跑哨兵正常·7区域推荐可用）。设计原型 v4-v7 待用户拍板。 |
+
+## 2026-08-05 · R1 绿灯必须等于可用（数据健康收口 loop cycle 1）
+
+- **R0** 起手：分支 `feat/data-health-r3`（off master `5a19026`），基线 pytest 293。
+  修正 goal 里的停止信号路径（实际由 auto-nudge 指定为
+  `surf-forecast/.stop-chat-3-1783779532`，非 `STOP_LOOP`）。
+- **R1.1** `refresh.refresh_spots`：`writer.put` 前加 `days > 0` 判定。空报告 →
+  `skipped: empty_report(upstream grid all-null)` + `continue`，**不覆盖上一版缓存**
+  （沿用 validate 失败的 R5.4 策略，避免空报告冲掉好数据）。
+- **R1.2** `status.build_status`：`failed` 保持 slug 列表（前端 `join('、')` 契约不破），
+  新增 `failed_detail = {slug: 原因}`；`StatusPage.vue` 加 `.faillist` 渲染「slug — 原因」。
+  原因本来就存在 manifest 里，是 status 层把它丢了。
+- **R1.6（计划外，顺手修）** 测试污染：`/api/status` 走进程内 `_agg_cache`（TTL 300s），
+  上个测试的响应会串给下个测试——同 fixture 数据时症状不可见，我加的新用例换了数据才暴露。
+  `test_status_api.py` 加 autouse fixture 每例前后 `clear()`。
+- **验证**：pytest **293 → 299**；vue_spa E2E **26 → 28**（新增两条断言直接验证失败原因渲染，
+  canned status 改为带 `failed_detail` 的失败点，否则该 UI 等于没被测）。
+- **预期副作用（正确行为）**：判定上生产后 `sl82 Canggu` 会从 succeeded 掉入 failed，
+  `/status` 由 60/60 变 59/60 —— 真实状态浮出水面，不是回归。

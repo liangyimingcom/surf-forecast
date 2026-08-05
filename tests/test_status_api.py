@@ -47,6 +47,15 @@ def client():
     return TestClient(A.app)
 
 
+@pytest.fixture(autouse=True)
+def _clear_agg_cache():
+    """/api/status 走 app._agg_cache（SF_AGG_TTL 默认 300s）——进程内单例会把上一个
+    测试的响应带给下一个测试（同 fixture 数据时看不出来，换数据就串）。每例前后清空。"""
+    A._agg_cache.clear()
+    yield
+    A._agg_cache.clear()
+
+
 @pytest.fixture
 def wired(monkeypatch):
     manifest = {"date": TODAY, "kind": "main", "run_at": FRESH,
@@ -92,3 +101,29 @@ def test_catalog_no_key_configured_never_shows_test(client, wired, monkeypatch):
     slugs = [s["slug"] for s in client.get(
         "/api/catalog", headers={"X-Test-Access": ""}).json()["catalog"]]
     assert "t" not in slugs
+
+
+# ============================================================
+# R1.2：失败原因贯通到 /api/status
+# manifest 里 failed 本就是 {slug: 原因}，旧版只暴露 slug 列表 → 站长看不出
+# 是上游格点无数据、validate 不过、还是取数异常，无法判断该找上游还是找代码。
+# ============================================================
+def test_status_exposes_failed_reasons(client, wired):
+    body = client.get("/api/status").json()
+    r = body["refresh"]
+    # 向后兼容：failed 仍是 slug 列表（前端 join('、') 与既有契约不破）
+    assert r["failed"] == ["m"]
+    # 新增：带原因的明细
+    assert r["failed_detail"] == {"m": "skipped"}
+
+
+def test_status_failed_detail_empty_when_no_failure(client, monkeypatch):
+    """无失败点时 failed_detail 为空对象（不是 None，前端可直接 Object.keys）。"""
+    manifest = {"date": TODAY, "kind": "main", "run_at": FRESH,
+                "expected": ["a"], "succeeded": ["a"], "failed": {},
+                "history": []}
+    monkeypatch.setattr(A.db, "get_store", lambda: _Store())
+    monkeypatch.setattr(A.deps, "_cache_reader",
+                        lambda: _Reader({"a": _rep(7.0), "manifest.json": manifest}))
+    r = client.get("/api/status").json()["refresh"]
+    assert r["failed"] == [] and r["failed_detail"] == {}

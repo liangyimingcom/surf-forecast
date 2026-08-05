@@ -2,32 +2,34 @@
 
 > 每完成一项**立刻勾选**并在 `docs/implementation-notes.md` 追加一行（含偏离计划的理由）。
 > 🔒 = 硬门，**loop 不得执行**，只整理成待人工确认清单。
-> 每轮开始先 `ls STOP_LOOP`；存在即停。
+> 每轮开始先查停止信号：`ls /Users/yiming/Downloads/all_the_meshclaw/surf-forecast/.stop-chat-3-1783779532`
+> （由 auto-nudge 指定的真实路径；存在即停。旧文中的 `STOP_LOOP` 已作废）。
 
 ## R0 · 起手
 
-- [ ] R0.1 `ls STOP_LOOP` 确认无停止信号
-- [ ] R0.2 在 `master` 且已 pull；建/切工作分支 `feat/data-health-r3`（不推 master）
-- [ ] R0.3 `pytest -q` 取基线（应为 **293 passed**），记下数字
-- [ ] R0.4 读 `docs/HANDOFF-to-kiro.md` §5 + §7（已知坑与已修事项，避免重做/重踩）
+- [x] R0.1 查停止信号（真实路径见上）确认无停止
+- [x] R0.2 在 `master` 且已 pull；建/切工作分支 `feat/data-health-r3`（不推 master）
+- [x] R0.3 `pytest -q` 取基线 = **293 passed**
+- [x] R0.4 读 `docs/HANDOFF-to-kiro.md` §5 + §7（已知坑与已修事项）
 
 ## R1 · 绿灯必须等于可用（核心）
 
-- [ ] R1.1 `src/web/refresh.py` 的 `refresh_spots`（约 107-124 行）：现在 `writer.put(...)` 之后
-      直接 `summary[slug] = "ok"`，**从不检查 `report["days"]`**。改为产出报告必须 `days > 0`
-      才计 ok；否则 `summary[slug] = "skipped: empty_report(upstream grid all-null)"`。
-      **与既有策略对齐**：同 validate 失败的处理——`continue` 且**不覆盖上一版缓存**（R5.4 原则），
-      别用空报告把好数据冲掉
-- [ ] R1.2 `failed` 从 `{slug: reason}` 的原因贯通到 `/api/status`（现在只暴露 slug 列表，
-      看不出为什么失败）
-- [ ] R1.3 单测双侧钉死：`days==0 → failed + 原因可读` / `days>0 → succeeded`
-- [ ] R1.4 跑 `pytest tests/test_refresh*.py tests/test_status*.py -q` 定向绿
-- [ ] R1.5 **预期变化确认**：改完后 `sl82 Canggu` 应从 succeeded 掉入 failed
-      —— 这是正确行为（真实状态浮出），**不要为了数字好看而回避**
+- [x] R1.1 `src/web/refresh.py` 的 `refresh_spots`：加 `days > 0` 判定；空报告记
+      `skipped: empty_report(upstream grid all-null)`，且**不覆盖上一版缓存**（同 validate 失败策略）
+- [x] R1.2 失败原因贯通到 `/api/status`：`failed` 保持 slug 列表（前端 `join` 契约不破），
+      新增 `failed_detail = {slug: 原因}`；前端 `StatusPage.vue` 渲染 `slug — 原因`
+- [x] R1.3 单测双侧钉死：空报告 → 非 ok + 原因含 `empty_report`/`upstream` + 不覆盖上一版 + 不写当日快照；
+      有 days → 仍 ok；端到端 → `manifest.failed` 带原因
+- [x] R1.4 定向测试绿（refresh/status_api/refresh_cli/governance **32 passed**）
+- [x] R1.5 预期变化已确认：判定生效后 `sl82 Canggu` 将从 succeeded 掉入 failed（正确行为）
+- [x] R1.6 **顺手修掉一个测试污染**：`/api/status` 走进程内 `_agg_cache`（TTL 300s），
+      上一个测试的响应会串给下一个（同 fixture 数据时看不出来）。`test_status_api.py`
+      加 autouse fixture 每例前后清空
+
 
 ## R2 · `/status` 能自己发现三类静默故障
 
-- [ ] R2.1 空报告：`failed` 里能看出「上游格点全空」这类原因（承 R1.2）
+- [x] R2.1 空报告：`failed_detail` 里能看出「上游格点全空」这类原因（承 R1.2，已完成）
 - [ ] R2.2 坐标非法：`/api/status` 暴露带 `coord_invalid` 标记的行（PR #38 护栏会打此标）。
       ⚠️ **生产当前应为 0 行**（sl75/sl76 坐标已修，且护栏只作用于未来 seed）——
       这是"未来复发的探测器"，别以为查不到就是没接通；用单测 + 本地 seed 造数据验证

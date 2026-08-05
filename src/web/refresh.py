@@ -117,6 +117,15 @@ def refresh_spots(spots, writer, report_fn=default_report_fn,
             summary[slug] = f"skipped: error({type(e).__name__})"
             continue
 
+        # R1（数据健康）：产出空报告 = 上游格点无浪场数据（如 WAM025 在近陆格点返回全 null）。
+        # 旧行为照写 latest.json 且计 ok → manifest 显示 60/60 全绿而该点实际不可用
+        # （2026-08-05 实例：sl82 Canggu 坐标正确，格点 -8.75/115.25 返回 48 时点全空）。
+        # 与 validate 失败同策：跳过、**不覆盖上一版缓存**、记可读原因，让绿灯等于可用。
+        if not (report.get("days") or []):
+            logger.error("refresh %s 产出空报告(days=0)，保留上一版：上游格点疑无浪场数据", slug)
+            summary[slug] = "skipped: empty_report(upstream grid all-null)"
+            continue
+
         writer.put(f"{slug}/latest.json", report)
         writer.put(f"{slug}/{today}.json", report)
         if report.get("history"):

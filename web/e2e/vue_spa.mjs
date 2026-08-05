@@ -50,7 +50,8 @@ await page.route('**/api/accuracy/bias*', r => r.fulfill({ json: { bias: 'insuff
 await page.route('**/api/accuracy/vote', r => r.fulfill({ json: { ok: true } }))
 await page.route('**/api/status', r => r.fulfill({ json: {
   generated_at: '2026-07-27 10:00 GMT+8',
-  refresh: { date: '2026-07-27', kind: 'main', run_at: '2026-07-27 02:00 GMT+8', expected: 2, succeeded: 2, failed: [], is_today: true },
+  refresh: { date: '2026-07-27', kind: 'main', run_at: '2026-07-27 02:00 GMT+8', expected: 3, succeeded: 2,
+             failed: ['sl82'], failed_detail: { sl82: 'skipped: empty_report(upstream grid all-null)' }, is_today: true },
   coverage: { pool: 2, fresh: 2 },
   regions: [{ region: '山东', spots: 1, pool: 1, fresh: 1, available: true, degraded: false },
             { region: '海南', spots: 1, pool: 1, fresh: 1, available: true, degraded: false }],
@@ -108,8 +109,12 @@ ok('详情 回看展开自评致谢', await page.locator('.vthx').count() === 1)
 await page.goto(BASE + '/status', { waitUntil: 'networkidle', timeout: 30000 })
 await page.waitForTimeout(500)
 ok('状态页 标题', (await page.locator('h1').first().innerText()).includes('数据健康'))
-ok('状态页 今日覆盖', (await page.locator('.card').first().innerText()).includes('2/2'))
+ok('状态页 今日覆盖', (await page.locator('.card').first().innerText()).includes('2/3'))
 ok('状态页 区域可用性表', await page.locator('table').count() >= 2)
+// R1.2：失败点必须带原因（光有 slug 判不出该找上游还是找代码）
+const failTxt = await page.locator('.faillist').first().innerText().catch(() => '')
+ok('状态页 失败点列出 slug', failTxt.includes('sl82'))
+ok('状态页 失败点说明原因', failTxt.includes('empty_report') || failTxt.includes('upstream'))
 
 ok('0 控制台/页面 JS 报错', errors.length === 0)
 if (errors.length) console.log('  JS errors:', errors.slice(0, 5))

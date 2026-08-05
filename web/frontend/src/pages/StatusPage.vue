@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { api } from '../api'
 import { swr } from '../swr'
 
@@ -7,6 +7,13 @@ import { swr } from '../swr'
 const st = ref(null)
 const error = ref('')
 const loading = ref(true)
+
+// R1.2：失败点带原因（上游格点无数据 / validate 不过 / 取数异常），
+// 光看 slug 列表判不出该找上游还是找代码。后端 failed_detail 缺失时降级为空（不编造）。
+const failedDetail = computed(() => {
+  const d = st.value && st.value.refresh && st.value.refresh.failed_detail
+  return d ? Object.keys(d).sort().map(k => ({ slug: k, why: d[k] })) : []
+})
 
 onMounted(() => {
   const has = swr('status', () => api.status(), (v, fresh, err) => {
@@ -39,6 +46,11 @@ onMounted(() => {
         <p v-if="st.refresh && st.refresh.failed && st.refresh.failed.length" class="warn">
           失败点：{{ st.refresh.failed.join('、') }}
         </p>
+        <ul v-if="failedDetail.length" class="faillist">
+          <li v-for="f in failedDetail" :key="f.slug">
+            <b>{{ f.slug }}</b> — {{ f.why }}
+          </li>
+        </ul>
       </section>
 
       <section class="card">
@@ -88,6 +100,7 @@ th, td { text-align: left; padding: 4px 8px; border-bottom: 1px solid #e2e8f0; }
 th { color: var(--ink2); font-weight: 600; }
 .ok { color: #15803d; }
 .warn { color: #b45309; font-size: 13px; }
+.faillist { margin: 4px 0 0; padding-left: 18px; color: #b45309; font-size: 12.5px; line-height: 1.6; }
 .bad { background: #fff7ed; border: 1px solid #fdba74; border-radius: 12px; padding: 10px; color: #9a3412; }
 .ts { font-size: 11px; color: var(--ink2); }
 </style>

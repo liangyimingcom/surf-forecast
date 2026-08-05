@@ -33,6 +33,10 @@ def build_status(registry_rows: list[dict], reader: Any,
         "expected": len(m.get("expected") or []),
         "succeeded": len(m.get("succeeded") or []),
         "failed": sorted((m.get("failed") or {}).keys()),
+        # R1.2：manifest 里 failed 本就是 {slug: 原因}，旧版只暴露 slug 列表 → 站长看不出
+        # "为什么失败"（是上游格点无数据、validate 不过、还是取数异常）。
+        # 保持 failed 为 slug 列表（前端/契约向后兼容），另加带原因的明细。
+        "failed_detail": {k: str(v) for k, v in sorted((m.get("failed") or {}).items())},
         "is_today": m_today,
     } if m else None
 
