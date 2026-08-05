@@ -17,7 +17,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel, Field
 
-from . import auth, cache, db, deps, feedback, flags, llm_client, llm_guard, recommend, spots
+from . import auth, cache, db, deps, feedback, flags, governance, llm_client, llm_guard, recommend, refresh as refresh_mod, spots, status as status_mod
 
 app = FastAPI(title="Surf Forecast API", version="0.1.0")
 
@@ -86,6 +86,15 @@ def login(body: Credentials, request: Request, response: Response) -> dict:
     return {"ok": True}
 
 
+@app.get("/api/auth/me")
+def auth_me(request: Request) -> dict:
+    """公开：返回当前登录态（前端渲染登录/登出与直播解锁用）。匿名不 401。"""
+    user = flags._session_user(request)
+    if not user:
+        return {"authenticated": False}
+    return {"authenticated": True, "email": user["email"], "level": user["level"]}
+
+
 @app.post("/api/auth/logout")
 def logout(request: Request, response: Response,
            user: dict = Depends(deps.current_user)) -> dict:
@@ -142,7 +151,12 @@ def accuracy_vote(body: Vote, user: dict = Depends(deps.current_user)) -> dict:
 @app.get("/api/accuracy/bias")
 def accuracy_bias(spot: str, user: dict | None = Depends(flags.member_gate)) -> dict:
     # Fable5 §2.3：偏差校准展示。一期公开(匿名无投票→自然空);二期锁会员(member_gate)。
-    return feedback.compute_bias(db.get_store(), (user or {}).get("email", ""), spot)
+    email = (user or {}).get("email", "")
+    if not email:
+        # 匿名：无个人投票可算；且 DynamoDB Key 条件不接受空串（空 email 查询会 500）
+        return {"bias": "insufficient", "samples": 0, "min": 3,
+                "suggestion": "登录后自评「昨天报得准吗」可积累个人校准。"}
+    return feedback.compute_bias(db.get_store(), email, spot)
 
 
 # —— 浪点管理（custom-spots R2，全 401 保护）——
@@ -203,11 +217,20 @@ def spots_select(slug: str, user: dict = Depends(deps.current_user)) -> dict:
         raise HTTPException(status_code=404, detail=str(e))
 
 
+def _test_access(request: Request) -> bool:
+    """R2 决策6：E2E 单环境隔离。请求带 X-Test-Access 且与 SF_TEST_ACCESS_KEY 一致
+    → 可见 is_test 点。密钥未配置则任何请求都不可见测试点（默认安全）。"""
+    key = os.getenv("SF_TEST_ACCESS_KEY", "")
+    return bool(key) and request.headers.get("X-Test-Access", "") == key
+
+
 @app.get("/api/catalog")
-def catalog_list() -> dict:
+def catalog_list(request: Request) -> dict:
     """P3 形态C：全国浪点目录(58+)。**公开**(Fable5 §2.2 拉新鱼饵,两期皆公开)；
-    从注册表返回基础信息+区域+是否有直播。lat/lon 兼容 Decimal/float。评分留待 /catalog/scores。"""
-    rows = db.get_store().list_listed_registry() or []
+    从注册表返回基础信息+区域+是否有直播。lat/lon 兼容 Decimal/float。评分留待 /catalog/scores。
+    R2 治理：默认剔 is_test；带 op_status/beach_group 字段（名称已干净化）。"""
+    rows = governance.visible_rows(db.get_store().list_listed_registry() or [],
+                                   include_test=_test_access(request))
     catalog = []
     for r in rows:
         try:
@@ -220,41 +243,82 @@ def catalog_list() -> dict:
             "facing": float(r.get("spot_facing_deg", 0) or 0),
             "facing_calibrated": bool(r.get("facing_calibrated", False)),
             "has_live": str(r.get("live_src") or "").startswith("https://"), "days": int(r.get("days", 6) or 6),
+            "op_status": r.get("op_status", "open"),
+            "beach_group": r.get("beach_group"),
         })
     return {"catalog": catalog}
 
 
+# 公开聚合接口的进程内 TTL 去抖（纯性能层：底层是每日预算数据，5min 内陈旧零风险；
+# 键含 test_access 维度防测试视图泄漏到公开缓存）。SF_AGG_TTL=0 可停用。
+_agg_cache = cache.TTLCache(float(os.getenv("SF_AGG_TTL", "300")), max_items=64)
+
+
 @app.get("/api/catalog/scores")
-def catalog_scores() -> dict:
+def catalog_scores(request: Request) -> dict:
     """P3.2 形态C：批量评分(从每日预算缓存读，避免 58×实时)。**公开**(Fable5 §2.2)。
-    无缓存桶(本地/未配置)→ scores 空、cached=False；前端可用点击已看浪点回填徽标兜底。"""
+    无缓存桶(本地/未配置)→ scores 空、cached=False；前端可用点击已看浪点回填徽标兜底。
+    提速：61 点并发 S3 读 + 5min TTL（原串行 ~2.5s → 命中 ~5ms）。"""
     reader = deps._cache_reader()
     if reader is None:
         return {"scores": {}, "cached": False}
-    rows = db.get_store().list_listed_registry() or []
+    ta = _test_access(request)
+    ckey = f"scores|{ta}"
+    hit = _agg_cache.get(ckey)
+    if hit is not None:
+        return hit
+    rows = governance.visible_rows(db.get_store().list_listed_registry() or [],
+                                   include_test=ta)
+    reports = refresh_mod.bulk_latest(reader, [r["slug"] for r in rows if r.get("slug")])
     scores = {}
-    for r in rows:
-        try:
-            rep = reader.get(f"{r['slug']}/latest.json")
-            if rep and rep.get("days"):
-                scores[r["slug"]] = rep["days"][0].get("score")
-        except Exception:  # noqa: BLE001
-            pass
-    return {"scores": scores, "cached": True}
+    for slug, rep in reports.items():
+        if rep and rep.get("days"):
+            scores[slug] = rep["days"][0].get("score")
+    out = {"scores": scores, "cached": True}
+    _agg_cache.set(ckey, out)
+    return out
 
 
 # —— P1.1 决策助手首屏（公开·无鉴权）：区域推荐 + 区域列表 ——
 # 数据诚实：recommend 只排「当日新鲜」浪点 + degraded 显式；缓存覆盖缺口不冒充旧分。
 @app.get("/api/regions")
 def regions_list() -> dict:
-    rows = db.get_store().list_listed_registry() or []
+    rows = governance.visible_rows(db.get_store().list_listed_registry() or [])
     return {"regions": recommend.list_regions(rows)}
 
 
 @app.get("/api/recommend")
 def recommend_region(region: str = "") -> dict:
+    # is_test/op_status/beach_group 三道过滤在 build_recommendation 内（R2 §1.3）
+    ckey = f"recommend|{region}"
+    hit = _agg_cache.get(ckey)
+    if hit is not None:
+        return hit
     rows = db.get_store().list_listed_registry() or []
-    return recommend.build_recommendation(region, rows, deps._cache_reader())
+    reader = deps._cache_reader()
+    manifest = refresh_mod.load_manifest(reader)
+    pool = governance.recommendable_rows(
+        [r for r in rows if not region or (r.get("region_cn") or "其他") == region])
+    reports = refresh_mod.bulk_latest(reader, [r["slug"] for r in pool if r.get("slug")])
+    out = recommend.build_recommendation(region, rows, reader, manifest=manifest,
+                                         reports=reports)
+    _agg_cache.set(ckey, out)
+    return out
+
+
+@app.get("/api/status")
+def data_status() -> dict:
+    """R2 §2 公开状态页数据源：今日刷新概况 + 各区域推荐可用性 + 最近运行记录。
+    决策5：无推送告警，本端点+前端 /status 页是唯一的故障发现渠道（兼信任背书）。"""
+    hit = _agg_cache.get("status")
+    if hit is not None:
+        return hit
+    rows = db.get_store().list_listed_registry() or []
+    reader = deps._cache_reader()
+    manifest = refresh_mod.load_manifest(reader)
+    out = status_mod.build_status(rows, reader, manifest)
+    _agg_cache.set("status", out)
+    return out
 
 
 # —— P1.3 功能开关 + 微信扫码登录占位（二期实现，一期仅预留路由）——

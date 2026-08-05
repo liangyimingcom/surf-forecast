@@ -126,6 +126,79 @@ def refresh_spots(spots, writer, report_fn=default_report_fn,
     return summary
 
 
+def bulk_latest(reader, slugs, max_workers: int = 12) -> dict:
+    """并发读多点 {slug}/latest.json（提速：61 点串行 S3 ~2.5s → 并发 ~0.3s）。
+    boto3 client 线程安全；单点异常吞掉返回 None（与串行语义一致）。"""
+    out: dict = {}
+    if reader is None or not slugs:
+        return out
+    import concurrent.futures
+
+    def _get(slug):
+        try:
+            return slug, reader.get(f"{slug}/latest.json")
+        except Exception:  # noqa: BLE001
+            return slug, None
+
+    with concurrent.futures.ThreadPoolExecutor(
+            max_workers=min(max_workers, max(1, len(slugs)))) as ex:
+        for slug, rep in ex.map(_get, slugs):
+            out[slug] = rep
+    return out
+
+
+# —— R2 决策9/10：刷新运行 manifest（一致性契约 + /status 数据源 + 补跑缺失点识别）——
+
+MANIFEST_KEY = "manifest.json"
+MANIFEST_HISTORY_MAX = 14  # /status 展示最近 7 天（主跑+补跑各一条）
+
+
+def load_manifest(reader) -> dict | None:
+    """读当前 manifest；无桶/无文件/坏 JSON → None（消费者自行降级）。"""
+    if reader is None:
+        return None
+    try:
+        return reader.get(MANIFEST_KEY)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def build_manifest(prev: dict | None, kind: str, expected: list[str],
+                   summary: dict, duration_s: float, clock=now_gmt8) -> dict:
+    """构造新 manifest。retry 且同日 → succeeded 与主跑合并（哨兵语义：补齐而非替换）。
+
+    失败点记原因（expected 内非 ok 的）；history 滚动保留最近 N 条摘要。
+    """
+    now = clock()
+    date = now.date().isoformat()
+    run_at = now.strftime("%Y-%m-%d %H:%M GMT+8")
+    ok = [s for s, v in summary.items() if v == "ok"]
+    succeeded = sorted(set(ok))
+    if kind == "retry" and prev and prev.get("date") == date:
+        succeeded = sorted(set(prev.get("succeeded") or []) | set(ok))
+        expected = list(prev.get("expected") or expected)
+    failed = {s: summary[s] for s in expected if s in summary and summary[s] != "ok"}
+    history = list((prev or {}).get("history") or [])
+    history.append({
+        "run_id": f"{date}-{kind}", "run_at": run_at, "kind": kind,
+        "expected_n": len(expected), "ok_n": len(ok), "duration_s": round(duration_s, 1),
+    })
+    history = history[-MANIFEST_HISTORY_MAX:]
+    return {
+        "run_id": f"{date}-{kind}", "run_at": run_at, "date": date, "kind": kind,
+        "expected": sorted(expected), "succeeded": succeeded, "failed": failed,
+        "duration_s": round(duration_s, 1), "history": history,
+    }
+
+
+def missing_from_manifest(manifest: dict | None, today: str) -> list[str] | None:
+    """补跑输入：今日 manifest 的 expected − succeeded。
+    无 manifest 或非今日（主跑没跑/挂了=断链）→ None，调用方退化为全量（哨兵兜底）。"""
+    if not manifest or manifest.get("date") != today:
+        return None
+    return sorted(set(manifest.get("expected") or []) - set(manifest.get("succeeded") or []))
+
+
 # —— R4 动态刷新编排（注册表驱动，替代硬编码 DEFAULT_SPOTS）——
 
 REFRESH_BUDGET = 80   # 每次调度预算上限 N。须 ≥ 上架目录规模(现58)否则按last_viewed降序截断→无view的demo点被饿死、

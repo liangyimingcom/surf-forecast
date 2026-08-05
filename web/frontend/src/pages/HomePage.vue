@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { api } from '../api'
+import { swr } from '../swr'
 import { useRegionStore } from '../stores/region'
 
 const region = useRegionStore()
@@ -9,16 +10,22 @@ const rec = ref(null)
 const loading = ref(true)
 const error = ref('')
 
-async function load() {
-  loading.value = true; error.value = ''
-  try {
-    if (!regions.value.length) regions.value = (await api.regions()).regions || []
-    rec.value = await api.recommend(region.region)
-  } catch (e) {
-    error.value = '实时数据暂不可用，请稍后重试'
-  } finally { loading.value = false }
+// SWR：缓存秒出 + 后台静默刷新；「加载中」只在首次无缓存时出现
+function load() {
+  error.value = ''
+  const hasRegions = swr('regions', () => api.regions(), (v, fresh, err) => {
+    if (v) regions.value = v.regions || []
+    else if (err && !regions.value.length) error.value = '实时数据暂不可用，请稍后重试'
+  })
+  const key = `recommend|${region.region || ''}`
+  const hasRec = swr(key, () => api.recommend(region.region), (v, fresh, err) => {
+    if (v) { rec.value = v; loading.value = false }
+    else if (err) { error.value = '实时数据暂不可用，请稍后重试'; loading.value = false }
+  })
+  loading.value = !(hasRegions || hasRec) && !rec.value
+  if (hasRec) loading.value = false
 }
-function pick(r) { region.set(r); load() }
+function pick(r) { region.set(r); rec.value = null; load() }
 const firstVisit = computed(() => !region.region)   // 首访(未选地区)引导
 onMounted(load)
 </script>
@@ -50,6 +57,7 @@ onMounted(load)
       </div>
       <p v-else class="degraded">
         本区域暂无「当日新鲜」评分（{{ rec.fresh_count }}/{{ rec.total_count }}），不展示陈旧数据。
+        <router-link to="/status">查看数据健康 ▸</router-link>
       </p>
       <ul v-if="rec.alternatives && rec.alternatives.length" class="alts">
         <li v-for="a in rec.alternatives" :key="a.spot_slug">
@@ -59,7 +67,7 @@ onMounted(load)
       <p v-if="rec.degraded && rec.best" class="note">
         ⓘ 本区域今日 {{ rec.fresh_count }}/{{ rec.total_count }} 个浪点评分可用。
       </p>
-      <p class="ts">{{ rec.generated_at }}</p>
+      <p class="ts">{{ rec.generated_at }} · <router-link to="/status">数据健康</router-link></p>
     </section>
   </main>
 </template>

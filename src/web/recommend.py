@@ -13,6 +13,8 @@ import collections
 import datetime as _dt
 from typing import Any, Callable, Optional
 
+from . import governance
+
 GMT8 = _dt.timezone(_dt.timedelta(hours=8))
 
 
@@ -75,10 +77,15 @@ def build_recommendation(
     registry_rows: list[dict],
     reader: Any,
     now: Optional[_dt.datetime] = None,
+    manifest: Optional[dict] = None,
+    reports: Optional[dict] = None,
 ) -> dict:
     """返回 Recommendation（Fable5 §1.1）。region 空 = 全部浪点。
 
     reader: 具 .get(key)->dict|None 的缓存读取器（deps._cache_reader()），None=无缓存桶。
+    manifest: 当日刷新 manifest（R2 决策9）。今日 manifest 存在 → 只认 succeeded 集
+    （刷新中间态对外不可见）；无/非今日 → 退回逐报告 calibratedAt 判新鲜（兼容旧缓存）。
+    reports: 可选预取的 slug->report 映射（bulk_latest 并发读）；提供则不再逐点打 reader。
     """
     n = _now_gmt8(now)
     today = n.strftime("%Y-%m-%d")
@@ -86,16 +93,28 @@ def build_recommendation(
         [r for r in registry_rows if (r.get("region_cn") or "其他") == region]
         if region else list(registry_rows)
     )
-    total = len(in_region)
+    # R2 §1.3 三道过滤（决策2）：剔 is_test → 剔非 open。
+    # coverage 分母 = 可推荐池（不含永不参与推荐的维护/测试点，避免虚增降级感）。
+    pool = governance.recommendable_rows(in_region)
+    total = len(pool)
+    # R2 决策9：今日 manifest 在场 → succeeded 集是新鲜性唯一裁判（中间态不可见）
+    succeeded: Optional[set] = None
+    if manifest and manifest.get("date") == today:
+        succeeded = set(manifest.get("succeeded") or [])
     scored: list[dict] = []
-    for r in in_region:
+    for r in pool:
         slug = r.get("slug")
-        if not slug or reader is None:
+        if not slug or (reader is None and reports is None):
             continue
-        try:
-            rep = reader.get(f"{slug}/latest.json")
-        except Exception:  # noqa: BLE001  一个坏缓存不拖垮整体推荐
-            rep = None
+        if succeeded is not None and slug not in succeeded:
+            continue
+        if reports is not None:
+            rep = reports.get(slug)
+        else:
+            try:
+                rep = reader.get(f"{slug}/latest.json")
+            except Exception:  # noqa: BLE001  一个坏缓存不拖垮整体推荐
+                rep = None
         if not rep or not _is_fresh(rep, today):
             continue
         bd = _best_day(rep)
@@ -107,10 +126,12 @@ def build_recommendation(
             "day": bd.get("date"),
             "week": bd.get("week"),
             "score": round(float(bd["score"]), 1),
+            "beach_group": r.get("beach_group"),
             "_bd": bd,
         })
     scored.sort(key=lambda x: x["score"], reverse=True)
-    fresh = len(scored)
+    fresh = len(scored)  # 新鲜计数在同滩去重前：coverage 反映数据健康，去重只影响展示条目
+    scored = governance.dedup_by_beach(scored)  # 第三道：每滩只推最高分机位（决策8）
     out: dict = {
         "region": region,
         "generated_at": n.strftime("%Y-%m-%d %H:%M GMT+8"),

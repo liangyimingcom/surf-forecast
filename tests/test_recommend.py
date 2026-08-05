@@ -131,8 +131,10 @@ class _Store:
 
 
 def test_endpoints_public_no_auth(client, monkeypatch):
+    # 端点走真实时钟 → 新鲜时间戳必须动态生成（钉死日期=时间炸弹，07-28 曾爆）
+    fresh_today = dt.datetime.now(GMT8).strftime("%Y-%m-%d 02:00 GMT+8")
     monkeypatch.setattr(A.db, "get_store", lambda: _Store())
-    monkeypatch.setattr(A.deps, "_cache_reader", lambda: _Reader({"a": _rep(FRESH, 7.0)}))
+    monkeypatch.setattr(A.deps, "_cache_reader", lambda: _Reader({"a": _rep(fresh_today, 7.0)}))
     r1 = client.get("/api/regions")
     assert r1.status_code == 200 and any(x["region"] == "广东" for x in r1.json()["regions"])
     r2 = client.get("/api/recommend?region=广东")

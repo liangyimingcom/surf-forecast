@@ -33,7 +33,8 @@ ECR="$ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com"
 REPO="$ECR/$NAME_PREFIX-backend"
 CACHE_BUCKET="$NAME_PREFIX-cache-$ACCOUNT_ID-apne1"
 WEB_BUCKET="$NAME_PREFIX-web-$ACCOUNT_ID-apne1"
-AMI="${AMI:-ami-05bfa8036543cdeb3}"  # AL2023 ARM64 @ ap-northeast-1（按区域调整）
+# AL2023 ARM64：默认走 SSM 别名解析最新（AMI id 会随 AL2023 滚动下线，钉死会 InvalidAMIID，2026-07-28 实踩）
+AMI="${AMI:-$(aws ssm get-parameter --name /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64 --query 'Parameter.Value' --output text 2>/dev/null || echo ami-05bfa8036543cdeb3)}"
 
 log(){ printf '\033[36m[deploy]\033[0m %s\n' "$*"; }
 die(){ printf '\033[31m[deploy] ERROR:\033[0m %s\n' "$*" >&2; exit 1; }
@@ -60,7 +61,7 @@ cmd_validate(){
 }
 
 cmd_apply(){
-  log "terraform apply（$TFVARS）…"
+  log "terraform apply（${TFVARS}）…"
   ( cd "$TF_DIR" && terraform init -no-color >/dev/null && terraform apply -var-file="$TFVARS" )
 }
 
@@ -73,7 +74,9 @@ cmd_build(){
   aws s3api put-object --bucket "$CACHE_BUCKET" --key build/build.tgz --body "$tgz" >/dev/null
   local stamp; stamp=$(date +%s)
   local ver; ver=$(tr -d '[:space:]' < "$ROOT/VERSION" 2>/dev/null); ver="${ver:-0.0.0}"
-  log "构建版本 v$ver（同时打 :latest 与 :v$ver 不可变 tag）"
+  # ${ver} 必须带花括号：本行含全角括号等多字节字符，某些 locale 下 bash 词法把
+  # 紧随 $ver 的多字节字符并进变量名 → "ver�: unbound variable"（2026-07-28 实踩）
+  log "构建版本 v${ver}（同时打 :latest 与 :v${ver} 不可变 tag）"
   local subnet; subnet=$(aws ec2 describe-subnets --filters Name=default-for-az,Values=true \
       --query 'Subnets[0].SubnetId' --output text)
   local ud; ud=$(cat <<EOF | base64
@@ -93,10 +96,10 @@ EOF
       --instance-initiated-shutdown-behavior terminate --user-data "$ud" \
       --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=$NAME_PREFIX-builder}]" \
       --query 'Instances[0].InstanceId' --output text)
-  log "构建机 $iid 启动，等待构建成功标记 done-$stamp…"
+  log "构建机 $iid 启动，等待构建成功标记 done-${stamp}…"
   if [ -n "${SF_BUILD_NOWAIT:-}" ]; then
     printf '%s' "$stamp" > /tmp/sf_build_stamp
-    log "NOWAIT：已启动 $iid，跳过阻塞轮询（stamp=$stamp 存 /tmp/sf_build_stamp，外部轮询 done-\$stamp）"
+    log "NOWAIT：已启动 ${iid}，跳过阻塞轮询（stamp=$stamp 存 /tmp/sf_build_stamp，外部轮询 done-\${stamp}）"
     return 0
   fi
   for i in $(seq 1 40); do
@@ -153,7 +156,7 @@ cmd_rollback(){
       | jq --arg img "$REPO:$target" 'del(.taskDefinitionArn,.revision,.status,.registeredAt,.registeredBy,.requiresAttributes,.compatibilities) | .containerDefinitions[0].image=$img')
   local arn; arn=$(aws ecs register-task-definition --cli-input-json "$newdef" \
       --query 'taskDefinition.taskDefinitionArn' --output text)
-  log "回滚：注册新 task def $arn（image=$REPO:$target）→ 切服务"
+  log "回滚：注册新 task def ${arn}（image=$REPO:${target}）→ 切服务"
   aws ecs update-service --cluster "$NAME_PREFIX-cluster" --service "$NAME_PREFIX-svc" \
       --task-definition "$arn" --force-new-deployment --query 'service.serviceName' --output text
   changelog_add "rollback → $target" "已切 task def+滚动"

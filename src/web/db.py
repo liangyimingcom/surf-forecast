@@ -270,14 +270,25 @@ class DynamoDBStore:
         return items[0] if items else None
 
     def find_registry_by_coord(self, lat, lon):
+        # 坐标匹配必须两侧同精度 round 后比较（与 InMemoryStore 语义一致）。
+        # 旧实现用 round(入参,4) 与库中 6 位小数原值做 DynamoDB 精确相等 →
+        # seeded 点(6位小数)永远匹配不上 → slug 解析失败 → S3 缓存永不命中 →
+        # 每次详情页实时调 Open-Meteo 现算 ~5s（v0.3.2 提速实测揪出）。
         from boto3.dynamodb.conditions import Attr
-        from decimal import Decimal
-        r = self.registry_t.scan(FilterExpression=(
-            Attr("status").eq("active")
-            & Attr("lat").eq(Decimal(str(round(lat, 4))))
-            & Attr("lon").eq(Decimal(str(round(lon, 4))))))
+        r = self.registry_t.scan(FilterExpression=Attr("status").eq("active"))
         items = r.get("Items", [])
-        return items[0] if items else None
+        while r.get("LastEvaluatedKey"):
+            r = self.registry_t.scan(FilterExpression=Attr("status").eq("active"),
+                                     ExclusiveStartKey=r["LastEvaluatedKey"])
+            items.extend(r.get("Items", []))
+        for row in items:
+            try:
+                if (round(float(row["lat"]), 4) == round(lat, 4)
+                        and round(float(row["lon"]), 4) == round(lon, 4)):
+                    return row
+            except (TypeError, ValueError, KeyError):
+                continue
+        return None
 
     def list_active_registry(self):
         from boto3.dynamodb.conditions import Attr

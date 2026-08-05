@@ -10,6 +10,7 @@ from __future__ import annotations
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+from . import governance as _gov
 from . import spots_model as sm
 
 GMT8 = ZoneInfo("Asia/Shanghai")
@@ -71,6 +72,10 @@ def create_spot(store, user: dict, name: str, lat: float, lon: float,
             "refresh_enabled": True, "source": "user",
             "created_at_gmt8": _now(), "last_refresh_at_gmt8": None,
             "last_viewed_at_gmt8": _now(),
+            # R2 治理：用户自建点默认 open；E2E 名称前缀自动打 is_test（决策6 单环境隔离）
+            "op_status": "open",
+            "beach_group": None,
+            "is_test": _gov.is_test_name(clean_name),
         }
         store.upsert_registry(row)
         if budget_hook is not None:

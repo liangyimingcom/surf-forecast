@@ -8,6 +8,7 @@
 from __future__ import annotations
 import json
 from datetime import datetime, timezone, timedelta
+from . import governance
 from . import spots_model as sm
 
 _GMT8 = timezone(timedelta(hours=8))
@@ -47,6 +48,7 @@ def build_registry_rows(snapshot: dict) -> list[dict]:
             "last_refresh_at_gmt8": None,
             "last_viewed_at_gmt8": _now(),
         })
+        governance.annotate_row(rows[-1])  # R2 治理：op_status/beach_group/is_test + 名称干净化
     return rows
 
 

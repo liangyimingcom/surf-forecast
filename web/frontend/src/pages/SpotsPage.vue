@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { api } from '../api'
+import { swr } from '../swr'
 import { scoreColor } from '../charts'
 import SpotsMap from '../components/SpotsMap.vue'
 
@@ -15,14 +16,15 @@ const loading = ref(true)
 const error = ref('')
 const favs = ref(new Set(JSON.parse(localStorage.getItem(FAV_KEY) || '[]')))
 
-async function load() {
-  loading.value = true; error.value = ''
-  try {
-    spots.value = (await api.catalog()).catalog || []
-    try { scores.value = (await api.catalogScores()).scores || {} }
-    catch { scores.value = {} }
-  } catch (e) { error.value = '目录加载失败，请稍后重试' }
-  finally { loading.value = false }
+// SWR：目录/评分缓存秒出 + 后台静默刷新（scores 是最慢接口，缓存后切页 0 等待）
+function load() {
+  error.value = ''
+  const hasCat = swr('catalog', () => api.catalog(), (v, fresh, err) => {
+    if (v) { spots.value = v.catalog || []; loading.value = false }
+    else if (err && !spots.value.length) { error.value = '目录加载失败，请稍后重试'; loading.value = false }
+  })
+  swr('scores', () => api.catalogScores(), (v) => { if (v) scores.value = v.scores || {} })
+  loading.value = !hasCat && !spots.value.length
 }
 
 const regions = computed(() => ['全部', ...Array.from(new Set(spots.value.map(s => s.region))).filter(Boolean)])
@@ -77,7 +79,10 @@ onMounted(load)
       <li v-for="s in list" :key="s.slug" class="card">
         <button class="fav" :class="{ on: favs.has(s.slug) }" @click.stop="toggleFav(s.slug)" :aria-label="favs.has(s.slug) ? '取消收藏' : '收藏'">★</button>
         <router-link :to="`/spot/${s.slug}`" class="link">
-          <span class="name">{{ s.name }}</span>
+          <span class="name">{{ s.name }}
+            <span v-if="s.op_status === 'maintenance'" class="st maintain">维护中</span>
+            <span v-else-if="s.op_status === 'pending'" class="st pending">待开放</span>
+          </span>
           <span class="meta">{{ s.region }}<template v-if="s.city"> · {{ s.city }}</template></span>
         </router-link>
         <span v-if="s.slug in scores" class="badge" :style="{ background: scoreColor(scores[s.slug]) }">{{ scores[s.slug] }}</span>
@@ -104,6 +109,9 @@ h1 { font-size: 18px; color: var(--sea1); }
 .fav.on { color: #f59e0b; }
 .link { flex: 1; display: flex; flex-direction: column; text-decoration: none; }
 .name { font-weight: 600; color: var(--ink); }
+.st { font-size: 11px; font-weight: 500; border-radius: 6px; padding: 1px 6px; margin-left: 4px; vertical-align: 1px; }
+.st.maintain { background: #fef3e2; color: #b45309; }
+.st.pending { background: #eef0f4; color: #64748b; }
 .meta { font-size: 12px; color: var(--ink2); }
 .badge { color: #fff; font-weight: 700; font-size: 13px; border-radius: 8px; padding: 2px 8px; }
 .degraded { background: #fff7ed; border: 1px solid #fdba74; border-radius: 12px; padding: 10px; color: #9a3412; }
