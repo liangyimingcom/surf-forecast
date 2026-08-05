@@ -53,6 +53,11 @@ await page.route('**/api/status', r => r.fulfill({ json: {
   refresh: { date: '2026-07-27', kind: 'main', run_at: '2026-07-27 02:00 GMT+8', expected: 3, succeeded: 2,
              failed: ['sl82'], failed_detail: { sl82: 'skipped: empty_report(upstream grid all-null)' }, is_today: true },
   coverage: { pool: 2, fresh: 2 },
+  data_issues: {
+    coord_invalid: [{ slug: 'sl75', spot: '石梅湾九里', why: 'lat 超范围: 110.363232' }],
+    coord_duplicates: [{ coord: '22.6017,114.9073', slugs: ['sl54', 'sl84'], spots: ['虹海湾山海里', 'Kirra'], severity: 'suspect', regions: ['国外', '广东'] }],
+    coord_duplicates_benign_n: 2,
+  },
   regions: [{ region: '山东', spots: 1, pool: 1, fresh: 1, available: true, degraded: false },
             { region: '海南', spots: 1, pool: 1, fresh: 1, available: true, degraded: false }],
   history: [{ run_id: '2026-07-27-main', run_at: '2026-07-27 02:00 GMT+8', kind: 'main', expected_n: 2, ok_n: 2, duration_s: 60 }],
@@ -115,6 +120,13 @@ ok('状态页 区域可用性表', await page.locator('table').count() >= 2)
 const failTxt = await page.locator('.faillist').first().innerText().catch(() => '')
 ok('状态页 失败点列出 slug', failTxt.includes('sl82'))
 ok('状态页 失败点说明原因', failTxt.includes('empty_report') || failTxt.includes('upstream'))
+// R2：坏数据必须能在这个页面被看见（无推送告警 → /status 是唯一发现渠道）
+const cards = await page.locator('.card').allInnerTexts()
+const govTxt = cards.find(t => t.includes('数据治理待办')) || ''
+ok('状态页 数据治理区块存在', govTxt.length > 0)
+ok('状态页 报出坐标非法点', govTxt.includes('sl75') && govTxt.includes('超范围'))
+ok('状态页 报出可疑重复组', govTxt.includes('sl54') && govTxt.includes('Kirra'))
+ok('状态页 合理重复只计数不报故障', govTxt.includes('2 组同海滩'))
 
 ok('0 控制台/页面 JS 报错', errors.length === 0)
 if (errors.length) console.log('  JS errors:', errors.slice(0, 5))

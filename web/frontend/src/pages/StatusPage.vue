@@ -15,6 +15,18 @@ const failedDetail = computed(() => {
   return d ? Object.keys(d).sort().map(k => ({ slug: k, why: d[k] })) : []
 })
 
+// R2：坏数据必须能在这个页面被看见（本项目无推送告警，/status 是唯一发现渠道）。
+// 后端未提供 data_issues 时返回 null → 整块不渲染（不编造"一切正常"）。
+const dataIssues = computed(() => {
+  const di = st.value && st.value.data_issues
+  if (!di) return null
+  return {
+    coordInvalid: di.coord_invalid || [],
+    coordDupes: di.coord_duplicates || [],
+    benignN: di.coord_duplicates_benign_n || 0,
+  }
+})
+
 onMounted(() => {
   const has = swr('status', () => api.status(), (v, fresh, err) => {
     if (v) { st.value = v; loading.value = false }
@@ -51,6 +63,35 @@ onMounted(() => {
             <b>{{ f.slug }}</b> — {{ f.why }}
           </li>
         </ul>
+      </section>
+
+      <section v-if="dataIssues" class="card">
+        <h2>数据治理待办</h2>
+        <p v-if="!dataIssues.coordInvalid.length && !dataIssues.coordDupes.length" class="ok">
+          ✅ 未检出坐标非法或坐标重复
+        </p>
+        <template v-else>
+          <div v-if="dataIssues.coordInvalid.length">
+            <p class="warn">坐标非法（已隔离出刷新池，目录仍可见）：</p>
+            <ul class="faillist">
+              <li v-for="c in dataIssues.coordInvalid" :key="c.slug">
+                <b>{{ c.slug }}</b> {{ c.spot }} — {{ c.why }}
+              </li>
+            </ul>
+          </div>
+          <div v-if="dataIssues.coordDupes.length">
+            <p class="warn">坐标重复·可疑（跨海滩/跨区域同坐标，坐标→浪点解析有歧义）：</p>
+            <ul class="faillist">
+              <li v-for="d in dataIssues.coordDupes" :key="d.coord">
+                {{ d.coord }} — {{ d.slugs.join('、') }}（{{ d.spots.join('、') }}）
+                <span v-if="d.regions && d.regions.length > 1">· 跨区：{{ d.regions.join('/') }}</span>
+              </li>
+            </ul>
+          </div>
+        </template>
+        <p v-if="dataIssues.benignN" class="hint">
+          另有 {{ dataIssues.benignN }} 组同海滩不同机位的同坐标浪点，属预期，不计为故障。
+        </p>
       </section>
 
       <section class="card">
@@ -100,6 +141,7 @@ th, td { text-align: left; padding: 4px 8px; border-bottom: 1px solid #e2e8f0; }
 th { color: var(--ink2); font-weight: 600; }
 .ok { color: #15803d; }
 .warn { color: #b45309; font-size: 13px; }
+.hint { color: #6b7280; font-size: 12px; margin-top: 6px; }
 .faillist { margin: 4px 0 0; padding-left: 18px; color: #b45309; font-size: 12.5px; line-height: 1.6; }
 .bad { background: #fff7ed; border: 1px solid #fdba74; border-radius: 12px; padding: 10px; color: #9a3412; }
 .ts { font-size: 11px; color: var(--ink2); }

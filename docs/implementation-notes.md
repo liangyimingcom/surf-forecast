@@ -79,3 +79,19 @@
   canned status 改为带 `failed_detail` 的失败点，否则该 UI 等于没被测）。
 - **预期副作用（正确行为）**：判定上生产后 `sl82 Canggu` 会从 succeeded 掉入 failed，
   `/status` 由 60/60 变 59/60 —— 真实状态浮出水面，不是回归。
+
+## 2026-08-05 · R2 /status 自查静默故障（loop cycle 2）
+
+- **探测器放 `governance.py`**（纯函数、无 I/O），供 `/api/status` 与后续 R4 巡检脚本共用：
+  `coord_invalid_rows`（带 `coord_invalid` 标记的行）+ `coord_duplicate_groups`（4dp 同坐标分组，
+  精度刻意对齐 `dedup_key` / `find_registry_by_coord` 的比较精度）。
+- **关键判断：分级，否则是狼来了。** 拿生产注册表实跑发现 3 组重复里 **2 组是合理的**——
+  `sl49 西涌-全景`/`sl93 西涌`、`sl2 狮子岛全景`/`sl58 狮子岛-右` 属同一 `beach_group`，
+  是同片海滩的不同机位；只有 `sl54 虹海湾山海里`/`sl84 Kirra` 跨滩跨区（Kirra 在澳洲）
+  = 真损坏。若一并报故障，站长很快就会无视这个区块。
+  故 `severity: expected|suspect`，`/status` 只上报 suspect，合理组只给一个计数。
+- **`data_issues` 探测集用 `visible_rows`**（已剔 `is_test`）——测试点不外泄公开接口（决策6）。
+- **验证**：pytest **299 → 310**；vue_spa E2E **28 → 32**（canned status 补 `data_issues`，
+  否则新 UI 分支不触发＝没被测）；前端 build 940ms。
+- **生产实测（只读）**：`coord_invalid` 空（sl75/sl76 已修，符合预期——它是复发探测器），
+  `coord_duplicates` suspect 恰为 `sl54/sl84`。
