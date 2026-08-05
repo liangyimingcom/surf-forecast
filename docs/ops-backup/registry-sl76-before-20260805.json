@@ -1,0 +1,73 @@
+{
+    "Item": {
+        "city": {
+            "S": ""
+        },
+        "created_at_gmt8": {
+            "S": "2026-07-11 21:03:05+0800"
+        },
+        "days": {
+            "N": "6"
+        },
+        "dedup_key": {
+            "S": "110.3632:110.2883:135"
+        },
+        "facing_calibrated": {
+            "BOOL": false
+        },
+        "last_refresh_at_gmt8": {
+            "NULL": true
+        },
+        "last_viewed_at_gmt8": {
+            "S": "2026-07-11 21:03:05+0800"
+        },
+        "lat": {
+            "N": "110.363232"
+        },
+        "live_src": {
+            "S": "https://isurfvideo.c-pan.cn/live/fuliwanwh.m3u8"
+        },
+        "lon": {
+            "N": "110.28828471517565"
+        },
+        "post_url": {
+            "S": "/public/upimg/2024_9_432751微信图片_20240904020944.jpg"
+        },
+        "ref_count": {
+            "N": "1"
+        },
+        "refresh_enabled": {
+            "BOOL": true
+        },
+        "region": {
+            "S": "uncalibrated"
+        },
+        "region_cn": {
+            "S": "海南"
+        },
+        "slug": {
+            "S": "sl76"
+        },
+        "source": {
+            "S": "shilaoren"
+        },
+        "spot": {
+            "S": "富力湾全景"
+        },
+        "spot_facing_deg": {
+            "N": "135"
+        },
+        "status": {
+            "S": "active"
+        },
+        "op_status": {
+            "S": "pending"
+        },
+        "is_test": {
+            "BOOL": false
+        },
+        "beach_group": {
+            "S": "fuliwan"
+        }
+    }
+}

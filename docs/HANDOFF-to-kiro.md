@@ -85,3 +85,46 @@
 | .kiro/specs/* | 原 spec 体系（引擎/web/校验/部署/浪点，仍有效） |
 
 交接完毕。生产此刻健康，代码此刻领先远程 13 commit——**先 push，再做别的**。
+
+---
+
+## 7. 交接后更新（Kiro，2026-08-05 17:45 GMT+8）
+
+> 原文保留不改；本节记录交接之后发生的变化与**对原文的更正**。
+
+### 已闭环
+
+- **§2 未合并代码 → 已合并**：分支已 push，**PR #37 合并 master**（merge commit `7e9f481`，
+  保留 12 提交以便 tag 锚定）。原文"全部未 push / 你 review 后点 merge 即可"已过期，且当时 PR
+  实为 `CONFLICTING`（master #36 Leaflet 与分支各自动过 `web/frontend/package.json`；
+  分支侧为严格超集，取分支版=并集后解掉）。"从 master 构建会回退生产"的风险已消除。
+- **审计链补齐**：git tag `v0.3.0`~`v0.3.3` 已打并推送。
+  ⚠️ **更正 CHANGELOG**：v0.3.0 条目原记 commit `8415a7b` 有误——其树内 `VERSION=0.2.1`
+  （`deploy.sh` 从脏工作树构建，`changelog_add` 记的是当时 HEAD，而 v0.3.0 提交 12:47 才产生）。
+  正确锚点为 `0372fd7`，tag 已按此打。v0.3.1~v0.3.3 各行自洽。
+- **§4.4 deploy.sh smoke 401 断言 → 已修**：改为公开面 200×4（report/recommend/catalog/status）
+  + **合规红线 `/api/cams` 匿名必须 401**（保留一条真安全断言而非删除）。对生产实跑 6/6 绿。
+- **§4.2 sl75/sl76 → 已修，根因与原文猜测不同**：**不是上游海洋格点无数据**，而是
+  **源快照坐标损坏**——两点 `lat=110.363232`（>90 非法，实为经度值），58 点中恰这 2 点异常，
+  Open-Meteo 直接返回 `Latitude must be in range of -90 to 90°`。
+  真正的洞是**导入路径 `build_registry_rows` 绕过了用户 CRUD 必过的 `spots_model.validate_coord`**。
+  处置：① 代码护栏（非法坐标→隔离出刷新池但保留目录可见，+5 单测）；
+  ② 生产坐标按同 beach_group 兄弟点修正（sl75 `18.652,110.279` / sl76 `18.532,110.112`，
+  重算 `dedup_key`，加 `coord_source` 标注推断来源，旧值备份 `docs/ops-backup/`）。
+  验证：`refresh_cli retry` → manifest **60/60 · failed=[]**，两点详情报告 6 日数据正常。
+- **goal 三件套**：`north_star.md` / `roadmap.md` / `tasks.md` 已重写为**以本文档为唯一事实来源**
+  （旧内容是已完成的「甲·Vue 重建」，会误导后来者）。待办清单在 `tasks.md`（H0~H3）。
+
+### 新发现（尚未修，已进 tasks.md）
+
+- **sl82 Canggu 产出空报告**：坐标正确（-8.661,115.133 = 巴厘岛），但 WAM025 在格点
+  `-8.75/115.25` 返回 48 时点**全空** → 报告 `days: 0`。**这才是真正的"上游格点无数据"**。
+  已探明邻近格点 `-8.75/115.0` 数据完整（1.74m），经度微调到 ≈`115.05` 即可。
+- **契约洞（连带暴露）**：manifest 把"写出了 latest.json"就算 `succeeded`，**即使 `days=0`**
+  → 会出现 60/60 全绿但某点实际不可用（`coverage` 里才看得出 pool 37 / fresh 36）。
+  建议刷新成功判定加 `days > 0`。
+- **注册表 3 组重复坐标**（4dp 相同）：`sl49/sl93`、`sl54/sl84`、`sl2/sl58` →
+  `find_registry_by_coord` 取首个匹配，坐标→slug 解析有歧义（同族于 v0.3.2 那个缓存 bug）。
+  另注 `sl84 Kirra`（澳洲）坐标为 `22.60,114.91`（广东境内），疑与 `sl54` 数据串行。
+- **`/api/status` 有 300s 聚合缓存**（`SF_AGG_TTL`，`_agg_cache`）：刚触发刷新后立刻看 `/status`
+  会读到旧 manifest，**不是故障**，等一个 TTL 窗口即反映真值（排障时别被误导）。
