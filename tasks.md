@@ -28,7 +28,9 @@
 ## R2 · `/status` 能自己发现三类静默故障
 
 - [ ] R2.1 空报告：`failed` 里能看出「上游格点全空」这类原因（承 R1.2）
-- [ ] R2.2 坐标非法：`/api/status` 暴露带 `coord_invalid` 标记的行（PR #38 护栏会打此标）
+- [ ] R2.2 坐标非法：`/api/status` 暴露带 `coord_invalid` 标记的行（PR #38 护栏会打此标）。
+      ⚠️ **生产当前应为 0 行**（sl75/sl76 坐标已修，且护栏只作用于未来 seed）——
+      这是"未来复发的探测器"，别以为查不到就是没接通；用单测 + 本地 seed 造数据验证
 - [ ] R2.3 坐标重复：暴露 4dp 相同坐标的分组（已知 3 组 `sl49/sl93`、`sl54/sl84`、`sl2/sl58`）
 - [ ] R2.4 前端 `/status` 页同步显示这三块，措辞守数据诚实（不可用就说不可用）
 - [ ] R2.5 单测钉死 `/api/status` 新字段形状；**零新增持久化**（派生自 registry+manifest+缓存）
@@ -45,7 +47,10 @@
 
 - [ ] R4.1 新建 `tools/probe_grid_health.py`：遍历注册表坐标探测上游是否全空；
       全空点搜索邻近格点（±0.05°/±0.1°）给出可用坐标建议；输出到 stdout
-- [ ] R4.2 **只读**：不得写 DynamoDB（那是 🔒 G1）；不引新依赖
+- [ ] R4.2 **只读**：不得写 DynamoDB（那是 🔒 G1）；不引新依赖。
+      数据来源二选一：① 生产 registry 只读 scan（`AWS_PROFILE=oversea1`、`ap-northeast-1`、
+      表 `surf-forecast-dev-spot_registry`）；② 本地快照 `reference/data/shilaoren_spots.json`
+      （注意快照里 sl75/sl76 仍是坏坐标，生产已修——两者会不一致，属预期）
 - [ ] R4.3 对全量 registry 干跑通过，且能复现 `sl82 Canggu` 诊断
       （现格点 `-8.75/115.25` 全空 → 建议经度 ≈`115.05` 落入 `-8.75/115.0`，实测 1.74m）
 
