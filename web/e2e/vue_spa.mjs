@@ -128,6 +128,50 @@ ok('状态页 报出坐标非法点', govTxt.includes('sl75') && govTxt.includes
 ok('状态页 报出可疑重复组', govTxt.includes('sl54') && govTxt.includes('Kirra'))
 ok('状态页 合理重复只计数不报故障', govTxt.includes('2 组同海滩'))
 
+// —— S3 小白模式：倒计时三态（假时钟钉双侧边界）+ 通勤倒推 ——
+// 独立 context 用假时钟，避免污染其余断言
+{
+  // 详情页默认显示 ranking[0] 指定的那天（不一定是 days[0]）——假时钟必须对着它设，
+  // 否则倒计时算的是另一天（本轮实测踩到：起点整那条误判为 before）。
+  const shown = REPORT.days[(REPORT.ranking && REPORT.ranking[0]) || 0]
+  const DAY = shown.date
+  const win = shown.windows && shown.windows[0]
+  if (win) {
+    const cases = [
+      [`${DAY}T${String(win[0]).padStart(2,'0')}:00:00+08:00`.replace('.0',''), 'during', /窗口进行中/, '起点整（含）'],
+      [`${DAY}T${String(win[1]).padStart(2,'0')}:00:00+08:00`.replace('.0',''), 'after', /窗口已过/, '终点整（不含）'],
+    ]
+    for (const [iso, st, re_, label] of cases) {
+      const ctx = await browser.newPage()
+      // 假时钟：冻结时间到 iso（用 JSON.stringify 传值，别在模板里再套一层引号——本轮踩过）
+      await ctx.addInitScript(`{ const F=new Date(${JSON.stringify(iso)}).getTime(); const RD=Date;
+        class D extends RD { constructor(...a){ if(!a.length) super(F); else super(...a) } static now(){ return F } }
+        globalThis.Date=D; }`)
+      await ctx.route('**/api/**', r => r.fulfill({ json: {} }))
+      await ctx.route('**/api/catalog*', r => r.fulfill({ json: CATALOG }))
+      await ctx.route('**/api/report/history*', r => r.fulfill({ json: { history: REPORT.history } }))
+      await ctx.route('**/api/report*', r => r.fulfill({ json: REPORT }))
+      await ctx.goto(BASE + '/spot/sl74', { waitUntil: 'networkidle', timeout: 30000 })
+      await ctx.waitForTimeout(700)
+      const cls = await ctx.locator('.cdown').getAttribute('class').catch(() => '')
+      const txt = await ctx.locator('.cdown').innerText().catch(() => '')
+      ok(`倒计时 ${label} → ${st}`, (cls || '').includes(st) && re_.test(txt))
+      await ctx.close()
+    }
+  }
+}
+// 通勤倒推（真实时钟即可，只验存在/推算/持久化/模式隔离）
+await page.goto(BASE + '/spot/sl74', { waitUntil: 'networkidle', timeout: 30000 })
+await page.waitForTimeout(500)
+await page.click('.modes button:has-text("小白")'); await page.waitForTimeout(250)
+ok('通勤倒推卡（小白模式）', await page.locator('.departcard').count() === 1)
+ok('通勤倒推 出门→下水两个时刻', /\d{2}:\d{2}[\s\S]*出门[\s\S]*\d{2}:\d{2}[\s\S]*下水/.test(await page.locator('.departcard .departline').innerText()))
+const before = await page.locator('.departcard .commuterow').innerText()
+await page.locator('.departcard .commuterow button').first().click(); await page.waitForTimeout(250)
+ok('通勤时长可调（−5min 生效）', (await page.locator('.departcard .commuterow').innerText()) !== before)
+await page.click('.modes button:has-text("高手")'); await page.waitForTimeout(250)
+ok('通勤卡仅小白模式（高手不显）', await page.locator('.departcard').count() === 0)
+
 // —— S2 晨报首页 ——
 await page.goto(BASE + '/', { waitUntil: 'networkidle', timeout: 30000 })
 await page.waitForTimeout(700)

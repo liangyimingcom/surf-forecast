@@ -1,8 +1,9 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { api } from '../api'
 import { swr, cached } from '../swr'
+import { countdown, departure } from '../countdown'
 import { setFacing } from '../charts'
 import ChartBox from '../components/ChartBox.vue'
 import LiveCam from '../components/LiveCam.vue'
@@ -72,6 +73,21 @@ const day = computed(() => report.value?.days?.[sel.value] || null)
 
 // 小白/高手模式（localStorage 记忆）
 const mode = ref(localStorage.getItem('sf_mode_v1') || 'novice')
+
+// —— S3 倒计时 + 通勤倒推（纯前端，逻辑在 countdown.js，便于用假时钟钉边界）——
+const nowTick = ref(Date.now())
+let timer = null
+onMounted(() => { timer = setInterval(() => { nowTick.value = Date.now() }, 1000) })
+onUnmounted(() => { if (timer) clearInterval(timer) })
+
+const COMMUTE_KEY = 'sf_commute_v1'
+const commute = ref(Number(localStorage.getItem(COMMUTE_KEY) || 45))
+function setCommute(delta) {
+  commute.value = Math.min(240, Math.max(0, commute.value + delta))
+  try { localStorage.setItem(COMMUTE_KEY, String(commute.value)) } catch (e) { /* 隐私模式忽略 */ }
+}
+const cdown = computed(() => (day.value ? countdown(day.value, new Date(nowTick.value)) : null))
+const depart = computed(() => (day.value ? departure(day.value, commute.value) : null))
 function setMode(m) { mode.value = m; localStorage.setItem('sf_mode_v1', m) }
 
 // 昨日自评（best-effort：登录态落库，匿名/失败仅本地致谢，不阻塞）
@@ -158,6 +174,8 @@ onMounted(load)
           <span v-if="day.board">🏄 {{ day.board }}</span>
         </div>
 
+        <p v-if="cdown" class="cdown" :class="cdown.state">⏳ {{ cdown.text }}</p>
+
         <button v-if="mode === 'novice'" class="whybtn" @click="setMode('expert')">
           🤔 为什么是 {{ day.score }} 分？看图解分析 →
         </button>
@@ -173,6 +191,24 @@ onMounted(load)
         <!-- 行动建议与顶部结论(novice)同文时不重复渲染（遗留：文案一字不差出现两次） -->
         <div v-if="day.plan && day.plan[1] !== day.novice" class="plan"><b>{{ day.plan[0] }}</b><p>{{ day.plan[1] }}</p></div>
         <div v-if="day.safety && day.safety.length" class="safety"><b>{{ day.safety[0] }}</b><p>{{ day.safety[1] }}</p></div>
+      </section>
+
+      <!-- 几点出门（通勤倒推）：纯前端推算，不依赖后端字段；仅小白模式（原型②） -->
+      <section v-if="mode === 'novice' && depart" class="daycard departcard">
+        <div class="paper-sect">🚗 几点出门（按你的通勤自动倒推）</div>
+        <p class="departline">
+          <b class="paper-num">{{ depart.depart }}</b>
+          <span v-if="depart.prevDay" class="prevday">前一天</span>
+          <span class="arrow">出门 →</span>
+          <span>{{ depart.water }} 下水</span>
+        </p>
+        <p class="commuterow">
+          车程
+          <button @click="setCommute(-5)" aria-label="车程减 5 分钟">−</button>
+          <b>{{ commute }}min</b>
+          <button @click="setCommute(5)" aria-label="车程加 5 分钟">＋</button>
+          ＋ 收拾装备 15min ＝ 提前 {{ depart.total }}min
+        </p>
       </section>
 
       <!-- 一句话剧情 -->
@@ -229,7 +265,18 @@ h1 { font-size: 18px; color: var(--sea1); }
 .strip button.on { border-color: var(--sea2); box-shadow: 0 0 0 2px rgba(14,165,233,.2); }
 .strip .wk { font-size: 11px; color: var(--ink2); }
 .strip .sc { font-size: 15px; font-weight: 700; color: var(--sea1); }
-.daycard { background: var(--card); border-radius: 16px; padding: 14px; margin: 10px 0; }
+.daycard { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px; margin: 10px 0; }
+.cdown { font-family: var(--serif); font-size: 13px; color: var(--hot); margin: 8px 0 0; }
+.cdown.during { color: var(--ok); font-weight: 700; }
+.cdown.after { color: var(--ink2); }
+.departcard .departline { display: flex; align-items: baseline; gap: 8px; margin: 6px 0 4px; font-size: 13px; }
+.departcard .departline b { font-size: 26px; color: var(--sea); }
+.departcard .prevday { font-size: 10.5px; background: var(--warnbg); color: var(--warn); border-radius: 5px; padding: 1px 5px; }
+.departcard .arrow { color: var(--ink2); }
+.departcard .commuterow { font-size: 11.5px; color: var(--ink2); margin: 0; }
+.departcard .commuterow b { color: var(--ink); font-variant-numeric: tabular-nums; margin: 0 2px; }
+.departcard .commuterow button { width: 24px; height: 24px; border: 1px solid var(--line); border-radius: 50%;
+                                 background: var(--card); color: var(--ink); font-size: 14px; line-height: 1; cursor: pointer; }
 .head { display: flex; align-items: baseline; gap: 10px; }
 .score { font-size: 28px; font-weight: 800; color: var(--sea1); }
 .tag { font-size: 14px; }
