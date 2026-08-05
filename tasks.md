@@ -104,7 +104,8 @@
       ⑤ **E2E fixture 曾比现实漂亮**（写成已人话化的「离岸风」）→ 已改为后端真值 `off`，
          否则这个缺陷在 E2E 里永远暴露不了
 - [x] S5.5 文档回写：`implementation-notes.md` 逐阶段（S1~S4 各一节）+ `HANDOFF-to-kiro.md` §7 新增本轮小节（含 4 个真问题与验收手法）
-- [ ] S5.6 开 PR（不合并，🔒 G4）+ 整理待办清单 + 创建停止文件并汇报
+- [x] S5.6 PR **#44 已开、未合并**（硬门 G4）：https://github.com/liangyimingcom/surf-forecast/pull/44
+      待办已整理进本文件「📋 审计报出但本轮未做」与「🔒 硬门」两节；停止文件已创建，loop 自停
 
 ## 📋 审计报出但本轮未做（有意跳过，附理由）
 
