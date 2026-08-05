@@ -60,11 +60,14 @@ def _seed_real():
 
 # ============================================================
 # A. spot_registry 58+（真实快照导入）
+#    注：断言的是【公开目录可见集】→ 必须用 list_listed_registry()（仅 status=active）。
+#    不可用 list_active_registry()（额外要求 refresh_enabled）——可见性不耦合刷新开关是红线，
+#    且 H1.1 坐标护栏会把 sl75/sl76 移出刷新池（仍可见），用刷新池断言会误判为丢点。
 # ============================================================
 def test_registry_seeds_58_plus():
     n = _seed_real()
     assert n >= EXPECT_TOTAL
-    active = db.get_store().list_active_registry()
+    active = db.get_store().list_listed_registry()
     assert len(active) >= EXPECT_TOTAL          # DoD#1：58+ 浪点入注册表
 
 
@@ -72,7 +75,7 @@ def test_registry_every_row_has_coord_and_immutable_slug():
     _seed_real()
     import math
     slug_re = re.compile(r"^sl\d+$")            # 稳定不可变(基于 cId)
-    for r in db.get_store().list_active_registry():
+    for r in db.get_store().list_listed_registry():
         assert slug_re.match(r["slug"]), f"slug 非法/可变: {r['slug']}"
         lat, lon = float(r["lat"]), float(r["lon"])
         assert math.isfinite(lat) and math.isfinite(lon)   # 坐标为有限数字
@@ -80,14 +83,14 @@ def test_registry_every_row_has_coord_and_immutable_slug():
 
 def test_registry_regions_cover_official_8():
     _seed_real()
-    got = {r.get("region_cn") for r in db.get_store().list_active_registry()}
+    got = {r.get("region_cn") for r in db.get_store().list_listed_registry()}
     assert got == REGIONS_8                     # DoD#4：8 官方区域齐全（供筛选）
 
 
 def test_registry_region_distribution_matches_snapshot():
     _seed_real()
     counts: dict[str, int] = {}
-    for r in db.get_store().list_active_registry():
+    for r in db.get_store().list_listed_registry():
         counts[r["region_cn"]] = counts.get(r["region_cn"], 0) + 1
     assert counts == EXPECT_REGION_COUNTS
 
@@ -95,7 +98,7 @@ def test_registry_region_distribution_matches_snapshot():
 def test_registry_live_src_subset_is_42():
     _seed_real()
     # 注册表保留全部 live_src（含 http，不过滤）——42；https 过滤只发生在 /api/cams 层
-    live = [r for r in db.get_store().list_active_registry() if r.get("live_src")]
+    live = [r for r in db.get_store().list_listed_registry() if r.get("live_src")]
     assert len(live) == 42
 
 

@@ -127,10 +127,20 @@ cmd_frontend(){
 cmd_smoke(){
   local base="${1:-}"
   [ -z "$base" ] && base=$( cd "$TF_DIR" && terraform output -raw alb_dns_name 2>/dev/null | sed 's#^#http://#' )
-  log "冒烟 $base …"
-  curl -fsS -m 15 "$base/api/health" && echo
-  local code; code=$(curl -s -m 15 -o /dev/null -w '%{http_code}' "$base/api/report?lat=36.092&lon=120.468&days=3")
-  [ "$code" = "401" ] && log "未登录 /api/report 正确返回 401 ✅" || die "未登录应 401，实得 $code"
+  log "冒烟 ${base} …"
+  curl -fsS -m 15 "${base}/api/health" && echo
+  # 公开面：v0.3.x 诚实分层鉴权后，一期 report/recommend/catalog/status 匿名即可取
+  # （旧断言"未登录 /api/report 应 401"已随 member_gate 分层作废，会误报）
+  local p code
+  for p in "/api/report?lat=36.092&lon=120.468&days=3" "/api/recommend?region=%E5%B9%BF%E4%B8%9C" "/api/catalog" "/api/status"; do
+    code=$(curl -s -m 20 -o /dev/null -w '%{http_code}' "${base}${p}")
+    [ "${code}" = "200" ] || die "公开端点 ${p} 应 200，实得 ${code}"
+    log "公开端点 ${p} → 200 ✅"
+  done
+  # 合规红线（不可放宽）：/api/cams 直播源为逆向所得、仅研究用途，必须对匿名返回 401
+  code=$(curl -s -m 20 -o /dev/null -w '%{http_code}' "${base}/api/cams")
+  [ "${code}" = "401" ] || die "合规红线破防：未登录 /api/cams 必须 401，实得 ${code}"
+  log "合规红线 /api/cams 未登录 401 ✅"
 }
 
 cmd_all(){ cmd_test; cmd_validate; cmd_apply; cmd_build; cmd_redeploy; cmd_frontend; sleep 90; cmd_smoke; }
