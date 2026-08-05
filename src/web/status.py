@@ -60,6 +60,7 @@ def build_status(registry_rows: list[dict], reader: Any,
         })
 
     _dupes = governance.coord_duplicate_groups(rows)
+    _comp = governance.coord_component_collisions(rows)
     return {
         "generated_at": n.strftime("%Y-%m-%d %H:%M GMT+8"),
         "refresh": refresh,
@@ -76,6 +77,8 @@ def build_status(registry_rows: list[dict], reader: Any,
             "coord_invalid": governance.coord_invalid_rows(rows),
             "coord_duplicates": [g for g in _dupes if g["severity"] == "suspect"],
             "coord_duplicates_benign_n": sum(1 for g in _dupes if g["severity"] != "suspect"),
+            # 逐字段串行：只有一个分量被串时组合坐标仍唯一，上面那个探测器看不见。
+            "coord_component_collisions": [g for g in _comp if g["severity"] == "suspect"],
         },
         "history": list((m.get("history") or []))[::-1],  # 最新在前
     }

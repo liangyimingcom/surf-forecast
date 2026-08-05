@@ -134,9 +134,11 @@ def test_status_failed_detail_empty_when_no_failure(client, monkeypatch):
 # ============================================================
 def test_status_exposes_data_issues_shape(client, wired):
     di = client.get("/api/status").json()["data_issues"]
-    assert set(di.keys()) == {"coord_invalid", "coord_duplicates", "coord_duplicates_benign_n"}
+    assert set(di.keys()) == {"coord_invalid", "coord_duplicates",
+                              "coord_duplicates_benign_n", "coord_component_collisions"}
     assert isinstance(di["coord_invalid"], list)
     assert isinstance(di["coord_duplicates"], list)
+    assert isinstance(di["coord_component_collisions"], list)
 
 
 def test_status_data_issues_detects_dupes_and_invalid(client, monkeypatch):

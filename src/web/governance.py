@@ -169,3 +169,51 @@ def coord_duplicate_groups(rows: list[dict], ndigits: int = 4) -> list[dict]:
         })
     return sorted(out, key=lambda x: x["coord"])
 
+
+
+def coord_component_collisions(rows: list[dict], min_decimals: int = 6) -> list[dict]:
+    """**逐字段串行**探测：多个浪点共享同一个高精度坐标分量（lat 或 lon）。
+
+    为什么需要它（4dp 重复探测器抓不到的一类）：
+    高精度浮点值（≥6 位小数）在两个真实浪点间巧合相同是物理上不可能的，只可能是
+    上游数据串行。而串行**可以只发生在一个分量上** —— 此时组合坐标是唯一的，
+    `coord_duplicate_groups` 完全看不见。
+
+    2026-08-05 生产实测抓到 3 例，其中 1 例是任何其他检查都发现不了的：
+      - `sl84 Kirra`(国外) 整套借用 `sl54 虹海湾山海里`(广东) 的 lat+lon
+      - `sl85 Currumbin`(国外) 的 lat 取自 `sl60 南燕湾`(海南)、lon 取自 `sl49 西涌`(广东)
+        —— 两个分量来自**不同**的国内点；坐标落在南海且有浪场数据，
+        于是为一个澳洲浪点静默产出"看起来很合理"的错误预报（最坏的一种失败）
+      - `sl71 海螺湾`(浙江) 借用 `sl57 石梅湾-艾美`(海南) 的 lon
+
+    分级同 `coord_duplicate_groups`：
+      - `expected`：全组同一个非空 `region_cn`（同片海域的多机位，共享坐标属正常）
+      - `suspect`：跨区域 → 真串行
+    """
+    out = []
+    for comp in ("lat", "lon"):
+        buckets: dict[str, list[dict]] = {}
+        for r in rows:
+            v = r.get(comp)
+            if v is None:
+                continue
+            s = str(v)
+            frac = s.split(".")[-1] if "." in s else ""
+            if len(frac) < min_decimals:      # 低精度值巧合相同是可能的，跳过
+                continue
+            buckets.setdefault(s, []).append(r)
+        for value, group in buckets.items():
+            if len(group) < 2:
+                continue
+            g = sorted(group, key=lambda r: str(r.get("slug")))
+            regions = {r.get("region_cn") for r in g}
+            same_region = len(regions) == 1 and all(regions)
+            out.append({
+                "component": comp,
+                "value": value,
+                "slugs": [r.get("slug") for r in g],
+                "spots": [r.get("spot") for r in g],
+                "regions": sorted(str(x) for x in regions),
+                "severity": "expected" if same_region else "suspect",
+            })
+    return sorted(out, key=lambda x: (x["component"], x["value"]))

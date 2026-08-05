@@ -250,3 +250,67 @@ def test_real_snapshot_duplicate_groups_and_severity():
     suspect = [g for g in groups if g["severity"] == "suspect"]
     assert [tuple(g["slugs"]) for g in suspect] == [("sl54", "sl84")], suspect
 
+
+
+# ============================================================
+# R2+：坐标分量串行（4dp 重复探测器抓不到的一类）
+#
+# 高精度浮点值在两个真实浪点间巧合相同是物理上不可能的，只可能是上游串行；
+# 而串行**可以只发生在一个分量上** —— 此时组合坐标唯一，coord_duplicate_groups 看不见。
+# 2026-08-05 生产实测最恶劣一例：sl85 Currumbin(澳洲) 的 lat 取自 sl60 南燕湾(海南)、
+# lon 取自 sl49 西涌(广东) → 坐标落在南海且有浪场数据 → 为澳洲浪点静默产出
+# "看起来很合理"的错误预报。
+# ============================================================
+def test_component_collision_cross_region_is_suspect():
+    rows = [
+        {"slug": "cn", "spot": "南燕湾", "lat": 18.661276502547974, "lon": 110.1,
+         "region_cn": "海南"},
+        {"slug": "au", "spot": "Currumbin", "lat": 18.661276502547974, "lon": 114.5,
+         "region_cn": "国外"},
+    ]
+    out = G.coord_component_collisions(rows)
+    assert len(out) == 1
+    assert out[0]["component"] == "lat" and out[0]["severity"] == "suspect"
+    assert out[0]["slugs"] == ["au", "cn"]
+    assert out[0]["regions"] == ["国外", "海南"]
+
+
+def test_component_collision_same_region_is_expected():
+    """同一区域共享坐标分量（同片海域多机位）属正常，不得当故障报。"""
+    rows = [
+        {"slug": "a", "lat": 22.482019021957537, "lon": 1.0, "region_cn": "广东"},
+        {"slug": "b", "lat": 22.482019021957537, "lon": 2.0, "region_cn": "广东"},
+    ]
+    assert all(g["severity"] == "expected" for g in G.coord_component_collisions(rows))
+
+
+def test_component_collision_ignores_low_precision():
+    """低精度值（如 18.6）巧合相同是可能的，不能报——否则满屏误报。"""
+    rows = [{"slug": "a", "lat": 18.6, "lon": 110.2, "region_cn": "海南"},
+            {"slug": "b", "lat": 18.6, "lon": 110.3, "region_cn": "国外"}]
+    assert G.coord_component_collisions(rows) == []
+
+
+def test_component_collision_catches_what_dupe_detector_misses():
+    """关键对照：只串一个分量时，4dp 组合坐标探测器看不见，本探测器必须看得见。"""
+    rows = [
+        {"slug": "cn", "lat": 18.661276502547974, "lon": 110.111111, "region_cn": "海南"},
+        {"slug": "au", "lat": 18.661276502547974, "lon": 114.555555, "region_cn": "国外"},
+    ]
+    assert G.coord_duplicate_groups(rows) == []          # 组合坐标不同 → 抓不到
+    assert [g["severity"] for g in G.coord_component_collisions(rows)] == ["suspect"]
+
+
+def test_real_snapshot_component_collisions_are_the_known_three():
+    """真实快照回归：跨区串行恰为 sl84 Kirra / sl85 Currumbin / sl71 海螺湾
+    所在的组。上游修好或又多一处，这条会提醒复核。"""
+    import json
+    import pathlib
+    from web import seed as _seed
+    snap = pathlib.Path(__file__).resolve().parents[1] / "reference" / "data" / "shilaoren_spots.json"
+    rows = _seed.build_registry_rows(json.loads(snap.read_text(encoding="utf-8")))
+    sus = [g for g in G.coord_component_collisions(G.visible_rows(rows))
+           if g["severity"] == "suspect"]
+    flagged = {s for g in sus for s in g["slugs"]}
+    for expect in ("sl84", "sl85", "sl71"):
+        assert expect in flagged, (expect, flagged)

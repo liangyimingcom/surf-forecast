@@ -24,6 +24,7 @@ const dataIssues = computed(() => {
     coordInvalid: di.coord_invalid || [],
     coordDupes: di.coord_duplicates || [],
     benignN: di.coord_duplicates_benign_n || 0,
+    compColl: di.coord_component_collisions || [],
   }
 })
 
@@ -67,7 +68,7 @@ onMounted(() => {
 
       <section v-if="dataIssues" class="card">
         <h2>数据治理待办</h2>
-        <p v-if="!dataIssues.coordInvalid.length && !dataIssues.coordDupes.length" class="ok">
+        <p v-if="!dataIssues.coordInvalid.length && !dataIssues.coordDupes.length && !dataIssues.compColl.length" class="ok">
           ✅ 未检出坐标非法或坐标重复
         </p>
         <template v-else>
@@ -85,6 +86,15 @@ onMounted(() => {
               <li v-for="d in dataIssues.coordDupes" :key="d.coord">
                 {{ d.coord }} — {{ d.slugs.join('、') }}（{{ d.spots.join('、') }}）
                 <span v-if="d.regions && d.regions.length > 1">· 跨区：{{ d.regions.join('/') }}</span>
+              </li>
+            </ul>
+          </div>
+          <div v-if="dataIssues.compColl.length">
+            <p class="warn">坐标分量串行·可疑（不同区域的浪点共用同一个高精度经/纬度值）：</p>
+            <ul class="faillist">
+              <li v-for="c in dataIssues.compColl" :key="c.component + c.value">
+                {{ c.component }}={{ c.value }} — {{ c.slugs.join('、') }}（{{ c.spots.join('、') }}）
+                · 跨区：{{ c.regions.join('/') }}
               </li>
             </ul>
           </div>
