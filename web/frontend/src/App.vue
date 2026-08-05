@@ -88,7 +88,7 @@ async function doLogout() {
 .nightbtn.on { background: var(--soft); }
 .wxlogin { position: fixed; top: 10px; right: 10px; z-index: 50; width: 38px; height: 38px; border-radius: 50%; border: none; background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow); font-size: 18px; }
 .wxlogin.authed { font-size: 14px; }
-.wxmask { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; z-index: 100; }
+.wxmask { position: fixed; inset: 0; background: var(--overlay); display: flex; align-items: center; justify-content: center; z-index: 100; }
 .wxbox { background: var(--card); border-radius: 16px; padding: 20px; width: min(320px, 88vw); text-align: center; }
 .wxbox h3 { color: var(--sea1); margin: 0 0 8px; }
 .wxbox p { font-size: 13px; color: var(--ink2); }

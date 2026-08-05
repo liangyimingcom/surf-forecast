@@ -319,7 +319,7 @@ h1 { font-size: 18px; color: var(--sea1); }
 .bias { font-size: 12.5px; background: var(--seabg); border-radius: 10px; padding: 8px 10px; margin-top: 8px; color: var(--sea); }
 .strip { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
 .strip button { display: flex; flex-direction: column; align-items: center; min-width: 52px; padding: 6px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
-.strip button.on { border-color: var(--sea2); box-shadow: 0 0 0 2px rgba(14,165,233,.2); }
+.strip button.on { border-color: var(--sea2); box-shadow: 0 0 0 2px var(--halo); }
 .strip .wk { font-size: 11px; color: var(--ink2); }
 .strip .sc { font-size: 15px; font-weight: 700; color: var(--sea1); }
 .daycard { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px; margin: 10px 0; }

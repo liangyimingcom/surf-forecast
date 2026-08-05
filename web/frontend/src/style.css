@@ -47,6 +47,8 @@
   --serif: Georgia, "Songti SC", "Times New Roman", serif;  /* 大标题/大数字用衬线，纸感来源 */
   --radius: 14px;
   --shadow: 0 1px 3px rgba(0,0,0,.06);
+  --halo: rgba(31,111,143,.22);      /* 选中日焦点环（须随夜读走，否则夜里固定亮蓝） */
+  --overlay: rgba(0,0,0,.4);         /* 模态遮罩 */
 }
 
 /* 夜读模式：surfer 睡前查浪报的真实场景。只覆盖变量，不碰任何组件规则。 */
@@ -70,6 +72,8 @@ body.night {
   --seabg:    #1e2a30;
   --bad:      #f0955f;
   --shadow: 0 1px 3px rgba(0,0,0,.4);
+  --halo: rgba(124,196,224,.28);     /* 夜读用海蓝夜值，避免亮蓝刺眼 */
+  --overlay: rgba(0,0,0,.62);        /* 夜读遮罩更深 */
 
   --ch-bar:    #5aa8c8;
   --ch-line:   #f0955f;

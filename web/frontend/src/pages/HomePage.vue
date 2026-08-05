@@ -6,11 +6,12 @@
 //   /api/catalog + /api/report → 本周走势（渐进增强，见 loadTrend）
 // 🚫 原型①里的「今日注意告警」「现场众报」「三点横评的人流/车程列」本轮不做：
 //    无数据源（降水/流场、众报投票表、车程矩阵），做了就是编造 —— 见 north_star 围栏 2。
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { api } from '../api'
 import { swr } from '../swr'
 import { sparkline, WIND_META } from '../charts'
 import { convertHeights } from '../units'
+import { countdown } from '../countdown'
 import { useRegionStore } from '../stores/region'
 
 const region = useRegionStore()
@@ -60,6 +61,20 @@ const factorChips = computed(() => {
     return convertHeights(s)        // 「1.4m浪」随单位设置走
   })
 })
+
+// ⏳ 首页倒计时（原型 vHome 的 cdownEl）。数据**复用走势那次 report**，零新增请求；
+// 走势没到之前不渲染（渐进增强，同一份数据两个用途）。
+const nowTick = ref(Date.now())
+let timer = null
+onMounted(() => { timer = setInterval(() => { nowTick.value = Date.now() }, 1000) })
+onUnmounted(() => { if (timer) clearInterval(timer) })
+const bestDay = computed(() => {
+  const b = rec.value && rec.value.best
+  const days = trend.value && trend.value.days
+  if (!b || !b.day || !Array.isArray(days)) return null
+  return days.find(d => d.date === b.day) || null     // 严格按日期对齐，不用「第一天」凑
+})
+const homeCdown = computed(() => (bestDay.value ? countdown(bestDay.value, new Date(nowTick.value)) : null))
 
 // 走势 = 最佳浪点 days[].score。recommend 只给一天，故要取该点 report；
 // 但**不让它阻塞首屏**：verdict 先渲染，走势卡等数据到了再出现（渐进增强）。
@@ -128,6 +143,7 @@ onMounted(load)
           <span v-if="bestTag" class="tag">{{ bestTag }}</span>
           <div class="headline">「{{ rec.best.headline }}」</div>
           <span v-for="f in factorChips" :key="f" class="chip">{{ f }}</span>
+          <p v-if="homeCdown" class="cdown" :class="homeCdown.state">⏳ {{ homeCdown.text }}</p>
           <div class="entries">
             <router-link :to="`/spot/${rec.best.spot_slug}`">为什么是这天？</router-link>
             <router-link :to="`/spot/${rec.best.spot_slug}#review`">昨天报得准吗？</router-link>
@@ -183,6 +199,9 @@ onMounted(load)
 .warnnote { color: var(--warn); }
 
 .answer { padding: 13px 15px; margin: 10px 0; }
+.cdown { font-family: var(--serif); font-size: 12.5px; color: var(--hot); margin: 8px 0 0; }
+.cdown.during { color: var(--ok); font-weight: 700; }
+.cdown.after { color: var(--ink2); }
 .score { font-size: 38px; font-weight: 800; color: var(--sea); }
 .score small { font-size: 14px; color: var(--ink2); font-weight: 400; }
 .tag { font-size: 13px; color: var(--hot); font-weight: 700; margin-left: 6px; }
