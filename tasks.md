@@ -1,51 +1,79 @@
-# Tasks — 映射 `roadmap.md`（事实来源：`docs/HANDOFF-to-kiro.md` §4）
+# Tasks — 数据健康收口（映射 `roadmap.md`）
 
-> 每完成一项就勾选并在 `docs/implementation-notes.md` 追加一行。
-> 🔒 标记 = 生产写操作，须人工确认后才执行。
+> 每完成一项**立刻勾选**并在 `docs/implementation-notes.md` 追加一行（含偏离计划的理由）。
+> 🔒 = 硬门，**loop 不得执行**，只整理成待人工确认清单。
+> 每轮开始先 `ls STOP_LOOP`；存在即停。
 
-## H0 · 交接收口
+## R0 · 起手
 
-- [x] H0.1 合并 PR #37（merge commit `7e9f481`，保留 12 提交以便 tag 锚定）
-- [x] H0.2 补 git tag v0.3.0(`0372fd7`) / v0.3.1(`b1f60c1`) / v0.3.2(`ef0bfd6`) / v0.3.3(`6c97860`) 并推送
-- [x] H0.3 修 `deploy.sh` smoke 过时 401 断言 → 公开面 200×4 + 合规红线 cams 匿名 401（对生产实跑全绿）
-- [x] H0.4 goal 三件套改为以交接文档为唯一事实来源
-- [x] H0.5 CHANGELOG 补记：tag 补齐一行 + 标注 v0.3.0 条目原记 commit `8415a7b` 有误
-      （其树 VERSION=0.2.1，系从脏工作树构建时的 HEAD；正确锚点为 `0372fd7`）
+- [ ] R0.1 `ls STOP_LOOP` 确认无停止信号
+- [ ] R0.2 在 `master` 且已 pull；建/切工作分支 `feat/data-health-r3`（不推 master）
+- [ ] R0.3 `pytest -q` 取基线（应为 **293 passed**），记下数字
+- [ ] R0.4 读 `docs/HANDOFF-to-kiro.md` §5 + §7（已知坑与已修事项，避免重做/重踩）
 
-## H1 · 遗留清理
+## R1 · 绿灯必须等于可用（核心）
 
-- [x] H1.1 sl75/sl76 坐标损坏修复（**已闭环，生产 60/60**）
-  - [x] 根因定位：源快照两点 `lat=110.363232`（>90 非法，实为经度值），Open-Meteo 返回
-        `Latitude must be in range of -90 to 90°`；58 点中恰这 2 点异常 → 非上游格点缺数据
-  - [x] 修正坐标验证：按同 beach_group 兄弟点取值，与兄弟点真实坐标落在同一 Open-Meteo 格点
-  - [x] 代码护栏：导入路径补 `sm.validate_coord`，非法坐标 → 隔离（`refresh_enabled=False`
-        + `op_status=pending` + `coord_invalid`）而非静默入池；+5 单测（`tests/test_coord_guard.py`）
-  - [x] 生产数据修正：sl75 `18.652,110.279` / sl76 `18.532,110.112`，同步重算 `dedup_key`，
-        加 `coord_source` 标注推断来源；旧值备份 `docs/ops-backup/`；全表 4dp 碰撞检查通过
-  - [x] 验证：`refresh_cli retry` → manifest **60/60 · failed=[]**；两点详情报告 6 日数据正常
-- [ ] H1.2 配置 `SF_TEST_ACCESS_KEY`（🔒 改 task def env），E2E 带 `X-Test-Access` 头访问测试点
-- [ ] H1.3 重建测试账号 `tester@surf.local` 并把凭据记到安全位置（不入库、不进仓库）
-- [ ] H1.4 **sl82 Canggu 产出空报告**（2026-08-05 新发现）：坐标正确（-8.661,115.133 = 巴厘岛），
-      但 WAM025 在格点 `-8.75/115.25` 返回 48 时点**全空** → 报告 `days: 0`。
-      **这才是真正的"上游格点无数据"**。已探明邻近格点 `-8.75/115.0` 有完整数据（1.74m），
-      把经度微调到 ≈`115.05` 即可落入可用格点。
-      连带暴露契约洞：**manifest 把"写出了 latest.json"算作 succeeded，即使 `days=0`**
-      → 60/60 绿但该点实际不可用（`coverage` 里体现为 pool 37 / fresh 36）。
-      建议：刷新成功判定加 `days > 0`，否则计入 failed。
-- [ ] H1.5 **注册表存在 3 组重复坐标**（4dp 相同）：`sl49/sl93`、`sl54/sl84`、`sl2/sl58`。
-      `find_registry_by_coord` 取首个匹配 → 坐标→slug 解析有歧义，同族于 v0.3.2 那个缓存 bug。
-      另注 `sl84 Kirra`（澳洲）坐标为 `22.60,114.91`（广东境内）——疑与 `sl54` 数据串行。
+- [ ] R1.1 `src/web/refresh.py` 的 `refresh_spots`（约 107-124 行）：现在 `writer.put(...)` 之后
+      直接 `summary[slug] = "ok"`，**从不检查 `report["days"]`**。改为产出报告必须 `days > 0`
+      才计 ok；否则 `summary[slug] = "skipped: empty_report(upstream grid all-null)"`。
+      **与既有策略对齐**：同 validate 失败的处理——`continue` 且**不覆盖上一版缓存**（R5.4 原则），
+      别用空报告把好数据冲掉
+- [ ] R1.2 `failed` 从 `{slug: reason}` 的原因贯通到 `/api/status`（现在只暴露 slug 列表，
+      看不出为什么失败）
+- [ ] R1.3 单测双侧钉死：`days==0 → failed + 原因可读` / `days>0 → succeeded`
+- [ ] R1.4 跑 `pytest tests/test_refresh*.py tests/test_status*.py -q` 定向绿
+- [ ] R1.5 **预期变化确认**：改完后 `sl82 Canggu` 应从 succeeded 掉入 failed
+      —— 这是正确行为（真实状态浮出），**不要为了数字好看而回避**
 
+## R2 · `/status` 能自己发现三类静默故障
 
-## H2 · 设计方向落地（阻塞：等用户拍板）
+- [ ] R2.1 空报告：`failed` 里能看出「上游格点全空」这类原因（承 R1.2）
+- [ ] R2.2 坐标非法：`/api/status` 暴露带 `coord_invalid` 标记的行（PR #38 护栏会打此标）
+- [ ] R2.3 坐标重复：暴露 4dp 相同坐标的分组（已知 3 组 `sl49/sl93`、`sl54/sl84`、`sl2/sl58`）
+- [ ] R2.4 前端 `/status` 页同步显示这三块，措辞守数据诚实（不可用就说不可用）
+- [ ] R2.5 单测钉死 `/api/status` 新字段形状；**零新增持久化**（派生自 registry+manifest+缓存）
+- [ ] R2.6 `web/e2e/vue_spa.mjs` 状态页断言覆盖新区块
 
-- [ ] H2.0 **用户从 `docs/design-directions.html` 的 v4~v7 中选定一版**（阻塞项，非技术）
-- [ ] H2.1 把选定版功能集实施进 `web/frontend`（原型含交互逻辑与简化算法可参考）
-- [ ] H2.2 新增/更新 `web/e2e/vue_spa.mjs` 断言覆盖新功能，跑到全绿 + 0 JS 报错
-- [ ] H2.3 🔒 发版上线（build → rollback 切版 → canary → smoke → tag → CHANGELOG）
+## R3 · 坐标解析歧义防护
 
-## H3 · 二期会员化（未开工）
+- [ ] R3.1 `find_registry_by_coord` 多行命中时：记日志告警 + **确定性选取**（如 slug 字典序最小），
+      不再静默取首个
+- [ ] R3.2 `InMemoryStore` 与 `DynamoDBStore` 两实现语义一致
+- [ ] R3.3 单测：单命中 / 多命中→确定性 + 告警 / 两 store 一致性
 
-- [ ] H3.1 微信扫码登录（后端 501 占位路由实装）
-- [ ] H3.2 启用 `member_lock` 开关（须可无损回退到今日全公开行为）
-- [ ] H3.3 直播从"测试账号解锁"切到会员制（cams 合规门不得放宽）
+## R4 · 上游格点巡检脚本（只读）
+
+- [ ] R4.1 新建 `tools/probe_grid_health.py`：遍历注册表坐标探测上游是否全空；
+      全空点搜索邻近格点（±0.05°/±0.1°）给出可用坐标建议；输出到 stdout
+- [ ] R4.2 **只读**：不得写 DynamoDB（那是 🔒 G1）；不引新依赖
+- [ ] R4.3 对全量 registry 干跑通过，且能复现 `sl82 Canggu` 诊断
+      （现格点 `-8.75/115.25` 全空 → 建议经度 ≈`115.05` 落入 `-8.75/115.0`，实测 1.74m）
+
+## R5 · 收口
+
+- [ ] R5.1 `pytest -q` 全量全绿（基线 293，只增不减）
+- [ ] R5.2 `vue_spa.mjs` E2E 全绿 + 0 JS 报错
+      （`npm run build` → 起后端带 `SF_SEED_SPOTS=reference/data/shilaoren_spots.json`
+      + `SF_SPA_DIST=web/frontend/dist` → `node web/e2e/vue_spa.mjs http://127.0.0.1:PORT`）
+- [ ] R5.3 文档回写：`docs/implementation-notes.md` 逐日记录 + `docs/HANDOFF-to-kiro.md` §7 本轮结论
+- [ ] R5.4 开 PR（**不合并**，🔒 G4）
+- [ ] R5.5 整理 🔒 门项待人工确认清单（见下），每项写清「做什么/为什么/怎么回退」
+- [ ] R5.6 创建 `STOP_LOOP` 并汇报
+
+## 🔒 待人工确认清单（loop 只整理，不执行）
+
+- [ ] 🔒 G1-a Canggu 坐标微调（经度 ≈`115.05`）—— 生产 DynamoDB 写
+- [ ] 🔒 G1-b 3 组重复坐标去歧义 + `sl84 Kirra` 坐标疑与 `sl54` 串行
+      （Kirra 在澳洲，注册表却是 `22.60,114.91` = 广东境内）—— 生产 DynamoDB 写
+- [ ] 🔒 G2-a 配置 `SF_TEST_ACCESS_KEY`（task def env），E2E 带 `X-Test-Access` 头访问测试点
+- [ ] 🔒 G2-b 本轮代码上生产（build → rollback 切版 → canary → smoke → tag → CHANGELOG）
+- [ ] 🔒 G1-c 重建测试账号 `tester@surf.local`，凭据记到安全位置（不入库、不进仓库）
+
+## 已完成（上一轮，勿重做）
+
+- [x] PR #37 合并 master（merge commit `7e9f481`，保留 12 提交以便 tag 锚定）
+- [x] git tag `v0.3.0`(`0372fd7`)/`v0.3.1`(`b1f60c1`)/`v0.3.2`(`ef0bfd6`)/`v0.3.3`(`6c97860`)
+- [x] `deploy.sh smoke` 断言修正（公开面 200×4 + 合规红线 cams 匿名 401），对生产实跑 6/6 绿
+- [x] sl75/sl76 坐标护栏（导入路径补 `validate_coord`，非法即隔离）+ 5 单测（PR #38）
+- [x] sl75/sl76 生产坐标修正 + 刷新验证 **60/60 · failed=[]**（PR #39 记录）
+- [x] goal 三件套改为以 `docs/HANDOFF-to-kiro.md` 为唯一事实来源
