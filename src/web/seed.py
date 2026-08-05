@@ -26,6 +26,17 @@ def build_registry_rows(snapshot: dict) -> list[dict]:
         if lat is None or lon is None:
             continue
         lat, lon = float(lat), float(lon)
+        # 护栏(H1.1)：导入路径过去绕过了用户 CRUD 必过的 sm.validate_coord ——
+        # 源快照里 sl75/sl76 的 lat=110.363232（>90，实为经度值）因此静默进了注册表，
+        # Open-Meteo 每日返回 "Latitude must be in range of -90 to 90°"
+        # → 刷新固定 2 点失败(58/60)，一周无人察觉。
+        # 处置：**不丢弃**（仍留公开目录可见，守"可见性不耦合刷新开关"红线），
+        #       但隔离出刷新池 + 标注原因，让失败变成可见状态而非每日噪声。
+        coord_err: str | None = None
+        try:
+            sm.validate_coord(lat, lon)
+        except ValueError as e:
+            coord_err = str(e)
         facing = float(s.get("facing", sm.infer_facing(lat, lon)))
         rows.append({
             "slug": s["slug"],                     # 稳定不可变(slN)
@@ -40,7 +51,7 @@ def build_registry_rows(snapshot: dict) -> list[dict]:
             "dedup_key": sm.dedup_key(lat, lon, facing),
             "ref_count": 1,
             "status": "active",
-            "refresh_enabled": True,
+            "refresh_enabled": coord_err is None,   # 非法坐标 → 退出刷新池(目录仍可见)
             "source": "shilaoren",                 # 溯源: 研究用途导入
             "live_src": s.get("live_src"),          # 直播 HLS(形态C)
             "post_url": s.get("post_url"),
@@ -49,6 +60,9 @@ def build_registry_rows(snapshot: dict) -> list[dict]:
             "last_viewed_at_gmt8": _now(),
         })
         governance.annotate_row(rows[-1])  # R2 治理：op_status/beach_group/is_test + 名称干净化
+        if coord_err:                      # 护栏标注放在 annotate_row 之后（否则被覆盖）
+            rows[-1]["op_status"] = "pending"
+            rows[-1]["coord_invalid"] = coord_err
     return rows
 
 

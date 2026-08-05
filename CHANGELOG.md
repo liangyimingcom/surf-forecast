@@ -30,3 +30,6 @@
 - 2026-07-28 15:46 GMT+8 · v0.3.2 · ef0bfd6 · rollback → v0.3.2 · 已切 task def+滚动
 - 2026-07-28 17:24 GMT+8 · v0.3.3 · 0116131 · rollback → v0.3.3 · 已切 task def+滚动
 - 2026-07-28 17:31 GMT+8 · v0.3.3 · 6c97860 · rollback → v0.3.3 · 已切 task def+滚动
+- 2026-08-05 17:01 GMT+8 · (审计链补齐) · `7e9f481` · PR #37 合并 master（merge commit，保留 12 提交以便 tag 锚定）+ 补打 git tag **v0.3.0=`0372fd7` / v0.3.1=`b1f60c1` / v0.3.2=`ef0bfd6` / v0.3.3=`6c97860`** · 审计链自 v0.1.1 起连续
+- 2026-08-05 · **更正**：上方 `2026-07-28 11:47 · v0.3.0 · 8415a7b` 一行的 commit 记录有误——`8415a7b` 的树 VERSION=**0.2.1**（`deploy.sh` 从脏工作树构建，changelog_add 记的是当时 HEAD，而 v0.3.0 提交 `0372fd7` 12:47 才产生）。v0.3.0 的正确代码锚点为 **`0372fd7`**，tag 已按此打。其余 v0.3.1~v0.3.3 各行与 VERSION 树自洽，无需更正。
+- 2026-08-05 · (无部署) · `deploy.sh smoke` 断言更新：旧断言「未登录 /api/report 应 401」随 v0.3.x member_gate 分层作废（现为一期公开 200），改为公开面 200×4（report/recommend/catalog/status）+ **合规红线 /api/cams 匿名必须 401**；对生产实跑 6 项全绿。
