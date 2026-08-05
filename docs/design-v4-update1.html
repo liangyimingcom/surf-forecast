@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>浪报 · A晨报纸感 · v4 三屏原型（收敛版）</title>
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  body { background: #ececea; color: #1a1a19; font-family: -apple-system, "PingFang SC", "Hiragino Sans GB", sans-serif; }
+  .page { max-width: 1780px; margin: 0 auto; padding: 32px 24px 100px; }
+  .page > header h1 { font-size: 25px; }
+  .page > header p { color: #52514e; font-size: 13.5px; margin-top: 6px; max-width: 900px; line-height: 1.7; }
+
+  .toolbar { position: sticky; top: 0; z-index: 40; display: flex; gap: 10px; align-items: center;
+             padding: 12px 0; background: linear-gradient(#ececea 82%, transparent); }
+  .toolbar .nightbtn { padding: 8px 16px; border: 1px solid #d5d3cc; border-radius: 999px; background: #fff;
+                       font-size: 13px; font-weight: 600; cursor: pointer; }
+  .toolbar .nightbtn.on { background: #1c1a16; color: #f0e9d9; border-color: #1c1a16; }
+  .toolbar .hint { font-size: 12px; color: #52514e; }
+
+  .frames { display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start; margin-top: 10px; }
+  .frame { width: 396px; border-radius: 26px; overflow: hidden; box-shadow: 0 12px 40px rgba(0,0,0,.18);
+           flex-shrink: 0; transition: box-shadow .3s; }
+  .frame.flash { box-shadow: 0 0 0 4px #f59e0b, 0 12px 40px rgba(0,0,0,.3); }
+  .frame .flabel { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; padding: 7px 16px;
+                   background: #1a1a19; color: #ecebe4; display: flex; justify-content: space-between; }
+  .app { min-height: 640px; }
+
+  #tt { position: fixed; z-index: 99; pointer-events: none; background: #1a1a19; color: #fff;
+        font-size: 12px; border-radius: 8px; padding: 6px 10px; display: none; white-space: nowrap;
+        box-shadow: 0 4px 14px rgba(0,0,0,.3); max-width: 300px; white-space: normal; line-height: 1.5; }
+  svg .hitbar, svg .hitseg { cursor: crosshair; }
+  .strip button { cursor: pointer; }
+
+  #sharemask { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 90; display: none;
+               align-items: center; justify-content: center; }
+  #sharemask.open { display: flex; }
+  .scard { width: 320px; border-radius: 20px; padding: 22px; background: #faf9f5; color: #1c2733; border: 1px solid #e8e5dc; }
+  .scard .sc-brand { font-size: 11px; letter-spacing: 3px; opacity: .75; }
+  .scard .sc-spot { font-size: 24px; font-weight: 800; margin: 8px 0 2px; font-family: Georgia, serif; }
+  .scard .sc-score { font-size: 52px; font-weight: 900; line-height: 1.1; color: #0f6a8f; }
+  .scard .sc-score small { font-size: 16px; font-weight: 500; }
+  .scard .sc-line { font-size: 13.5px; margin: 8px 0 14px; line-height: 1.6; }
+  .scard .sc-foot { display: flex; justify-content: space-between; align-items: flex-end; font-size: 10.5px; opacity: .8; }
+  .scard .qr { display: grid; grid-template-columns: repeat(5,7px); grid-auto-rows: 7px; gap: 1.5px; }
+  .scard .qr i { background: currentColor; }
+  .scard .qr i.o { background: transparent; }
+  .sc-actions { display: flex; gap: 10px; margin-top: 14px; }
+  .sc-actions button { flex: 1; padding: 10px; border: 0; border-radius: 12px; font-size: 13.5px; font-weight: 600; cursor: pointer; }
+
+  .verdictbox { margin-top: 28px; background: #fff; border-radius: 12px; padding: 14px 18px;
+                font-size: 13.5px; color: #37352f; line-height: 1.85; max-width: 900px; }
+  .verdictbox b { color: #0f6a8f; }
+
+  /* ═════════ 方向 A 皮肤（含夜读模式变量切换） ═════════ */
+  .dirA { --bg:#faf9f5; --card:#fff; --ink:#1c2733; --ink2:#5f6b77; --line:#e8e5dc;
+          --sea:#0f6a8f; --sea2:#2596be; --hot:#c2410c; --ok:#0f766e; --soft:#f1efe8; --soft2:#f7f5ee; }
+  .dirA.night { --bg:#191713; --card:#221f19; --ink:#ece5d3; --ink2:#a89f8a; --line:#3a352a;
+                --sea:#7cc4e0; --sea2:#5aa8c8; --hot:#f0955f; --ok:#7fd0b2; --soft:#2b271f; --soft2:#262218; }
+  .dirA .app { background: var(--bg); color: var(--ink); padding: 18px 16px 22px; transition: background .4s, color .4s; }
+  .dirA .brand { font-size: 12.5px; letter-spacing: 3px; color: var(--ink2); display: flex; justify-content: space-between; align-items: center; }
+  .dirA h3.big { font-family: Georgia, "Songti SC", serif; font-size: 23px; line-height: 1.35; margin: 10px 0 2px; }
+  .dirA h3.big em { font-style: normal; color: var(--sea); border-bottom: 3px solid var(--sea2); }
+  .dirA .sub { font-size: 12.5px; color: var(--ink2); margin-bottom: 10px; }
+  .dirA .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 13px 15px; margin: 10px 0; }
+  .dirA .score { font-size: 38px; font-weight: 800; color: var(--sea); font-variant-numeric: tabular-nums; }
+  .dirA .score small { font-size: 14px; color: var(--ink2); font-weight: 400; }
+  .dirA .chip { display: inline-block; font-size: 11.5px; background: var(--soft); border-radius: 999px;
+                padding: 3px 10px; margin: 3px 4px 0 0; color: var(--ink2); }
+  .dirA .chip b { color: var(--ink); }
+  .dirA .chip.hot { color: var(--hot); }
+  .dirA .headline { font-family: Georgia, "Songti SC", serif; font-size: 15px; margin: 8px 0 2px; }
+  .dirA .alt { display: flex; justify-content: space-between; font-size: 13px; padding: 8px 2px;
+               border-top: 1px dashed var(--line); cursor: pointer; }
+  .dirA .alt:hover { background: var(--soft2); }
+  .dirA .alt .s { color: var(--sea); font-weight: 700; }
+  .dirA .caption { font-size: 11px; color: var(--ink2); margin-top: 8px; }
+  .dirA .sect { font-size: 11px; letter-spacing: 2px; color: var(--ink2); margin: 12px 0 4px; }
+  .dirA .strip { display: flex; gap: 6px; margin: 8px 0; }
+  .dirA .strip button { flex: 1; padding: 7px 4px; border: 1px solid var(--line); border-radius: 12px;
+                        background: var(--card); font-size: 12px; color: var(--ink2); }
+  .dirA .strip button.on { border-color: var(--sea2); color: var(--sea); box-shadow: 0 0 0 2px rgba(37,150,190,.18); }
+  .dirA .strip b { display: block; font-size: 16px; font-variant-numeric: tabular-nums; }
+  .dirA .whybtn { display: block; width: 100%; margin-top: 10px; padding: 10px 12px; text-align: left;
+                  border: 1px dashed var(--sea2); border-radius: 10px; background: var(--soft2);
+                  color: var(--sea); font-size: 13px; cursor: pointer; }
+  .dirA .plan { background: var(--soft2); border-left: 3px solid var(--ok); border-radius: 0 10px 10px 0; padding: 9px 11px; font-size: 12.5px; margin-top: 10px; }
+  .dirA .lesson { background: var(--soft2); border-left: 3px solid var(--sea2); border-radius: 0 10px 10px 0; padding: 9px 11px; font-size: 12.5px; margin-top: 10px; }
+  .dirA details.review { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; margin-top: 10px;
+                          font-size: 12.5px; background: var(--soft2); }
+  .dirA details.review summary { cursor: pointer; color: var(--ink2); font-size: 12.5px; }
+  .dirA .vbtns { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .dirA .vbtns button { padding: 5px 11px; border: 1px solid var(--line); border-radius: 9px; background: var(--card);
+                        font-size: 12px; cursor: pointer; color: var(--ink); }
+  .dirA .vbtns button.on { background: var(--ok); color: #fff; border-color: var(--ok); }
+  .dirA .cdown { font-family: Georgia, serif; font-size: 13px; color: var(--hot); margin-top: 6px; }
+  .dirA .cdown b { font-variant-numeric: tabular-nums; }
+  .dirA .gear { display: grid; grid-template-columns: repeat(4,1fr); gap: 6px; margin-top: 8px; }
+  .dirA .gear div { text-align: center; border-radius: 10px; padding: 7px 3px; font-size: 10.5px; background: var(--soft); color: var(--ink2); }
+  .dirA .gear b { display: block; font-size: 12px; margin-top: 2px; color: var(--ink); }
+  .dirA .coach { display: flex; gap: 9px; align-items: flex-start; border-radius: 12px; padding: 9px 11px;
+                 font-size: 12.5px; line-height: 1.65; margin-top: 10px; background: var(--soft2); border: 1px solid var(--line); }
+  .dirA .coach .ai { font-size: 18px; }
+  .dirA .unitbtn, .dirA .sharebtn { font-size: 11.5px; color: var(--sea); border: 1px solid var(--line);
+       background: var(--card); border-radius: 999px; padding: 4px 12px; cursor: pointer; }
+  /* 安全警报 */
+  .dirA .alert { display: flex; gap: 8px; align-items: flex-start; background: #fef3e2; border: 1px solid #f5c98a;
+                 border-radius: 10px; padding: 8px 11px; font-size: 12px; color: #8a4a08; margin: 8px 0; line-height: 1.6; }
+  .dirA.night .alert { background: #33270f; border-color: #6b5320; color: #eec98a; }
+  .dirA .alert .close { margin-left: auto; cursor: pointer; border: 0; background: none; color: inherit; font-size: 14px; }
+  /* 出发倒推 */
+  .dirA .depart { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 12.5px; }
+  .dirA .depart .t { font-family: Georgia, serif; font-size: 21px; font-weight: 700; color: var(--ink); }
+  .dirA .depart button { width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--line);
+                         background: var(--card); cursor: pointer; color: var(--ink); }
+  /* 对比表 */
+  .dirA table.cmp { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+  .dirA table.cmp th { font-size: 10px; letter-spacing: 1px; color: var(--ink2); text-align: left;
+                       border-bottom: 1px solid var(--line); padding: 4px 4px; font-weight: 600; }
+  .dirA table.cmp td { padding: 6px 4px; border-bottom: 1px dashed var(--line); cursor: pointer; }
+  .dirA table.cmp tr:hover td { background: var(--soft2); }
+  .dirA table.cmp .win { color: var(--ok); font-weight: 700; }
+  /* 潮历 */
+  .dirA .moonrow { display: flex; gap: 4px; margin-top: 6px; }
+  .dirA .moonrow div { flex: 1; text-align: center; font-size: 10px; color: var(--ink2); border-radius: 8px;
+                       padding: 5px 2px; background: var(--soft); cursor: default; }
+  .dirA .moonrow div.spring { background: #e8f4ea; color: var(--ok); font-weight: 700; }
+  .dirA.night .moonrow div.spring { background: #1e332a; }
+  .dirA .moonrow .m { font-size: 14px; display: block; }
+  /* DNA 匹配 */
+  .dirA .dna { margin-top: 6px; }
+  .dirA .dna .row { display: flex; align-items: center; gap: 8px; font-size: 11.5px; margin: 5px 0; }
+  .dirA .dna .k { width: 64px; color: var(--ink2); }
+  .dirA .dna .track { flex: 1; height: 7px; background: var(--soft); border-radius: 4px; overflow: hidden; }
+  .dirA .dna .fill { height: 100%; border-radius: 4px; background: var(--sea2); }
+  .dirA .dna .pc { width: 38px; text-align: right; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .dirA .dnahead { display: flex; justify-content: space-between; align-items: baseline; }
+  .dirA .dnahead .total { font-family: Georgia, serif; font-size: 24px; font-weight: 800; color: var(--ok); }
+  /* 季节热图 */
+  .dirA .season { display: grid; grid-template-columns: repeat(12, 1fr); gap: 3px; margin-top: 6px; }
+  .dirA .season div { height: 30px; border-radius: 5px; display: flex; align-items: flex-end; justify-content: center;
+                      font-size: 9px; color: var(--ink2); padding-bottom: 2px; cursor: default; }
+  .dirA .switch.on i { background: var(--ok); }
+  .dirA .switch.on i::after { left: 17px; }
+  .dirA .axis { font-size: 10px; fill: var(--ink2); }
+  /* v4 新增组件 */
+  .dirA .crowd { margin-top: 6px; }
+  .dirA .crowd .cbar { display: flex; gap: 4px; margin: 6px 0; }
+  .dirA .crowd .cbar button { flex: 1; border: 1px solid var(--line); border-radius: 9px; background: var(--card);
+       font-size: 11px; padding: 6px 2px; cursor: pointer; color: var(--ink2); }
+  .dirA .crowd .cbar button.on { background: var(--sea); color: #fff; border-color: var(--sea); }
+  .dirA .crowd .dist { display: flex; align-items: flex-end; gap: 5px; height: 34px; margin-top: 4px; }
+  .dirA .crowd .dist i { flex: 1; background: var(--sea2); border-radius: 3px 3px 0 0; opacity: .75; display: block; }
+  .dirA .crowd .dlabels { display: flex; gap: 5px; font-size: 9.5px; color: var(--ink2); }
+  .dirA .crowd .dlabels span { flex: 1; text-align: center; }
+  .dirA .checkin { display: flex; align-items: center; gap: 10px; }
+  .dirA .checkin .big { flex: 1; padding: 11px; border: 0; border-radius: 12px; font-size: 13.5px; font-weight: 700;
+       cursor: pointer; background: var(--ok); color: #fff; }
+  .dirA .checkin .big.armed { background: var(--hot); }
+  .dirA .facil { display: grid; grid-template-columns: repeat(4,1fr); gap: 6px; margin-top: 8px; }
+  .dirA .facil div { text-align: center; border: 1px solid var(--line); border-radius: 10px; padding: 7px 2px;
+       font-size: 10px; color: var(--ink2); }
+  .dirA .facil b { display: block; font-size: 15px; }
+  .dirA .facil .no { opacity: .4; }
+  .dirA .sim .simrow .k { width: 74px; color: var(--ink2); }
+  .dirA .sim .simrow .v { width: 60px; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .dirA .sim .simscore .n { font-family: Georgia, serif; font-size: 32px; font-weight: 800; color: var(--sea); }
+  .dirA .sim .simscore .d { font-size: 12px; }
+  .dirA .planner button.busy { opacity: .35; text-decoration: line-through; }
+  .dirA .planner button.reco { border-color: var(--ok); box-shadow: 0 0 0 2px rgba(15,118,110,.2); }
+  .dirA .planner button.reco b { color: var(--ok); }
+  .dirA .voicebtn .ic { font-size: 20px; }
+  .dirA .voicebtn.playing { border-color: var(--ok); box-shadow: 0 0 0 2px rgba(15,118,110,.2); }
+  .dirA .eq { display: inline-flex; gap: 2px; align-items: flex-end; height: 14px; margin-left: auto; }
+  .dirA .eq i { width: 3px; background: var(--ok); border-radius: 2px; animation: eqb 1s infinite ease-in-out; }
+  .dirA .eq i:nth-child(2){ animation-delay: .2s; } .dirA .eq i:nth-child(3){ animation-delay: .4s; }
+  @keyframes eqb { 0%,100%{height:4px} 50%{height:14px} }
+  /* 水质 */
+  .dirA .wq { display: flex; align-items: center; gap: 12px; }
+  .dirA .wq .dot { width: 46px; height: 46px; border-radius: 50%; display: flex; align-items: center;
+       justify-content: center; font-size: 22px; flex-shrink: 0; }
+  .dirA .watch .wt { font-size: 9px; letter-spacing: 1px; color: #8fa0b8; }
+  .dirA .watch .ws { font-size: 34px; font-weight: 800; color: #39c6f2; line-height: 1.1; }
+  .dirA .watch .ww { font-size: 9.5px; color: #ffb224; margin-top: 4px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<header>
+  <h1>浪报 · A 晨报纸感 · 三屏核心原型 <span style="font-size:14px;color:#0f6a8f">v4 · 首页/小白/高手 · 全部可交互</span></h1>
+
+</header>
+
+<div class="toolbar">
+  <button class="nightbtn" id="nightbtn" onclick="toggleNight()">🌙 夜读模式</button>
+  <span class="hint">← 点它整站换成暖纸夜色（surfer 睡前查浪报的真实场景）· 其余交互：悬停图表 / 点日期 / 调通勤 / 记日记</span>
+</div>
+
+<div class="dirA" id="dirA-root">
+  <div class="frames">
+    <div class="frame"><div class="flabel"><span>① 首页 · Home</span><span>可点</span></div><div class="app" id="A-home"></div></div>
+    <div class="frame"><div class="flabel"><span>② 浪报 · 🐣 小白模式</span><span>可点</span></div><div class="app" id="A-novice"></div></div>
+    <div class="frame" id="A-expert-frame"><div class="flabel"><span>③ 浪报 · 🏄 高手模式</span><span>可点</span></div><div class="app" id="A-expert"></div></div>
+  </div>
+</div>
+
+
+
+</div>
+
+<div id="tt"></div>
+<div id="sharemask" onclick="if(event.target===this)this.classList.remove('open')"><div id="shareinner"></div></div>
+
+<script>
+/* ================= 数据 ================= */
+const HOURS = [6,7,8,9,10,11,12,13,14,15,16,17,18,19];
+const SUN = { first:'05:18', rise:'05:42', set:'19:06' };
+const WATER = 26.3;
+const WEEK7 = [{w:'一',s:7.2},{w:'二',s:8.35},{w:'三',s:8.8},{w:'四',s:7.95},{w:'五',s:7.1},{w:'六',s:7.35},{w:'日',s:7.6}];
+const MOON = [
+  {w:'一',m:'🌖',t:'中潮'},{w:'二',m:'🌗',t:'小潮'},{w:'三',m:'🌘',t:'小潮'},{w:'四',m:'🌑',t:'大潮',spring:true},
+  {w:'五',m:'🌒',t:'大潮',spring:true},{w:'六',m:'🌓',t:'中潮'},{w:'日',m:'🌔',t:'中潮'}];
+const SEASON = [3,3,4,5,6,7,8,9,9,8,6,4];  // 黄金海岸逐月质量
+const CMP = [
+  {spot:'黄金海岸', score:8.8, wave:.94, wind:'离2kn', crowd:'偏多', drive:45, win:true},
+  {spot:'南澳岛青澳湾', score:8.4, wave:.85, wind:'离4kn', crowd:'适中', drive:80},
+  {spot:'红坎SUN SET', score:8.3, wave:.80, wind:'侧3kn', crowd:'人少', drive:120}];
+const STORM = { name:'台风「木兰」外围风场', born:'7月26日 · 距岸约 1400km',
+  path:[[268,26],[236,40],[204,58],[172,78],[142,96]],
+  story:'周三这股涌生于 1400km 外的台风「木兰」外围风场（7/26），以约 30km/h 跨南海行进 42 小时，周三凌晨抵达广东岸线。6.4s 属中短周期风涌——浪够力但浪面偏密，这正是「纯度 10 分靠离岸风救回来」的原因。' };
+const DNA = { total:87, rows:[
+  ['涌向','SSE 150-170°','今日 158°',92],['潮汐','退潮中段','06-09 正退',85],
+  ['风','N-NW 离岸 <6kn','晨 2kn 离岸',100],['浪高','0.8-1.5m','0.94m',88],['周期','>8s 最佳','6.4s',61]] };
+const DAYS = [
+  { week:'周二', date:'07-28', score:8.35, tag:'🔥 必冲', best:false, conf:['●●●','高'], crowd:['适中','工作日'],
+    window:'06:30–09:30', board:'短板 / 鱼板', winh:[6.5,9.5], winStart:'06:30',
+    novice:'早窗离岸风干净，浪腰胸高。上班前冲一轮刚好。',
+    coachN:'白浪区先热身两组，再去内侧沙洲排队。人不多，别抢浪。',
+    coachE:'退潮中段浪壁最立，09 时风转侧前收板。外侧浪头留给 09:30 前。',
+    dims:{浪高:8,周期:7,风况:9,纯度:9,潮汐:8},
+    hs:[.82,.84,.86,.85,.83,.80,.78,.77,.78,.80,.82,.83,.84,.84],
+    tp:[6.2,6.2,6.1,6.1,6.0,6.0,5.9,5.9,6.0,6.0,6.1,6.1,6.1,6.0],
+    wind:[3,3.4,4,4.6,5.2,6,6.8,7.4,8,8.4,8.2,7.6,7,6.4],
+    q:['o','o','o','o','x','x','x','n','n','n','n','x','x','x'],
+    tide:'高09 低15 高21', wdirs:[157,80,337],
+    lesson:['退潮中段最稳','退潮时水深变浅，浪壁更立更好起乘，但注意礁石区。'] },
+  { week:'周三', date:'07-29', score:8.8, tag:'🔥 必冲', best:true, conf:['●●●','高'], crowd:['偏多','高分日'],
+    window:'06:00–09:00', board:'短板 / step-up', winh:[6,9], winStart:'06:00',
+    novice:'本周王者：0.9m 浪配 2 节离岸风，玻璃面。值得请假。',
+    coachN:'首光 05:42 就有人下水。你 06:00 到，先看 5 分钟流向再进。',
+    coachE:'玻璃面只到 09 时。第一小时全力抢外侧 set 浪，之后转内侧刷量。',
+    dims:{浪高:8,周期:8,风况:10,纯度:10,潮汐:9},
+    hs:[.90,.92,.94,.92,.88,.86,.84,.82,.84,.86,.86,.87,.86,.86],
+    tp:[6.4,6.4,6.3,6.3,6.3,6.2,6.2,6.2,6.1,6.1,6.1,6.0,6.0,6.0],
+    wind:[2,2.6,3.4,4.1,5,6,7.2,8.7,9.4,9,7.9,6.8,6,5.5],
+    q:['o','o','o','o','o','x','x','x','n','n','n','x','x','x'],
+    tide:'高02 低09 高16 低22', wdirs:[157,60,337],
+    lesson:['离岸风为何梳浪面','风从陆地吹向海面，压平碎浪、保住浪壁形状——这是 10 分风况的物理来源。'] },
+  { week:'周四', date:'07-30', score:7.95, tag:'👍 推荐', best:false, conf:['●●○','中'], crowd:['人少','余波日'],
+    window:'07:00–10:00', board:'鱼板 / 中长板', winh:[7,10], winStart:'07:00',
+    novice:'周三的余波，浪小一号但更好驾驭，适合练动作。',
+    coachN:'今天浪温柔，最适合练加速压弯。给自己定个小目标：连过三个浪段。',
+    coachE:'能量渐减但周期还在——挑长周期 set 练 cutback 衔接，浪权宽松随便挑。',
+    dims:{浪高:7,周期:8,风况:8,纯度:9,潮汐:7},
+    hs:[.72,.74,.76,.75,.73,.70,.68,.66,.66,.68,.70,.71,.72,.72],
+    tp:[6.3,6.3,6.2,6.2,6.2,6.1,6.1,6.0,6.0,6.0,5.9,5.9,5.9,5.8],
+    wind:[2.6,3,3.6,4.2,5,5.8,6.6,7.2,7.8,8,7.6,7,6.4,6],
+    q:['o','o','o','o','x','x','x','x','n','n','n','n','x','x'],
+    tide:'低03 高10 低16 高22', wdirs:[157,95,337],
+    lesson:['余波日的价值','主涌过后周期仍长、能量渐减——浪形干净又不吓人，是进步最快的日子。'] },
+];
+const state = { unit:'m', night:false, sel:1, voted:'', alertOn:true, commute:45,
+  /* v4 */
+  crowdVote:'', crowdN:{ '偏小':3,'如报':11,'偏大':2 },
+  checkin:false, checkinAt:'' };
+/* 三屏收敛（2026-08-05）：journal/jstars/jopen（④手账）、sim/wavePhase/waveTp（⑤实验室）、
+   busy/buddies（周规划器·拼车）、playing（语音播报）、claimed（抓拍墙）随对应屏一并移除。 */
+
+/* ================= 主题 ================= */
+function T(){ return state.night
+  ? {bar:'#5aa8c8',line:'#f0955f',dash:'5 3',win:'rgba(127,208,178,.15)',winLab:'#7fd0b2',axis:'#a89f8a',lab:'#ece5d3',
+     tide:'#7fd0b2',qo:'#7cc4e0',qx:'#b39ddb',qn:'#f0955f',rx:3,night:'#2b271f',good:'#7fd0b2',ok:'#4a443a',bad:'#f0955f',
+     ring:'#4a443a',face:'rgba(127,208,178,.15)',hi:'#f0955f'}
+  : {bar:'#2596be',line:'#c2410c',dash:'5 3',win:'#e8f4ea',winLab:'#0f766e',axis:'#5f6b77',lab:'#1c2733',
+     tide:'#0f766e',qo:'#0f6a8f',qx:'#7c3aed',qn:'#ea580c',rx:3,night:'#e5e1d5',good:'#0f766e',ok:'#cbd5e1',bad:'#ea580c',
+     ring:'#c9c2ae',face:'#e8f4ea',hi:'#c2410c'}; }
+const mLab = v => state.unit==='m' ? v.toFixed(2)+'m' : (v*3.281).toFixed(1)+'ft';
+const mMax = v => state.unit==='m' ? v.toFixed(1)+'m' : (v*3.281).toFixed(1)+'ft';
+
+/* ================= 图表组件（v2 保留 + 新增） ================= */
+function winRange(day){ return [HOURS.indexOf(day.winh[0]|0), HOURS.indexOf(day.winh[1]|0)]; }
+function waveChart(day){ const t=T();
+  const W=352,H=148, x0=22, bw=10, step=(W-2*x0)/13;
+  const y=h=>118-h*100, yp=p=>134-p*14;
+  const [wi0,wi1]=winRange(day);
+  const maxI=day.hs.indexOf(Math.max(...day.hs));
+  let s=`<svg viewBox="0 0 ${W} ${H}" style="width:100%">`;
+  const wx0=x0+wi0*step-5, wx1=x0+wi1*step+bw+5;
+  s+=`<rect x="${wx0}" y="10" width="${wx1-wx0}" height="112" fill="${t.win}" rx="4"/>`;
+  s+=`<text x="${(wx0+wx1)/2}" y="8" text-anchor="middle" font-size="10.5" font-weight="600" fill="${t.winLab}">最佳窗口</text>`;
+  day.hs.forEach((h,i)=>{ const x=x0+i*step;
+    s+=`<rect x="${x}" y="${y(h)}" width="${bw}" height="${118-y(h)}" rx="3" fill="${t.bar}"
+        class="hitbar" data-tip="${String(HOURS[i]).padStart(2,'0')}时 · 浪 ${mLab(h)} · Tp ${day.tp[i].toFixed(1)}s · 风 ${day.wind[i]}kn"/>`; });
+  s+=`<text x="${x0+maxI*step-2}" y="${y(day.hs[maxI])-6}" font-size="10.5" font-weight="700" fill="${t.lab}">${mMax(day.hs[maxI])}</text>`;
+  s+=`<polyline points="${day.tp.map((p,i)=>`${x0+i*step+bw/2},${yp(p)}`).join(' ')}" fill="none" stroke="${t.line}" stroke-width="2" stroke-dasharray="5 3"/>`;
+  s+=`<text x="${x0+13*step+bw+2}" y="${yp(day.tp[13])+3}" font-size="10.5" font-weight="700" fill="${t.line}">${day.tp[13].toFixed(0)}s</text>`;
+  [[0,'06时'],[6,'12时'],[13,'19时']].forEach(([i,l])=>s+=`<text x="${x0+i*step}" y="${H-4}" class="axis">${l}</text>`);
+  return s+'</svg>';
+}
+function timeline24(day, isToday){ const t=T();
+  const W=352,H=74, x0=14, x1=W-14, hx=h=>x0+(x1-x0)*h/24;
+  const QLAB={o:'离岸·可冲',x:'侧岸·尚可',n:'向岸·吹乱'};
+  let s=`<svg viewBox="0 0 ${W} ${H}" style="width:100%">`;
+  s+=`<rect x="${hx(0)}" y="24" width="${hx(5.6)-hx(0)}" height="15" fill="${t.night}" rx="3" class="hitseg" data-tip="夜间"/>`;
+  s+=`<rect x="${hx(19.2)}" y="24" width="${hx(24)-hx(19.2)}" height="15" fill="${t.night}" rx="3" class="hitseg" data-tip="夜间"/>`;
+  HOURS.forEach((h,i)=>{ const q=day.q[i], c=q==='o'?t.good:q==='x'?t.ok:t.bad;
+    s+=`<rect x="${hx(h)}" y="24" width="${hx(h+1)-hx(h)-1}" height="15" fill="${c}" class="hitseg"
+        data-tip="${String(h).padStart(2,'0')}时 · ${QLAB[q]} · 浪${mLab(day.hs[i])} 风${day.wind[i]}kn"/>`; });
+  const [w0h,w1h]=day.winh;
+  s+=`<rect x="${hx(w0h)}" y="21" width="${hx(w1h)-hx(w0h)}" height="21" fill="none" stroke="${t.winLab}" stroke-width="2" rx="4"/>`;
+  s+=`<text x="${(hx(w0h)+hx(w1h))/2}" y="17" text-anchor="middle" font-size="10" font-weight="700" fill="${t.winLab}">⏳ 最佳</text>`;
+  s+=`<text x="${hx(5.7)}" y="52" class="axis hitseg" data-tip="日出 ${SUN.rise}（首光 ${SUN.first}）">☀↑${SUN.rise}</text>`;
+  s+=`<text x="${hx(19.1)-30}" y="52" class="axis hitseg" data-tip="日落 ${SUN.set}">☀↓${SUN.set}</text>`;
+  (day.tide.split(' ')).forEach(ev=>{ const kind=ev[0], h=parseInt(ev.slice(1),10);
+    s+=`<text x="${hx(h)-4}" y="64" font-size="9.5" fill="${t.tide}" class="hitseg" data-tip="${kind==='高'?'高潮':'低潮'} ${String(h).padStart(2,'0')}:00">${kind==='高'?'▲':'▽'}${h}</text>`; });
+  if(isToday){ const nowH=14.5;
+    s+=`<line x1="${hx(nowH)}" y1="18" x2="${hx(nowH)}" y2="46" stroke="#e11d48" stroke-width="2"/>
+        <text x="${hx(nowH)+3}" y="16" font-size="9.5" fill="#e11d48" font-weight="700">现在</text>`; }
+  [0,6,12,18,24].forEach(h=>s+=`<text x="${hx(h)-4}" y="${H-2}" class="axis">${h}</text>`);
+  return s+'</svg>';
+}
+function compass(day){ const t=T();
+  const C=62, R=46, cx=C, cy=C;
+  const pt=(deg,r)=>[cx+r*Math.sin(deg*Math.PI/180), cy-r*Math.cos(deg*Math.PI/180)];
+  const QLAB={o:'离岸',x:'侧岸',n:'向岸'};
+  let s=`<svg viewBox="0 0 ${C*2} ${C*2}" style="width:124px;flex-shrink:0">`;
+  s+=`<circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="${t.ring}" stroke-width="1.5"/>`;
+  const f=157, p0=pt(f-45,R), p1=pt(f+45,R);
+  s+=`<path d="M${cx},${cy} L${p0[0]},${p0[1]} A${R},${R} 0 0 1 ${p1[0]},${p1[1]} Z" fill="${t.face}" class="hitseg" data-tip="浪点朝向 157°（SSE）— 接浪扇区"/>`;
+  [['N',0],['E',90],['S',180],['W',270]].forEach(([l,d])=>{ const p=pt(d,R+9);
+    s+=`<text x="${p[0]}" y="${p[1]+3}" text-anchor="middle" font-size="9.5" fill="${t.axis}">${l}</text>`; });
+  [[0,'06时'],[6,'12时'],[12,'18时']].forEach(([i,lab],k)=>{
+    const q=day.q[i], c=q==='o'?t.qo:q==='x'?t.qx:t.qn;
+    const go=(day.wdirs[k]+180)%360, pa=pt(go,R-8), pb=pt(go,10);
+    s+=`<line x1="${pb[0]}" y1="${pb[1]}" x2="${pa[0]}" y2="${pa[1]}" stroke="${c}" stroke-width="${3-k*0.5}"
+        class="hitseg" data-tip="${lab} ${QLAB[q]}风 ${day.wind[i]}kn（去向 ${go}°）"/>`;
+    const tip=pt(go,R-4);
+    s+=`<circle cx="${tip[0]}" cy="${tip[1]}" r="3.5" fill="${c}" class="hitseg" data-tip="${lab} ${QLAB[q]}风"/>`; });
+  s+=`<circle cx="${cx}" cy="${cy}" r="3" fill="${t.axis}"/>`;
+  return s+'</svg>';
+}
+function spark(){ const t=T();
+  const W=352,H=54,x0=16,step=(W-2*x0)/6, min=6.8,max=9;
+  const y=s=>44-(s-min)/(max-min)*32;
+  let s=`<svg viewBox="0 0 ${W} ${H}" style="width:100%">`;
+  s+=`<polyline points="${WEEK7.map((d,i)=>`${x0+i*step},${y(d.s)}`).join(' ')}" fill="none" stroke="${t.bar}" stroke-width="2"/>`;
+  WEEK7.forEach((d,i)=>{ const best=d.s===Math.max(...WEEK7.map(x=>x.s));
+    s+=`<circle cx="${x0+i*step}" cy="${y(d.s)}" r="${best?5:3.5}" fill="${best?t.line:t.bar}" class="hitbar" data-tip="周${d.w} · ${d.s} 分"/>`;
+    if(best) s+=`<text x="${x0+i*step}" y="${y(d.s)-9}" text-anchor="middle" font-size="10.5" font-weight="700" fill="${t.line}">${d.s}</text>`;
+    s+=`<text x="${x0+i*step}" y="${H-2}" text-anchor="middle" class="axis">${d.w}</text>`; });
+  return s+'</svg>';
+}
+/* 🌀 涌浪溯源小地图 */
+function stormMap(){ const t=T();
+  const W=300,H=118;
+  let s=`<svg viewBox="0 0 ${W} ${H}" style="width:100%">`;
+  s+=`<path d="M8,30 C40,18 60,34 84,26 C104,20 118,30 132,44 C120,58 96,60 74,54 C48,66 24,54 8,48 Z"
+       fill="${t.face}" stroke="${t.ring}" stroke-width="1"/>`;
+  s+=`<text x="20" y="42" font-size="9.5" fill="${t.axis}">广东岸线</text>`;
+  s+=`<circle cx="128" cy="47" r="4.5" fill="${t.hi}" class="hitseg" data-tip="黄金海岸 · 涌浪抵达点"/>`;
+  s+=`<text x="120" y="62" font-size="9" fill="${t.hi}">黄金海岸</text>`;
+  const path=STORM.path;
+  s+=`<polyline points="${path.map(p=>p.join(',')).join(' ')}" fill="none" stroke="${t.bar}" stroke-width="1.8" stroke-dasharray="6 4"/>`;
+  path.forEach((p,i)=>{ if(i===0){
+      s+=`<circle cx="${p[0]}" cy="${p[1]}" r="9" fill="none" stroke="${t.bad}" stroke-width="1.6" class="hitseg" data-tip="${STORM.name} · ${STORM.born}"/>
+          <circle cx="${p[0]}" cy="${p[1]}" r="4" fill="${t.bad}" class="hitseg" data-tip="${STORM.name}"/>
+          <text x="${p[0]-46}" y="${p[1]-12}" font-size="9" fill="${t.bad}">🌀 7/26 生成</text>`;
+    } else if(i===2){
+      s+=`<circle cx="${p[0]}" cy="${p[1]}" r="2.5" fill="${t.bar}" class="hitseg" data-tip="跨南海行进 ~30km/h · 42 小时"/>
+          <text x="${p[0]+6}" y="${p[1]-4}" font-size="9" fill="${t.axis}">42h 跨海</text>`; }});
+  s+=`<text x="${path[4][0]-4}" y="${path[4][1]+16}" font-size="9" fill="${t.winLab}">周三凌晨抵达</text>`;
+  return s+'</svg>';
+}
+/* 📊 季节热图 */
+function seasonGrid(){ const t=T();
+  return `<div class="season">${SEASON.map((v,i)=>{
+    const a=(v/9)*0.9+0.08;
+    const bg = state.night?`rgba(90,168,200,${a})`:`rgba(37,150,190,${a})`;
+    const cur=i===6;
+    return `<div class="hitseg" style="background:${bg};${cur?'outline:2px solid '+t.hi:''}"
+      data-tip="${i+1}月 · 质量 ${v}/9${cur?'（本月）':''}${v>=8?' · 台风涌旺季':v<=3?' · 平潮期':''}">${i+1}</div>`;}).join('')}</div>`;
+}
+/* 🎞 快照对比 */
+function gearRow(day){
+  return `<div class="gear">
+    <div class="hitbar" data-tip="模型 SST ${WATER}°C">🌡 水温<b>${WATER}°C</b></div>
+    <div class="hitbar" data-tip="26°C+ 无需厚防寒衣">🥽 穿着<b>防晒衣/2mm</b></div>
+    <div class="hitbar" data-tip="水温 >24°C 用 Warm 蜡">🕯 板蜡<b>Warm</b></div>
+    <div class="hitbar" data-tip="按当日建议板型">🏄 板<b>${day.board.split(' ')[0]}</b></div>
+  </div>`;
+}
+/* 🧬 DNA */
+function dnaBlock(){ const t=T();
+  return `<div class="dnahead"><span class="sect" style="margin:0">🧬 浪点 DNA · 今日契合</span>
+    <span class="total">${DNA.total}%</span></div>
+  <div class="dna">${DNA.rows.map(([k,ideal,today,pc])=>`
+    <div class="row hitseg" data-tip="理想：${ideal} ｜ 今日：${today}">
+      <span class="k">${k}</span><div class="track"><div class="fill" style="width:${pc}%;${pc>=90?'background:'+t.tide:''}"></div></div>
+      <span class="pc">${pc}%</span></div>`).join('')}</div>
+  <div class="caption">悬停每行看「理想 vs 今日」。周期 61% 是短板——本点最佳出现在 >8s 长周期涌（多在 9-10 月）。</div>`;
+}
+
+/* ================= 倒计时 ================= */
+const T0 = Date.now();
+const TARGETS = [null, 30, 55];
+function cdownText(sel){
+  if(sel===0) return `今日窗口已收（09:30 止）· 明早 06:00 再来`;
+  const nowH = 14.5 + (Date.now()-T0)/3600000;
+  let rem = (TARGETS[sel]-nowH)*3600;
+  const h=Math.floor(rem/3600), m=Math.floor(rem%3600/60), s=Math.floor(rem%60);
+  return `距最佳窗口还有 <b>${h}小时 ${String(m).padStart(2,'0')}分 ${String(s).padStart(2,'0')}秒</b>`;
+}
+setInterval(()=>{ document.querySelectorAll('.cdown[data-sel]').forEach(el=>{
+  el.innerHTML = el.dataset.pre + cdownText(+el.dataset.sel); }); }, 1000);
+
+/* 🚗 出发倒推 */
+function departTime(day){
+  const [h,m]=day.winStart.split(':').map(Number);
+  let mins = h*60+m - state.commute - 15;   // 15min 收拾装备
+  const dh=Math.floor(mins/60), dm=mins%60;
+  return `${String(dh).padStart(2,'0')}:${String(dm).padStart(2,'0')}`;
+}
+
+/* ═══ v4 新功能逻辑 ═══ */
+/* 说明（三屏收敛，2026-08-05）：What-if 评分模拟器 / 波浪实验室 / 语音播报 / 抓拍墙
+   随 ④手账·⑤浪况实验室 两屏一并移除；其驱动定时器与函数也已删，避免刷不存在的 DOM。 */
+
+/* ================= 模板 ================= */
+function strip(){ return `<div class="strip">`+DAYS.map((d,i)=>
+  `<button class="${i===state.sel?'on':''}" onclick="pick(${i})">${d.week}${d.best?' 🏆':''}<b>${d.score}</b></button>`).join('')+`</div>`; }
+function cdownEl(sel, pre=''){ return `<div class="cdown" data-sel="${sel}" data-pre="${pre}">${pre}${cdownText(sel)}</div>`; }
+
+function vHome(){ const d=DAYS[1];
+  return `<div class="brand"><span>浪报 SURF DAILY · 7月28日 周二</span><span>${state.night?'🌙 夜读中':''}</span></div>
+  ${state.alertOn?`<div class="alert"><span>⚠️</span><span><b>今日注意</b> · 午后雷暴概率 40%（14-17时），离岸流中风险——退潮中段勿越过外侧沙洲线。</span>
+    <button class="close" onclick="state.alertOn=false;renderAll()">✕</button></div>`:''}
+  <h3 class="big">这周去<em>黄金海岸</em>，<br>周三早上最值得。</h3>
+  <div class="sub">广东 · 16/16 浪点今日评分可用</div>
+  <div class="card">
+    <span class="score">${d.score}<small>/10</small></span>
+    <span style="font-size:13px;color:var(--hot);font-weight:700"> ${d.tag}</span>
+    <div class="headline">「${d.window} 到，带${d.board}」</div>
+    <span class="chip">浪 <b>${mMax(Math.max(...d.hs))}</b></span><span class="chip">风 <b>离岸 ${d.wind[0]}kn</b></span>
+    <span class="chip hot">👥 偏多·高分日</span><span class="chip">置信度 <b>高</b> ●●●</span>
+    ${cdownEl(1,'⏳ ')}
+  </div>
+  <div class="sect">🌊 现场众报 · 水里的人怎么说（点票）</div>
+  <div class="card crowd" style="padding:9px 13px">
+    <div style="font-size:12px">今晨 16 位浪人实测投票 → <b style="color:var(--ok)">「如报 0.9m」占 69%</b></div>
+    <div class="dist">${(()=>{const n=state.crowdN;const mx=Math.max(...Object.values(n));
+      return Object.entries(n).map(([k,v])=>`<i class="hitseg" style="height:${v/mx*100}%" data-tip="${k}：${v} 票"></i>`).join('');})()}</div>
+    <div class="dlabels"><span>偏小</span><span>如报</span><span>偏大</span></div>
+    <div class="cbar">${['偏小','如报','偏大'].map(k=>
+      `<button class="${state.crowdVote===k?'on':''}" onclick="crowdVote('${k}')">${state.crowdVote===k?'✓ ':''}浪${k}</button>`).join('')}</div>
+    <div class="caption">你在现场？投一票帮后来的人——众包实况回流偏差校准。</div>
+  </div>
+  <div class="sect">🔄 本周三点横评（点行跳详情）</div>
+  <div class="card" style="padding:8px 13px">
+    <table class="cmp"><tr><th>浪点</th><th>评分</th><th>浪</th><th>晨风</th><th>人</th><th>车程</th></tr>
+      ${CMP.map(c=>`<tr onclick="toast('原型：跳转 ${c.spot}')">
+        <td class="${c.win?'win':''}">${c.win?'★ ':''}${c.spot}</td><td class="${c.win?'win':''}">${c.score}</td>
+        <td>${mMax(c.wave)}</td><td>${c.wind}</td><td>${c.crowd}</td><td>${c.drive}min</td></tr>`).join('')}
+    </table></div>
+  <div class="sect">🌕 潮历（朔望大潮 = 潮差大 · 悬停看）</div>
+  <div class="card" style="padding:9px 12px">
+    <div class="moonrow">${MOON.map(m=>`<div class="${m.spring?'spring':''} hitseg"
+      data-tip="周${m.w} · ${m.m} ${m.t}${m.spring?' · 朔望大潮：潮差最大，低潮位裸露礁石注意':''}"><span class="m">${m.m}</span>${m.t}</div>`).join('')}</div>
+  </div>
+  <div class="sect">📈 本周走势</div>
+  <div class="card" style="padding:8px 12px 4px">${spark()}</div>
+  <div class="caption">数据 02:00 校准 · 先验证过去，再相信未来 → 数据健康</div>`; }
+
+function vNovice(){ const d=DAYS[state.sel];
+  return `<div class="brand"><span>黄金海岸 · ${d.week} ${d.date}</span>
+    <button class="sharebtn" onclick="share()">📤 分享</button></div>${strip()}
+  <div class="card">
+    <span class="score">${d.score}<small>/10</small></span><span style="font-size:13px;color:var(--hot)"> ${d.tag}</span>
+    <div class="headline">${d.novice}</div>
+    <span class="chip">🕐 <b>${d.window}</b></span><span class="chip">🏄 <b>${d.board}</b></span>
+    <span class="chip">🌅 首光 <b>${SUN.first}</b></span>
+    ${cdownEl(state.sel,'⏳ ')}
+    <button class="whybtn" onclick="why()">🤔 为什么是 ${d.score} 分？看图解分析 →</button>
+  </div>
+  <div class="card">
+    <div class="sect" style="margin-top:0">🚗 几点出门（按你的通勤自动倒推）</div>
+    <div class="depart">
+      <span class="t">${departTime(d)}</span><span style="color:var(--ink2)">出门 →</span>
+      <span>${d.winStart} 下水</span>
+    </div>
+    <div class="depart" style="font-size:11.5px;color:var(--ink2)">
+      车程 <button onclick="commute(-5)">−</button> <b style="color:var(--ink)">${state.commute}min</b>
+      <button onclick="commute(5)">＋</button> ＋ 收拾装备 15min
+      <button style="width:auto;padding:0 10px;border-radius:999px;font-size:11px" onclick="toast('📅 已生成 .ics：${d.week} ${d.winStart} 黄金海岸冲浪（含出门提醒）')">📅 加入日历</button>
+    </div>
+  </div>
+  <div class="sect">带什么</div>${gearRow(d)}
+  <div class="card">
+    <div class="sect" style="margin-top:0">🆘 入水报备</div>
+    <div class="checkin">
+      <button class="big ${state.checkin?'armed':''}" onclick="checkin()">
+        ${state.checkin?`🏄 冲浪中 · ${state.checkinAt} 入水 — 上岸点我销记`:'🌊 我下水了（默认 2h 后核实）'}</button>
+    </div>
+    <div class="caption">${state.checkin
+      ?'超 2h 未销记 → 自动短信提醒你的紧急联系人（含浪点定位）。'
+      :'一个人冲浪最怕没人知道你在水里。下水点一下，上岸销一下。'}</div>
+  </div>
+  <div class="sect">🅿️ 浪点设施（NEW · 悬停看备注）</div>
+  <div class="facil">
+    <div class="hitseg" data-tip="沙滩北口免费停车场 ~60 位，周末 08:00 后难找位"><b>🅿️</b>停车 免费</div>
+    <div class="hitseg" data-tip="更衣间旁淡水冲洗 · 5元不限时"><b>🚿</b>淡水冲洗</div>
+    <div class="hitseg" data-tip="浪人小屋租板：短板80/长板100 半天"><b>🏄</b>租板 ¥80+</div>
+    <div class="hitseg no" data-tip="最近的咖啡在 2km 外镇上——自带热水吧"><b>☕</b>咖啡 无</div>
+  </div>
+  <div class="coach"><span class="ai">🤖</span><span><b>AI 教练</b> · ${d.coachN}</span></div>
+  <div class="plan"><b>🏄 行动建议</b><br>${d.window}到场，${d.board}。</div>`; }
+
+function vExpert(){ const d=DAYS[state.sel];
+  return `<div class="brand"><span>黄金海岸 · ${d.week} ${d.date} · 置信度${d.conf[1]} ${d.conf[0]}</span>
+    <button class="unitbtn" onclick="setUnit()">${state.unit==='m'?'m ⇄ ft':'ft ⇄ m'}</button></div>${strip()}
+  <div class="card"><div class="sect" style="margin-top:0">🕛 全天冲浪时间轴</div>
+    ${timeline24(d,state.sel===0)}</div>
+  <div class="card">
+    <span class="score">${d.score}<small>/10</small></span>
+    <div style="margin:6px 0">${Object.entries(d.dims).map(([k,v])=>`<span class="chip">${k} <b style="color:${v>=10?'var(--ok)':'var(--ink)'}">${v}</b></span>`).join('')}</div>
+    ${waveChart(d)}
+    <div class="caption">蓝柱 浪高 · 虚线 谱峰周期 Tp（悬停柱子）</div>
+  </div>
+
+  <div class="card">${dnaBlock()}</div>
+  <div class="card">
+    <div class="sect" style="margin-top:0">🌀 这股浪从哪来 · 涌浪溯源</div>
+    ${stormMap()}
+    <div class="caption" style="line-height:1.7">${STORM.story}</div>
+  </div>
+  <div class="card" style="display:flex;gap:10px;align-items:center">
+    ${compass(d)}
+    <div style="font-size:12px;color:var(--ink2);line-height:1.7"><b style="color:var(--ink)">🧭 风向罗盘</b><br>
+    扇区=接浪朝向(157°)。三支箭=06/12/18时风矢量。晨风入扇区=离岸=好。</div></div>
+  <div class="card"><div class="sect" style="margin-top:0">📊 浪点季节志 · 黄金海岸哪月最好</div>
+    ${seasonGrid()}
+    <div class="caption">9-10 月台风涌季 = 长周期大浪；本月（7 月）属中上。悬停月份看注解。</div></div>
+  <div class="lesson"><b>📖 ${d.lesson[0]}</b><br>${d.lesson[1]}</div>
+  <div class="coach"><span class="ai">🤖</span><span><b>AI 教练</b> · ${d.coachE}</span></div>
+  <details class="review"><summary>🔁 昨日回看（周一 07-27）· 校验预报准度 — 展开 ▾</summary>
+    <p style="margin:8px 0 2px">系统当时预报：1.0m · 6.6s · 3kn · 综合 8.05/10</p>
+    <p style="margin:6px 0 2px;font-weight:600">昨天报得准吗？</p>
+    <div class="vbtns">${['准','偏乐观','偏保守','没下水'].map(k=>
+      `<button class="${state.voted===k?'on':''}" onclick="vote('${k}')">${k}</button>`).join('')}</div>
+    ${state.voted?`<p style="margin-top:8px;font-size:12px">✅ 已记录「${state.voted}」——多次自评会校准本浪点的系统性偏差（当前 -0.3）。</p>`:''}
+  </details>`; }
+
+  
+
+/* ================= 交互 ================= */
+function renderAll(){
+  document.getElementById('A-home').innerHTML=vHome();
+  document.getElementById('A-novice').innerHTML=vNovice();
+  document.getElementById('A-expert').innerHTML=vExpert();
+}
+function pick(i){ state.sel=i; renderAll(); }
+/* v4 handlers */
+function crowdVote(k){
+  if(state.crowdVote===k){ state.crowdN[k]--; state.crowdVote=''; }
+  else { if(state.crowdVote) state.crowdN[state.crowdVote]--;
+         state.crowdN[k]++; state.crowdVote=k; }
+  renderAll(); toast(state.crowdVote?`🌊 已投「浪${k}」，谢谢实测`:'已撤票');
+}
+function checkin(){
+  state.checkin=!state.checkin;
+  if(state.checkin){ const n=new Date();
+    state.checkinAt=`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
+    toast('🆘 已报备下水 · 2h 后未销记将提醒紧急联系人'); }
+  else toast('✅ 已销记，冲得开心');
+  renderAll();
+}
+function setUnit(){ state.unit=state.unit==='m'?'ft':'m'; renderAll(); toast(`单位已切到 ${state.unit}`); }
+function commute(d){ state.commute=Math.max(5,Math.min(180,state.commute+d)); renderAll(); }
+function vote(k){ state.voted=k; renderAll();
+  document.querySelectorAll('#A-expert details.review').forEach(x=>x.open=true); }
+function why(){ const f=document.getElementById('A-expert-frame');
+  f.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});
+  f.classList.add('flash'); setTimeout(()=>f.classList.remove('flash'),1400); }
+function toggleNight(){ state.night=!state.night;
+  document.getElementById('dirA-root').classList.toggle('night',state.night);
+  document.getElementById('nightbtn').classList.toggle('on',state.night);
+  document.getElementById('nightbtn').textContent = state.night?'☀️ 回到日间':'🌙 夜读模式';
+  renderAll(); }
+function toast(msg){ const t=document.getElementById('tt');
+  t.textContent=msg; t.style.display='block';
+  t.style.left='50%'; t.style.top='24px'; t.style.transform='translateX(-50%)';
+  clearTimeout(t._h); t._h=setTimeout(()=>{t.style.display='none';t.style.transform='';t._h=null;},1500); }
+const QRPAT='11010101110110011010101011010101011010111011010110'.split('');
+function share(){ const d=DAYS[state.sel];
+  document.getElementById('shareinner').innerHTML=`<div class="scard">
+    <div class="sc-brand">浪报 SURF DAILY</div>
+    <div class="sc-spot">黄金海岸</div>
+    <div class="sc-score">${d.score}<small>/10 ${d.tag}</small></div>
+    <div class="sc-line">${d.week} ${d.date} · ${d.window}<br>「${d.novice}」</div>
+    <div class="sc-foot"><span>surf-daily.example<br>先验证过去，再相信未来</span>
+      <span class="qr">${QRPAT.map(b=>`<i class="${b==='0'?'o':''}"></i>`).join('')}</span></div>
+    <div class="sc-actions">
+      <button style="background:#1a1a19;color:#fff" onclick="toast('✅ 已复制分享文案+链接')">复制文案</button>
+      <button style="background:#e5e2da" onclick="document.getElementById('sharemask').classList.remove('open')">关闭</button>
+    </div></div>`;
+  document.getElementById('sharemask').classList.add('open'); }
+
+document.addEventListener('mousemove',e=>{
+  const el=e.target.closest('.hitbar,.hitseg'); const t=document.getElementById('tt');
+  if(el&&el.dataset.tip){ t.textContent=el.dataset.tip; t.style.display='block'; t.style.transform='';
+    t.style.left=Math.min(e.clientX+14,window.innerWidth-260)+'px'; t.style.top=(e.clientY+14)+'px'; }
+  else if(!t._h){ t.style.display='none'; }
+});
+
+renderAll();
+</script>
+</body>
+</html>

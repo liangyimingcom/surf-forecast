@@ -12,15 +12,34 @@ a.card:hover{transform:translateY(-3px);box-shadow:0 10px 28px rgba(0,0,0,.14)}
 h2{font-size:19px;margin:10px 0 6px}.d{font-size:13px;color:#52514e;line-height:1.75}
 .n{font-size:12px;color:#0f6a8f;margin-top:10px;font-weight:600}
 .tag{display:inline-block;font-size:11px;background:#f1efe8;color:#6b6459;border-radius:6px;padding:2px 8px;margin:2px 4px 0 0}
+.v.alt{background:#166534;margin-left:6px}.v.gray{background:#6b6459}
+.card.cmp{background:#fff;border-radius:18px;padding:22px 24px;box-shadow:0 2px 10px rgba(0,0,0,.08);border:1px solid #e3e0d8}
+.card.cmp table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:10px}
+.card.cmp th,.card.cmp td{text-align:left;padding:6px 8px;border-bottom:1px solid #efece4;vertical-align:top;line-height:1.6}
+.card.cmp th{font-size:11px;letter-spacing:1px;color:#6b6459;background:#faf9f5}
+.card.cmp td:first-child{color:#6b6459;white-space:nowrap;width:74px}
+.card.cmp .links{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+.card.cmp .links a{flex:1;text-align:center;text-decoration:none;font-size:13px;font-weight:600;padding:9px 12px;border-radius:10px;background:#0f6a8f;color:#fff;min-width:150px}
+.card.cmp .links a.sec{background:#f1efe8;color:#52514e}
 </style></head><body><div class="wrap">
 <h1>浪报 · A 晨报纸感 · 原型版本索引</h1>
 <p class="sub">四个版本独立成页、层层递进（高版本包含低版本全部功能）。每页全部可交互：悬停图表、点日期、答三问、记日记……
-选定版本后告知，即按该版本功能集落地生产。</p>
+选定版本后告知，即按该版本功能集落地生产。<br><b>v4 现有两版</b>：<b>三屏收敛版</b>（决策主干，推荐）与<b>五屏全景版</b>（功能全景，供对照取舍）——见下方差异表。</p>
 <div class="grid">
-<a class="card" href="design-v4.html"><span class="v">v4</span><h2>五屏 · surfer 实用增强</h2>
-<div class="d">首页/小白/高手/手账/实验室。新增：现场众报、入水报备、浪周规划器、浪点搭子、设施卡、What-if 模拟器、波浪实验室、语音播报、AI 抓拍墙、水质哨兵、手表预览。</div>
-<div><span class="tag">众报</span><span class="tag">报备</span><span class="tag">规划器</span><span class="tag">What-if</span><span class="tag">抓拍墙</span></div>
-<div class="n">功能最克制的一版 →</div></a>
+<a class="card" href="design-v4-update1.html"><span class="v">v4</span><span class="v alt">三屏 · 收敛版</span><h2>三屏 · 首页 / 小白 / 高手</h2>
+<div class="d">只留决策主干：首页一屏答案（本周该去哪、哪天去）+ 小白屏（几点出门倒推、带什么、入水报备）+ 高手屏（时间轴、五维、双周期图、浪点 DNA、涌浪溯源、风向罗盘、季节志、物理小课堂）。</div>
+<div><span class="tag">众报</span><span class="tag">报备</span><span class="tag">通勤倒推</span><span class="tag">浪点DNA</span><span class="tag">涌浪溯源</span></div>
+<div class="n">功能最克制的一版 · 推荐 →</div></a>
+<div class="card cmp"><span class="v gray">v4 两版差异</span><h2>三屏收敛版 vs 五屏全景版</h2>
+<table>
+<tr><th></th><th>三屏（收敛）</th><th>五屏（全景）</th></tr>
+<tr><td>屏数</td><td><b>3</b>：首页 / 小白 / 高手</td><td>5：+ ④手账 ⑤浪况实验室</td></tr>
+<tr><td>高手屏</td><td>时间轴 · 五维 · 双周期图 · DNA · 溯源 · 罗盘 · 季节志 · 小课堂</td><td>同左 <b>+</b> What-if 模拟器 · 波浪实验室 · 预报vs直播快照</td></tr>
+<tr><td>自评</td><td>回看区自评 → 校准系统性偏差</td><td>自评同步到 ④手账（含星标·备注·统计）</td></tr>
+<tr><td>社交/规划</td><td>现场众报 · 入水报备</td><td>同左 <b>+</b> 浪周规划器 · 浪点搭子 · AI 抓拍墙 · 语音播报</td></tr>
+<tr><td>定位</td><td>决策主干，落地成本低</td><td>功能全景，用于对照取舍</td></tr>
+</table>
+<div class="links"><a href="design-v4-update1.html">打开三屏版 →</a><a href="design-v4.html" class="sec">打开五屏版（全景参考） →</a></div></div>
 <a class="card" href="design-v5.html"><span class="v">v5</span><h2>五屏 · 出门决策打满</h2>
 <div class="d">v4 全部 + 必要/可选档重点扩充：能力红线、逐时评分曲线、浪高误差区间、晚窗支持、体感穿衣、板袋推荐、相似日回溯、错过/躲过复盘、浪数预估、打印版。</div>
 <div><span class="tag">能力红线</span><span class="tag">逐时曲线</span><span class="tag">晚窗</span><span class="tag">板袋</span><span class="tag">相似日</span></div>
