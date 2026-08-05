@@ -66,7 +66,7 @@ await page.route('**/api/status', r => r.fulfill({ json: {
 // —— 首页 ——
 await page.goto(BASE + '/', { waitUntil: 'networkidle', timeout: 30000 })
 await page.waitForTimeout(500)
-ok('首页 标题', (await page.locator('h1').first().innerText()).includes('决策助手'))
+ok('首页 报头品牌（S2 改版：标题从 h1 移入报头，h1 现为 verdict）', (await page.locator('.brand').innerText()).includes('SURF DAILY'))
 ok('首页 一屏答案 verdict', await page.locator('.verdict').count() === 1)
 ok('首页 headline 行动首句', (await page.locator('.headline').innerText()).includes('鱼板'))
 ok('首页 三渐进入口', await page.locator('.entries a').count() === 3)
@@ -127,6 +127,24 @@ ok('状态页 数据治理区块存在', govTxt.length > 0)
 ok('状态页 报出坐标非法点', govTxt.includes('sl75') && govTxt.includes('超范围'))
 ok('状态页 报出可疑重复组', govTxt.includes('sl54') && govTxt.includes('Kirra'))
 ok('状态页 合理重复只计数不报故障', govTxt.includes('2 组同海滩'))
+
+// —— S2 晨报首页 ——
+await page.goto(BASE + '/', { waitUntil: 'networkidle', timeout: 30000 })
+await page.waitForTimeout(700)
+const homeTxt = await page.locator('body').innerText()
+ok('首页 报头 SURF DAILY', homeTxt.includes('SURF DAILY'))
+ok('首页 verdict「这周去…最值得」', /这周去[\s\S]{1,20}最值得/.test(homeTxt))
+ok('首页 覆盖计数 fresh/total', /\d+\/\d+ 浪点今日评分可用/.test(homeTxt))
+ok('首页 大评分数字', await page.locator('.score').count() === 1)
+ok('首页 三渐进入口', await page.locator('.entries a').count() === 3)
+ok('首页 校准戳 + 数据健康链接', /先验证过去，再相信未来/.test(homeTxt))
+ok('首页 报头不被悬浮按钮遮挡', await page.evaluate(() => {
+  const b = document.querySelector('.brand span').getBoundingClientRect()
+  const n = document.querySelector('.nightbtn').getBoundingClientRect()
+  return b.right <= n.left
+}))
+ok('首页 🚫 无数据源块未出现（告警/众报/车程）',
+   !homeTxt.includes('今日注意') && !homeTxt.includes('现场众报') && !homeTxt.includes('车程'))
 
 // —— S1 夜读模式（设计令牌切换 + localStorage 持久化）——
 await page.goto(BASE + '/', { waitUntil: 'networkidle', timeout: 30000 })

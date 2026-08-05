@@ -25,6 +25,10 @@ export function cached(key) {
   return v
 }
 
+// ⚠️ 键即契约：同一个 key 在不同页面必须存**同一形状**的值。
+//    （2026-08-05 实测事故：首页用 `report|<slug>` 存裸 report，而 SpotPage 同键存
+//     { rep, hist, bias, hasLive } 包装对象 → 详情页 applyReport(v.rep) 得 undefined → 整页白。
+//     形状不同就换键名，如首页走势改用 `trend|<slug>`。）
 // swr(key, fetcher, onData)：有缓存先回调一次缓存值（fresh=false），
 // 然后总是后台重取，成功再回调新值（fresh=true）。返回「是否有缓存立即可用」。
 export function swr(key, fetcher, onData) {

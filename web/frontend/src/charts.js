@@ -32,6 +32,32 @@ export function scoreColor(score) {
   return 'var(--ch-mute)'
 }
 
+// 本周走势 sparkline（S2）——规格取自原型 spark()：折线 + 峰值放大标注 + 星期轴。
+// 提示用 SVG 原生 <title>：悬停即显、读屏可读，不引入 Vue 版没有的 tooltip 机制。
+// 颜色全走 --ch-* 令牌，夜读模式自动跟随。
+export function sparkline(days) {
+  const pts = (days || []).filter(d => typeof d.score === 'number')
+  if (pts.length < 2) return ''          // 少于两点画不出趋势 → 不画（不用假点凑）
+  // top 留 20 而非 12：峰值分数标注画在点上方 9px，贴顶时会被卡片裁掉（S2 截图实测）
+  const W = 352, H = 58, x0 = 16, bottom = 44, top = 20
+  const step = pts.length > 1 ? (W - 2 * x0) / (pts.length - 1) : 0
+  const vals = pts.map(d => d.score)
+  const lo = Math.min(...vals), hi = Math.max(...vals)
+  const span = hi - lo || 1              // 全周同分时不除零，画成直线
+  const y = s => bottom - ((s - lo) / span) * (bottom - top)
+  const px = i => x0 + i * step
+  let s = `<svg viewBox="0 0 ${W} ${H}" style="width:100%" role="img" aria-label="本周综合评分走势">`
+  s += `<polyline points="${pts.map((d, i) => `${px(i)},${y(d.score)}`).join(' ')}" fill="none" stroke="var(--ch-bar)" stroke-width="2"/>`
+  pts.forEach((d, i) => {
+    const best = d.score === hi
+    s += `<circle cx="${px(i)}" cy="${y(d.score)}" r="${best ? 5 : 3.5}" fill="${best ? 'var(--ch-line)' : 'var(--ch-bar)'}">`
+    s += `<title>${d.week || ''} ${d.date || ''} · ${d.score} 分</title></circle>`
+    if (best) s += `<text x="${px(i)}" y="${y(d.score) - 9}" text-anchor="middle" font-size="10.5" font-weight="700" fill="var(--ch-line)">${d.score}</text>`
+    s += `<text x="${px(i)}" y="${H - 3}" text-anchor="middle" font-size="9.5" fill="var(--ch-axis)">${d.week || ''}</text>`
+  })
+  return s + '</svg>'
+}
+
 // 浪高柱 + 双周期线(Tm/Tp) + 最佳窗口高亮 + tooltip 命中列
 export function waveChart(d) {
   const W = 360, H = 200, L = 34, R = 12, T = 18, B = 30, HSMAX = 1.2, TPMAX = 7.6
