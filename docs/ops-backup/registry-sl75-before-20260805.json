@@ -1,0 +1,73 @@
+{
+    "Item": {
+        "city": {
+            "S": "HaiNan"
+        },
+        "created_at_gmt8": {
+            "S": "2026-07-11 21:03:05+0800"
+        },
+        "days": {
+            "N": "6"
+        },
+        "dedup_key": {
+            "S": "110.3632:114.8425:110"
+        },
+        "facing_calibrated": {
+            "BOOL": false
+        },
+        "last_refresh_at_gmt8": {
+            "NULL": true
+        },
+        "last_viewed_at_gmt8": {
+            "S": "2026-07-11 21:03:05+0800"
+        },
+        "lat": {
+            "N": "110.363232"
+        },
+        "live_src": {
+            "S": ""
+        },
+        "lon": {
+            "N": "114.842491"
+        },
+        "post_url": {
+            "S": "/public/upimg/2024_9_322932微信图片_20240903214812.jpg"
+        },
+        "ref_count": {
+            "N": "1"
+        },
+        "refresh_enabled": {
+            "BOOL": true
+        },
+        "region": {
+            "S": "uncalibrated"
+        },
+        "region_cn": {
+            "S": "海南"
+        },
+        "slug": {
+            "S": "sl75"
+        },
+        "source": {
+            "S": "shilaoren"
+        },
+        "spot": {
+            "S": "石梅湾九里"
+        },
+        "spot_facing_deg": {
+            "N": "110"
+        },
+        "status": {
+            "S": "active"
+        },
+        "op_status": {
+            "S": "open"
+        },
+        "is_test": {
+            "BOOL": false
+        },
+        "beach_group": {
+            "S": "shimeiwan"
+        }
+    }
+}
