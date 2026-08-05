@@ -59,3 +59,4 @@
 - 服务端：`bulk_latest` 61 点 S3 并发读 + 聚合接口 5min TTL（SF_AGG_TTL，键含 test_access 维度）。scores 2.25s→0.55s、recommend 3.2s→0.53s、status 1.85s→0.49s（余下 ~0.5s 为跨洋 RTT）。
 - 前端：swr.js（stale-while-revalidate，内存+sessionStorage 5min）接入四页——切页秒出旧数据后台静默刷新，「加载中…」仅首次出现。实测回访 home 0.04s / spots 0.03s / detail 1.3s。
 - **顺手揪出存量 bug**：DynamoDB `find_registry_by_coord` 用 round(入参,4) 与库中 6 位小数原值做精确相等 → seeded 点永远匹配不上 → slug 解析失败 → **详情页 S3 缓存从未命中**，每次实时调 Open-Meteo 现算（首访 5.9s 的真凶）。修为两侧同 round(4) 比较后 detail 首访 5.9s→1.3s，calibratedAt 回到刷新时刻（缓存命中实证）。
+| 2026-08-05 | 交接 | 交接给 Kiro：docs/HANDOFF-to-kiro.md（现状/13个未push commit/遗留/运维知识/文档地图）。生产 v0.3.3 无人值守一周健康（主跑58/60·补跑哨兵正常·7区域推荐可用）。设计原型 v4-v7 待用户拍板。 |

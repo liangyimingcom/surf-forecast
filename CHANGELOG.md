@@ -28,3 +28,5 @@
 - 2026-07-28 13:12 GMT+8 · v0.3.1 · b1f60c1 · rollback → v0.3.1 · 已切 task def+滚动
 - 2026-07-28 15:35 GMT+8 · v0.3.2 · 03a80d9 · rollback → v0.3.2 · 已切 task def+滚动
 - 2026-07-28 15:46 GMT+8 · v0.3.2 · ef0bfd6 · rollback → v0.3.2 · 已切 task def+滚动
+- 2026-07-28 17:24 GMT+8 · v0.3.3 · 0116131 · rollback → v0.3.3 · 已切 task def+滚动
+- 2026-07-28 17:31 GMT+8 · v0.3.3 · 6c97860 · rollback → v0.3.3 · 已切 task def+滚动
