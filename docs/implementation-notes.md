@@ -114,3 +114,23 @@
   `坐标 (22.6017, 114.9073) 命中 2 个注册表浪点 ['sl54', 'sl84'] —— 存在解析歧义，
   按 slug 字典序取 sl54。请在 /status 的数据治理待办中核对该组坐标。`
 - 注：这只是让行为**可预测且可见**；`sl84 Kirra` 坐标本身的修正属 🔒 G1（生产数据写）。
+
+## 2026-08-05 · R4 偏离：先修回退死代码，而非写巡检脚本（loop cycle 4）
+
+- **Deviation（记录理由）**：计划是写 `tools/probe_grid_health.py` 帮人找可用坐标。
+  动手前按惯例核对引擎实际取数参数，发现 `fetch.py` 的「总浪高优先 WAM，缺则回退
+  best_match」（需求 1.5）**是死代码**——`best` 请求的 hourly 只要了 swell/wind_wave/
+  sea_level/sst，从没要 `wave_height/wave_direction/wave_period`，所以
+  `_at(best_h,"wave_height",bi)` 恒为 None。
+- **实测**：Canggu 坐标下 WAM025 格点 `-8.75/115.25` 全空，而 best_match 落在
+  `-8.625/115.125`（更贴近实际位置）有完整数据 **1.36m / Tm 12.9s**。
+  → 修回退比写脚本高一个数量级：**不写生产数据、不猜坐标**就能救回该点。
+- **实现**：best 请求补三个回退字段；`_day_to_dict` 输出 `dataSource`（聚合逐点 `source`）；
+  详情页在校准时间戳下提示「浪高取自 best_match 备用模型，Tp 仅主模型提供故留空不估算」。
+  `source` 字段此前只在 models 定义、fetch 赋值、**下游从不消费** —— 换源却不可见，
+  与 tech.md「可信度一等公民」冲突，故一并接通。
+- **验证**：pytest **320 → 324**（含"两源皆空仍产不出点"——此时才是真正的上游无数据，
+  由 R1 计入 failed；以及"WAM 有数据时不被 best 顶替"）；E2E 32/32；
+  真实跑 Canggu → **3 天 × 24 点**，源标记 `best_match(fallback)`。
+- **连带影响**：🔒 G1-a「Canggu 坐标微调」很可能不再必要（改标 `[~]`），
+  待代码上生产后看 /status 复核。巡检脚本降级为非阻塞的 R4.1。

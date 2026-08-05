@@ -49,16 +49,23 @@
       caplog 验告警含全部候选 · inactive 忽略 · 4dp 精度(6位入库4位查得中) ·
       **moto 真跑双 store 选中同一行** · 无命中返回 None
 
-## R4 · 上游格点巡检脚本（只读）
+## R4 · 上游数据可用性（**范围偏离：先修根因，脚本降级为次要**）
 
-- [ ] R4.1 新建 `tools/probe_grid_health.py`：遍历注册表坐标探测上游是否全空；
-      全空点搜索邻近格点（±0.05°/±0.1°）给出可用坐标建议；输出到 stdout
-- [ ] R4.2 **只读**：不得写 DynamoDB（那是 🔒 G1）；不引新依赖。
-      数据来源二选一：① 生产 registry 只读 scan（`AWS_PROFILE=oversea1`、`ap-northeast-1`、
-      表 `surf-forecast-dev-spot_registry`）；② 本地快照 `reference/data/shilaoren_spots.json`
-      （注意快照里 sl75/sl76 仍是坏坐标，生产已修——两者会不一致，属预期）
-- [ ] R4.3 对全量 registry 干跑通过，且能复现 `sl82 Canggu` 诊断
-      （现格点 `-8.75/115.25` 全空 → 建议经度 ≈`115.05` 落入 `-8.75/115.0`，实测 1.74m）
+> 偏离理由：动手前核对引擎实际取数参数时发现，`fetch.py` 里「WAM 缺则回退 best_match」
+> （需求 1.5）**是死代码**——best 请求的 hourly 从来没要 `wave_height/direction/period`。
+> 实测 best_match 在 Canggu 格点 `-8.625/115.125`（比 WAM 的 `-8.75/115.25` 更贴近实际位置）
+> 有完整数据（1.36m / Tm 12.9s）。**修回退比写巡检脚本高一个数量级**：不需要写生产数据、
+> 不需要猜坐标，就能救回该点；而巡检脚本只是"帮人找可用坐标"。
+
+- [x] R4.0 修复回退死代码：best 请求补 `wave_height/wave_direction/wave_period`
+- [x] R4.0b 溯源可见（tech.md「可信度一等公民」）：`_day_to_dict` 输出 `dataSource`，
+      详情页在校准时间戳下提示「浪高取自 best_match 备用模型，Tp 留空不估算」——不静默换源
+- [x] R4.0c 测试：请求层含回退字段 · WAM 全空→回退且 source 标记正确 · Tp 留空不编造 ·
+      两源皆空仍产不出点（此时才是真"上游无数据"，由 R1 计入 failed）· WAM 有数据时不被顶替
+- [x] R4.0d 真实验证：Canggu 真坐标跑引擎 → **3 天 × 24 点**，源 `best_match(fallback)`
+- [ ] R4.1 巡检脚本 `tools/probe_grid_health.py`（仍有价值：批量体检 + 给坐标建议，
+      但已非阻塞——真正不可用的点现在会被 R1 判定 + R2 展示）
+
 
 ## R5 · 收口
 
@@ -73,7 +80,8 @@
 
 ## 🔒 待人工确认清单（loop 只整理，不执行）
 
-- [ ] 🔒 G1-a Canggu 坐标微调（经度 ≈`115.05`）—— 生产 DynamoDB 写
+- [~] 🔒 G1-a Canggu 坐标微调 —— **很可能已不必要**：R4.0 修好回退后该点用真实
+      best_match 数据即可出报告（实测 3 天 ×24 点）。待代码上生产后复核 /status 再决定
 - [ ] 🔒 G1-b 3 组重复坐标去歧义 + `sl84 Kirra` 坐标疑与 `sl54` 串行
       （Kirra 在澳洲，注册表却是 `22.60,114.91` = 广东境内）—— 生产 DynamoDB 写
 - [ ] 🔒 G2-a 配置 `SF_TEST_ACCESS_KEY`（task def env），E2E 带 `X-Test-Access` 头访问测试点
