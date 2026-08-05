@@ -47,6 +47,15 @@ def client():
     return TestClient(A.app)
 
 
+@pytest.fixture(autouse=True)
+def _clear_agg_cache():
+    """/api/status 走 app._agg_cache（SF_AGG_TTL 默认 300s）——进程内单例会把上一个
+    测试的响应带给下一个测试（同 fixture 数据时看不出来，换数据就串）。每例前后清空。"""
+    A._agg_cache.clear()
+    yield
+    A._agg_cache.clear()
+
+
 @pytest.fixture
 def wired(monkeypatch):
     manifest = {"date": TODAY, "kind": "main", "run_at": FRESH,
@@ -92,3 +101,106 @@ def test_catalog_no_key_configured_never_shows_test(client, wired, monkeypatch):
     slugs = [s["slug"] for s in client.get(
         "/api/catalog", headers={"X-Test-Access": ""}).json()["catalog"]]
     assert "t" not in slugs
+
+
+# ============================================================
+# R1.2：失败原因贯通到 /api/status
+# manifest 里 failed 本就是 {slug: 原因}，旧版只暴露 slug 列表 → 站长看不出
+# 是上游格点无数据、validate 不过、还是取数异常，无法判断该找上游还是找代码。
+# ============================================================
+def test_status_exposes_failed_reasons(client, wired):
+    body = client.get("/api/status").json()
+    r = body["refresh"]
+    # 向后兼容：failed 仍是 slug 列表（前端 join('、') 与既有契约不破）
+    assert r["failed"] == ["m"]
+    # 新增：带原因的明细
+    assert r["failed_detail"] == {"m": "skipped"}
+
+
+def test_status_failed_detail_empty_when_no_failure(client, monkeypatch):
+    """无失败点时 failed_detail 为空对象（不是 None，前端可直接 Object.keys）。"""
+    manifest = {"date": TODAY, "kind": "main", "run_at": FRESH,
+                "expected": ["a"], "succeeded": ["a"], "failed": {},
+                "history": []}
+    monkeypatch.setattr(A.db, "get_store", lambda: _Store())
+    monkeypatch.setattr(A.deps, "_cache_reader",
+                        lambda: _Reader({"a": _rep(7.0), "manifest.json": manifest}))
+    r = client.get("/api/status").json()["refresh"]
+    assert r["failed"] == [] and r["failed_detail"] == {}
+
+
+# ============================================================
+# R2：/api/status 暴露 data_issues（坐标非法 + 坐标重复）
+# ============================================================
+def test_status_exposes_data_issues_shape(client, wired):
+    di = client.get("/api/status").json()["data_issues"]
+    assert set(di.keys()) == {"coord_invalid", "coord_duplicates",
+                              "coord_duplicates_benign_n", "coord_component_collisions"}
+    assert isinstance(di["coord_invalid"], list)
+    assert isinstance(di["coord_duplicates"], list)
+    assert isinstance(di["coord_component_collisions"], list)
+
+
+def test_status_data_issues_detects_dupes_and_invalid(client, monkeypatch):
+    """给注册表塞入一组跨区重复坐标 + 一个非法坐标标记，两者都要出现在 /status。"""
+    rows = [
+        {"slug": "d1", "spot": "重复一", "lat": 22.6001, "lon": 114.8425,
+         "region_cn": "广东", "beach_group": "aaa", "op_status": "open"},
+        {"slug": "d2", "spot": "重复二", "lat": 22.6001, "lon": 114.8425,
+         "region_cn": "国外", "beach_group": None, "op_status": "open"},
+        {"slug": "bad", "spot": "坏坐标", "lat": 110.3632, "lon": 114.8425,
+         "region_cn": "海南", "op_status": "pending",
+         "coord_invalid": "lat 超范围: 110.3632"},
+    ]
+
+    class _S:
+        def list_listed_registry(self):
+            return rows
+
+    monkeypatch.setattr(A.db, "get_store", lambda: _S())
+    monkeypatch.setattr(A.deps, "_cache_reader", lambda: _Reader({}))
+    di = client.get("/api/status").json()["data_issues"]
+    assert [x["slug"] for x in di["coord_invalid"]] == ["bad"]
+    assert "lat 超范围" in di["coord_invalid"][0]["why"]
+    assert len(di["coord_duplicates"]) == 1
+    assert di["coord_duplicates"][0]["slugs"] == ["d1", "d2"]
+    assert di["coord_duplicates"][0]["severity"] == "suspect"
+
+
+def test_status_hides_benign_same_beach_dupes(client, monkeypatch):
+    """同滩不同机位（同一 beach_group）不算故障：不进 coord_duplicates，只计数。
+    否则生产 3 组里 2 组是误报，站长会开始无视这个区块（狼来了）。"""
+    rows = [
+        {"slug": "sl49", "spot": "西涌-全景", "lat": 22.482, "lon": 114.5502,
+         "beach_group": "xichong", "region_cn": "广东", "op_status": "open"},
+        {"slug": "sl93", "spot": "西涌", "lat": 22.482, "lon": 114.5502,
+         "beach_group": "xichong", "region_cn": "广东", "op_status": "open"},
+    ]
+
+    class _S:
+        def list_listed_registry(self):
+            return rows
+
+    monkeypatch.setattr(A.db, "get_store", lambda: _S())
+    monkeypatch.setattr(A.deps, "_cache_reader", lambda: _Reader({}))
+    di = client.get("/api/status").json()["data_issues"]
+    assert di["coord_duplicates"] == []
+    assert di["coord_duplicates_benign_n"] == 1
+
+
+
+def test_status_data_issues_excludes_test_spots(client, monkeypatch):
+    """测试点不得外泄到公开接口（决策6）——即使它构成坐标重复也不上报。"""
+    rows = [
+        {"slug": "t1", "spot": "E2E 测试点", "lat": 1.0, "lon": 2.0, "is_test": True},
+        {"slug": "t2", "spot": "E2E 测试点2", "lat": 1.0, "lon": 2.0, "is_test": True},
+    ]
+
+    class _S:
+        def list_listed_registry(self):
+            return rows
+
+    monkeypatch.setattr(A.db, "get_store", lambda: _S())
+    monkeypatch.setattr(A.deps, "_cache_reader", lambda: _Reader({}))
+    di = client.get("/api/status").json()["data_issues"]
+    assert di["coord_duplicates"] == [] and di["coord_invalid"] == []

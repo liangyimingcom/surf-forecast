@@ -159,3 +159,158 @@ def test_build_manifest_all_failed_still_records():
     m = RF.build_manifest(None, "main", ["a"], {"a": "skipped: error(X)"},
                           duration_s=1, clock=_clock)
     assert m["succeeded"] == [] and "a" in m["failed"]   # 全失败也留痕（/status 不停摆）
+
+
+# ============================================================
+# R2 数据健康探测器 —— 坏数据必须能在 /status 被看见
+# （本项目无推送告警，/status 是唯一故障发现渠道；只能靠人肉翻库的坏数据等于发现不了）
+# ============================================================
+def test_coord_invalid_rows_picks_marked_and_sorts():
+    rows = [
+        {"slug": "b", "spot": "B点", "coord_invalid": "lat 超范围: 110.36"},
+        {"slug": "a", "spot": "A点", "coord_invalid": "lon 超范围: 200.0"},
+        {"slug": "ok", "spot": "正常点"},
+    ]
+    out = G.coord_invalid_rows(rows)
+    assert [x["slug"] for x in out] == ["a", "b"]          # slug 升序
+    assert out[0]["spot"] == "A点"
+    assert "lon 超范围" in out[0]["why"]
+
+
+def test_coord_invalid_rows_empty_is_normal():
+    """生产当前应为空——它是未来复发的探测器，不是当下故障清单。"""
+    assert G.coord_invalid_rows(
+        [{"slug": "a", "lat": 18.6, "lon": 110.2}]) == []
+
+
+def test_coord_duplicate_groups_only_returns_collisions():
+    rows = [
+        {"slug": "s2", "spot": "二", "lat": 22.6001, "lon": 114.8425},
+        {"slug": "s58", "spot": "五八", "lat": 22.6001, "lon": 114.8425},
+        {"slug": "solo", "spot": "独", "lat": 36.0920, "lon": 120.4680},
+    ]
+    out = G.coord_duplicate_groups(rows)
+    assert len(out) == 1
+    assert out[0]["slugs"] == ["s2", "s58"]                # 组内 slug 升序
+    assert out[0]["spots"] == ["二", "五八"]
+    assert out[0]["coord"] == "22.6001,114.8425"
+
+
+def test_coord_duplicate_groups_precision_is_4dp():
+    """精度必须与 dedup_key / find_registry_by_coord 的比较精度一致（4dp）——
+    正是这个精度上的重复才会造成坐标→slug 解析歧义。"""
+    rows = [
+        {"slug": "a", "lat": 18.65200001, "lon": 110.27900001},
+        {"slug": "b", "lat": 18.65200009, "lon": 110.27900009},   # 4dp 相同 → 算重复
+        {"slug": "c", "lat": 18.6521, "lon": 110.2790},           # 4dp 不同 → 不算
+    ]
+    out = G.coord_duplicate_groups(rows)
+    assert len(out) == 1 and out[0]["slugs"] == ["a", "b"]
+
+
+def test_coord_duplicate_groups_tolerates_bad_rows():
+    """缺坐标/坏类型的行跳过即可，不得让探测器自己炸掉（它是故障发现渠道）。"""
+    rows = [
+        {"slug": "no_coord"},
+        {"slug": "bad", "lat": "x", "lon": "y"},
+        {"slug": "none", "lat": None, "lon": 1.0},
+    ]
+    assert G.coord_duplicate_groups(rows) == []
+
+
+def test_duplicate_severity_expected_vs_suspect():
+    """分级是这个探测器可用的关键：同滩不同机位=预期，跨滩/跨区=真异常。
+    不分级则 3 组里 2 组是误报，告警会被无视（狼来了）。"""
+    rows = [
+        # 同一片海滩的两个机位 → expected
+        {"slug": "a1", "lat": 1.0, "lon": 2.0, "beach_group": "xichong", "region_cn": "广东"},
+        {"slug": "a2", "lat": 1.0, "lon": 2.0, "beach_group": "xichong", "region_cn": "广东"},
+        # 跨区域同坐标（Kirra 在澳洲却与广东点同坐标）→ suspect
+        {"slug": "b1", "lat": 3.0, "lon": 4.0, "beach_group": "honghaiwan", "region_cn": "广东"},
+        {"slug": "b2", "lat": 3.0, "lon": 4.0, "beach_group": None, "region_cn": "国外"},
+    ]
+    by_coord = {g["coord"]: g for g in G.coord_duplicate_groups(rows)}
+    assert by_coord["1.0,2.0"]["severity"] == "expected"
+    assert by_coord["3.0,4.0"]["severity"] == "suspect"
+    assert by_coord["3.0,4.0"]["regions"] == ["国外", "广东"]
+
+
+def test_real_snapshot_duplicate_groups_and_severity():
+    """对真实快照回归：3 组重复 = 2 组同滩机位(expected) + 1 组真异常(suspect)。
+    唯一 suspect 是 sl54 虹海湾山海里 / sl84 Kirra —— Kirra 在澳洲，坐标却在广东，
+    疑与 sl54 数据串行。上游哪天修了或又多一组，这条会提醒复核。"""
+    import json
+    import pathlib
+    from web import seed as _seed
+    snap = pathlib.Path(__file__).resolve().parents[1] / "reference" / "data" / "shilaoren_spots.json"
+    rows = _seed.build_registry_rows(json.loads(snap.read_text(encoding="utf-8")))
+    groups = G.coord_duplicate_groups(G.visible_rows(rows))
+    assert sorted(tuple(g["slugs"]) for g in groups) == \
+        [("sl2", "sl58"), ("sl49", "sl93"), ("sl54", "sl84")]
+    suspect = [g for g in groups if g["severity"] == "suspect"]
+    assert [tuple(g["slugs"]) for g in suspect] == [("sl54", "sl84")], suspect
+
+
+
+# ============================================================
+# R2+：坐标分量串行（4dp 重复探测器抓不到的一类）
+#
+# 高精度浮点值在两个真实浪点间巧合相同是物理上不可能的，只可能是上游串行；
+# 而串行**可以只发生在一个分量上** —— 此时组合坐标唯一，coord_duplicate_groups 看不见。
+# 2026-08-05 生产实测最恶劣一例：sl85 Currumbin(澳洲) 的 lat 取自 sl60 南燕湾(海南)、
+# lon 取自 sl49 西涌(广东) → 坐标落在南海且有浪场数据 → 为澳洲浪点静默产出
+# "看起来很合理"的错误预报。
+# ============================================================
+def test_component_collision_cross_region_is_suspect():
+    rows = [
+        {"slug": "cn", "spot": "南燕湾", "lat": 18.661276502547974, "lon": 110.1,
+         "region_cn": "海南"},
+        {"slug": "au", "spot": "Currumbin", "lat": 18.661276502547974, "lon": 114.5,
+         "region_cn": "国外"},
+    ]
+    out = G.coord_component_collisions(rows)
+    assert len(out) == 1
+    assert out[0]["component"] == "lat" and out[0]["severity"] == "suspect"
+    assert out[0]["slugs"] == ["au", "cn"]
+    assert out[0]["regions"] == ["国外", "海南"]
+
+
+def test_component_collision_same_region_is_expected():
+    """同一区域共享坐标分量（同片海域多机位）属正常，不得当故障报。"""
+    rows = [
+        {"slug": "a", "lat": 22.482019021957537, "lon": 1.0, "region_cn": "广东"},
+        {"slug": "b", "lat": 22.482019021957537, "lon": 2.0, "region_cn": "广东"},
+    ]
+    assert all(g["severity"] == "expected" for g in G.coord_component_collisions(rows))
+
+
+def test_component_collision_ignores_low_precision():
+    """低精度值（如 18.6）巧合相同是可能的，不能报——否则满屏误报。"""
+    rows = [{"slug": "a", "lat": 18.6, "lon": 110.2, "region_cn": "海南"},
+            {"slug": "b", "lat": 18.6, "lon": 110.3, "region_cn": "国外"}]
+    assert G.coord_component_collisions(rows) == []
+
+
+def test_component_collision_catches_what_dupe_detector_misses():
+    """关键对照：只串一个分量时，4dp 组合坐标探测器看不见，本探测器必须看得见。"""
+    rows = [
+        {"slug": "cn", "lat": 18.661276502547974, "lon": 110.111111, "region_cn": "海南"},
+        {"slug": "au", "lat": 18.661276502547974, "lon": 114.555555, "region_cn": "国外"},
+    ]
+    assert G.coord_duplicate_groups(rows) == []          # 组合坐标不同 → 抓不到
+    assert [g["severity"] for g in G.coord_component_collisions(rows)] == ["suspect"]
+
+
+def test_real_snapshot_component_collisions_are_the_known_three():
+    """真实快照回归：跨区串行恰为 sl84 Kirra / sl85 Currumbin / sl71 海螺湾
+    所在的组。上游修好或又多一处，这条会提醒复核。"""
+    import json
+    import pathlib
+    from web import seed as _seed
+    snap = pathlib.Path(__file__).resolve().parents[1] / "reference" / "data" / "shilaoren_spots.json"
+    rows = _seed.build_registry_rows(json.loads(snap.read_text(encoding="utf-8")))
+    sus = [g for g in G.coord_component_collisions(G.visible_rows(rows))
+           if g["severity"] == "suspect"]
+    flagged = {s for g in sus for s in g["slugs"]}
+    for expect in ("sl84", "sl85", "sl71"):
+        assert expect in flagged, (expect, flagged)

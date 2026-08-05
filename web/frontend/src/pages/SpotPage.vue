@@ -12,6 +12,13 @@ import { useAuthStore } from '../stores/auth'
 const route = useRoute()
 const auth = useAuthStore()
 const report = ref(null)
+
+// 可信度一等公民（tech.md）：浪高若由 best_match 备用模型救回（主模型该格点无数据），
+// 必须显式告知——不能静默换源。缺 dataSource 字段（旧缓存）时不提示，也不编造。
+const fallbackSource = computed(() => {
+  const ds = (report.value?.days || []).flatMap(d => d.dataSource || [])
+  return ds.some(s => String(s).includes('fallback'))
+})
 const history = ref(null)
 const bias = ref(null)
 const hasLive = ref(false)
@@ -108,6 +115,10 @@ onMounted(load)
 
     <template v-else-if="report">
       <p class="ts">校准 {{ report.calibratedAt }}</p>
+      <p v-if="fallbackSource" class="srcnote">
+        ⓘ 本浪点浪高取自 <b>best_match</b> 备用模型（主模型 ECMWF WAM025 在该海洋格点无数据）。
+        谱峰周期 Tp 仅主模型提供，此处留空而非估算。
+      </p>
 
       <LiveCam v-if="liveSrc" :src="liveSrc" :key="liveSrc" />
       <div v-else-if="hasLive" class="livehint">
@@ -238,6 +249,7 @@ h1 { font-size: 18px; color: var(--sea1); }
 .review summary .hint { font-size: 11px; color: var(--sea2); }
 .review[open] summary { color: var(--sea1); font-weight: 600; margin-bottom: 8px; }
 .review[open] summary .hint { display: none; }
+.srcnote { font-size: 12px; color: #6b7280; background: #f3f4f6; border-radius: 8px; padding: 6px 10px; margin: 6px 0; line-height: 1.6; }
 .checklist h3 { font-size: 14px; color: var(--sea1); }
 .checklist { background: #fff7ed; border: 1px solid #fdba74; border-radius: 12px; padding: 10px 14px; margin: 10px 0; }
 .checklist ul { padding-left: 18px; font-size: 12.5px; color: #7c2d12; }

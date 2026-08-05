@@ -60,3 +60,109 @@
 - 前端：swr.js（stale-while-revalidate，内存+sessionStorage 5min）接入四页——切页秒出旧数据后台静默刷新，「加载中…」仅首次出现。实测回访 home 0.04s / spots 0.03s / detail 1.3s。
 - **顺手揪出存量 bug**：DynamoDB `find_registry_by_coord` 用 round(入参,4) 与库中 6 位小数原值做精确相等 → seeded 点永远匹配不上 → slug 解析失败 → **详情页 S3 缓存从未命中**，每次实时调 Open-Meteo 现算（首访 5.9s 的真凶）。修为两侧同 round(4) 比较后 detail 首访 5.9s→1.3s，calibratedAt 回到刷新时刻（缓存命中实证）。
 | 2026-08-05 | 交接 | 交接给 Kiro：docs/HANDOFF-to-kiro.md（现状/13个未push commit/遗留/运维知识/文档地图）。生产 v0.3.3 无人值守一周健康（主跑58/60·补跑哨兵正常·7区域推荐可用）。设计原型 v4-v7 待用户拍板。 |
+
+## 2026-08-05 · R1 绿灯必须等于可用（数据健康收口 loop cycle 1）
+
+- **R0** 起手：分支 `feat/data-health-r3`（off master `5a19026`），基线 pytest 293。
+  修正 goal 里的停止信号路径（实际由 auto-nudge 指定为
+  `surf-forecast/.stop-chat-3-1783779532`，非 `STOP_LOOP`）。
+- **R1.1** `refresh.refresh_spots`：`writer.put` 前加 `days > 0` 判定。空报告 →
+  `skipped: empty_report(upstream grid all-null)` + `continue`，**不覆盖上一版缓存**
+  （沿用 validate 失败的 R5.4 策略，避免空报告冲掉好数据）。
+- **R1.2** `status.build_status`：`failed` 保持 slug 列表（前端 `join('、')` 契约不破），
+  新增 `failed_detail = {slug: 原因}`；`StatusPage.vue` 加 `.faillist` 渲染「slug — 原因」。
+  原因本来就存在 manifest 里，是 status 层把它丢了。
+- **R1.6（计划外，顺手修）** 测试污染：`/api/status` 走进程内 `_agg_cache`（TTL 300s），
+  上个测试的响应会串给下个测试——同 fixture 数据时症状不可见，我加的新用例换了数据才暴露。
+  `test_status_api.py` 加 autouse fixture 每例前后 `clear()`。
+- **验证**：pytest **293 → 299**；vue_spa E2E **26 → 28**（新增两条断言直接验证失败原因渲染，
+  canned status 改为带 `failed_detail` 的失败点，否则该 UI 等于没被测）。
+- **预期副作用（正确行为）**：判定上生产后 `sl82 Canggu` 会从 succeeded 掉入 failed，
+  `/status` 由 60/60 变 59/60 —— 真实状态浮出水面，不是回归。
+
+## 2026-08-05 · R2 /status 自查静默故障（loop cycle 2）
+
+- **探测器放 `governance.py`**（纯函数、无 I/O），供 `/api/status` 与后续 R4 巡检脚本共用：
+  `coord_invalid_rows`（带 `coord_invalid` 标记的行）+ `coord_duplicate_groups`（4dp 同坐标分组，
+  精度刻意对齐 `dedup_key` / `find_registry_by_coord` 的比较精度）。
+- **关键判断：分级，否则是狼来了。** 拿生产注册表实跑发现 3 组重复里 **2 组是合理的**——
+  `sl49 西涌-全景`/`sl93 西涌`、`sl2 狮子岛全景`/`sl58 狮子岛-右` 属同一 `beach_group`，
+  是同片海滩的不同机位；只有 `sl54 虹海湾山海里`/`sl84 Kirra` 跨滩跨区（Kirra 在澳洲）
+  = 真损坏。若一并报故障，站长很快就会无视这个区块。
+  故 `severity: expected|suspect`，`/status` 只上报 suspect，合理组只给一个计数。
+- **`data_issues` 探测集用 `visible_rows`**（已剔 `is_test`）——测试点不外泄公开接口（决策6）。
+- **验证**：pytest **299 → 310**；vue_spa E2E **28 → 32**（canned status 补 `data_issues`，
+  否则新 UI 分支不触发＝没被测）；前端 build 940ms。
+- **生产实测（只读）**：`coord_invalid` 空（sl75/sl76 已修，符合预期——它是复发探测器），
+  `coord_duplicates` suspect 恰为 `sl54/sl84`。
+
+## 2026-08-05 · R3 坐标解析歧义防护（loop cycle 3）
+
+- **风险重估（比预想严重）**：旧实现两个 store 都「取迭代顺序里的第一个」。
+  InMemoryStore 至少受插入顺序决定，而 **DynamoDB scan 顺序不保证稳定** ——
+  同一坐标可能今天解析成 sl54、明天解析成 sl84，S3 缓存键随之翻转，
+  详情页可能显示**另一个浪点**的报告。不只是噪声，是正确性问题。
+- **实现**：新增共享 `db.pick_registry_match(matches, lat, lon)` ——
+  无匹配 → None；单命中 → 原样返回；多命中 → 按 slug 字典序取最小 + WARNING
+  （文案列出全部候选与实际选中者，并指向 `/status` 的数据治理待办，与 R2 闭环）。
+  两个 store 改为「收全部匹配 → 委托该函数」，语义一致由构造保证，不靠两处同步维护。
+  精度常量提为 `db.COORD_NDIGITS = 4`，与 `dedup_key` / `coord_duplicate_groups` 对齐。
+- **测试** `tests/test_coord_resolution.py` 10 例：含 caplog 验告警内容、
+  反序输入同结果（旧实现会翻）、4dp 精度（6 位入库 4 位查得中，防 v0.3.2 复发）、
+  **moto 真跑 DynamoDBStore 与 InMemoryStore 选中同一行**。
+- **验证**：pytest **310 → 320**。真实重复组实跑告警：
+  `坐标 (22.6017, 114.9073) 命中 2 个注册表浪点 ['sl54', 'sl84'] —— 存在解析歧义，
+  按 slug 字典序取 sl54。请在 /status 的数据治理待办中核对该组坐标。`
+- 注：这只是让行为**可预测且可见**；`sl84 Kirra` 坐标本身的修正属 🔒 G1（生产数据写）。
+
+## 2026-08-05 · R4 偏离：先修回退死代码，而非写巡检脚本（loop cycle 4）
+
+- **Deviation（记录理由）**：计划是写 `tools/probe_grid_health.py` 帮人找可用坐标。
+  动手前按惯例核对引擎实际取数参数，发现 `fetch.py` 的「总浪高优先 WAM，缺则回退
+  best_match」（需求 1.5）**是死代码**——`best` 请求的 hourly 只要了 swell/wind_wave/
+  sea_level/sst，从没要 `wave_height/wave_direction/wave_period`，所以
+  `_at(best_h,"wave_height",bi)` 恒为 None。
+- **实测**：Canggu 坐标下 WAM025 格点 `-8.75/115.25` 全空，而 best_match 落在
+  `-8.625/115.125`（更贴近实际位置）有完整数据 **1.36m / Tm 12.9s**。
+  → 修回退比写脚本高一个数量级：**不写生产数据、不猜坐标**就能救回该点。
+- **实现**：best 请求补三个回退字段；`_day_to_dict` 输出 `dataSource`（聚合逐点 `source`）；
+  详情页在校准时间戳下提示「浪高取自 best_match 备用模型，Tp 仅主模型提供故留空不估算」。
+  `source` 字段此前只在 models 定义、fetch 赋值、**下游从不消费** —— 换源却不可见，
+  与 tech.md「可信度一等公民」冲突，故一并接通。
+- **验证**：pytest **320 → 324**（含"两源皆空仍产不出点"——此时才是真正的上游无数据，
+  由 R1 计入 failed；以及"WAM 有数据时不被 best 顶替"）；E2E 32/32；
+  真实跑 Canggu → **3 天 × 24 点**，源标记 `best_match(fallback)`。
+- **连带影响**：🔒 G1-a「Canggu 坐标微调」很可能不再必要（改标 `[~]`），
+  待代码上生产后看 /status 复核。巡检脚本降级为非阻塞的 R4.1。
+
+## 2026-08-05 · R4.1 巡检脚本 + R2.7 坐标分量串行探测（loop cycle 5）
+
+- **R4.1** `tools/probe_grid_health.py`：stdlib、只读、判定与引擎一致（WAM→best_match 回退后
+  仍无浪高才算 dead），对 dead 点搜邻近格点给坐标建议；`--source snapshot|store`、exit 2 可接 cron。
+- **生产全量实跑（58 点）**：`ok_wam 55` · `ok_fallback 1`(Canggu，被 R4.0 救回) · `dead 2`：
+  - `sl97 SURFPARK` 在**北京**(39.894,116.598)，人工浪池 → 海洋预报天生无意义，
+    处置应是治理标记而非改坐标；
+  - `sl71 海螺湾` 声称浙江、坐标在广西/广东内陆，经度与 `sl57` 完全相同 → 上游串行。
+- **R2.7（顺着 dead 点查出来的新探测器）**：`coord_component_collisions` ——
+  多点共享同一高精度(≥6 位小数) lat 或 lon，跨 `region_cn` 即 suspect。
+  依据：高精度浮点巧合相同物理上不可能；而串行**可只发生在单个分量**，
+  此时组合坐标唯一，R2 的 4dp 探测器完全看不见。
+- **最恶劣一例（本轮最有价值的发现）**：`sl85 Currumbin`(澳洲) 的 lat 取自 `sl60 南燕湾`(海南)、
+  lon 取自 `sl49 西涌`(广东)——两个分量来自不同国内点。坐标落在南海、有浪场数据，
+  于是它一直在**为澳洲浪点静默产出"看起来很合理"的错误预报**。这不是缺数据，是确信地给错数据，
+  踩数据诚实红线，而此前所有检查（坐标范围、4dp 重复、空报告）都发现不了。
+- **验证**：pytest **324 → 329**（含"只串单分量时 4dp 探测器抓不到、本探测器必须抓到"的对照用例）；
+  E2E 32/32；build 881ms。
+- **连带**：🔒 G1-b 从「3 组重复去歧义」重写为「4 个浪点的坐标串行修正」，
+  并注明 sl85 属**正在出错**、sl97 应治理标记而非改坐标；需权威坐标，不宜再推断。
+
+## 2026-08-05 · R5 收口（loop cycle 6）
+
+- 四门全绿：pytest **329**（基线 293，+36）· vue_spa E2E **32/0 · 0 JS 报错** ·
+  schema 契约门绿 · vite build 989ms。
+- 文档回写：`HANDOFF-to-kiro.md` §7 追加「数据健康收口 loop」小节
+  （含上生产后的预期变化：`/status` 会出现 sl97/sl71 的 `empty_report` 失败、
+  60/60 变约 58/60 —— 正确行为而非回归；Canggu 转 ok 并标 `best_match(fallback)`）。
+- 开 PR，不合并（🔒 G4）。🔒 清单交人：四点坐标串行修正（sl84/sl85/sl71 需权威坐标、
+  sl97 应治理标记）· `SF_TEST_ACCESS_KEY` · 本轮代码上生产 · 测试账号重建。
+- 创建停止文件自停。本轮 6 个 cycle，代码零生产写操作，全部改动可通过 PR 审阅。

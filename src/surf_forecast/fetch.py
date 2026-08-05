@@ -208,7 +208,13 @@ def fetch_forecast(lat: float, lon: float, days: int, *, past_days: int = 0,
             model="ecmwf_wam025"), ["wave_height", "wave_period"])
         best = _get(client, MARINE_URL, _build_marine_params(
             lat, lon, days, past_days,
-            ["swell_wave_height", "swell_wave_direction", "wind_wave_height",
+            # wave_height/direction/period 是**回退字段**（需求 1.5：WAM 缺则回退 best_match）。
+            # 2026-08-05 修：过去 best 请求里没要这三个 → 下面 `_at(best_h,"wave_height",bi)`
+            # 恒为 None → 回退是死代码。受害者 sl82 Canggu：WAM025 在格点 -8.75/115.25
+            # 返回 48 时点全 null，而 best_match 在 -8.625/115.125（更贴近实际位置）有完整
+            # 数据（浪高 1.36m / 周期 12.9s）→ 本可救回，却产出 days=0 的空报告。
+            ["wave_height", "wave_direction", "wave_period",
+             "swell_wave_height", "swell_wave_direction", "wind_wave_height",
              "sea_level_height_msl", "sea_surface_temperature"]),
             ["swell_wave_height", "sea_level_height_msl"])
         wind_params = {

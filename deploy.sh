@@ -175,8 +175,13 @@ cmd_rollback(){
 # 金丝雀：部署后对目标(默认生产)跑冻结基线真浏览器 E2E + 0 JS 报错；失败→自动 rollback。用法: canary [URL]
 cmd_canary(){
   local base="${1:-$PROD_URL}"
-  log "金丝雀：对 $base 跑真浏览器 E2E（冻结基线 new_features.mjs）…"
-  if ( cd "$ROOT" && node web/e2e/new_features.mjs "$base" ); then
+  # 金丝雀必须跑**生产实际服的那套前端**的 E2E。
+  # 2026-08-05 修：此处原为冻结基线 new_features.mjs（单 HTML 时代的 DOM：window.showTab/#maintab），
+  # 而自 v0.2.0 起 Dockerfile 设 SF_SPA_DIST=/app/spa，生产服的是 Vue SPA
+  # → 旧套件对生产必然失败 → 触发对一个**健康版本**的自动回滚（误回滚陷阱）。
+  # 单 HTML 现仅作镜像内兜底，其套件不再代表生产。
+  log "金丝雀：对 $base 跑真浏览器 E2E（vue_spa.mjs，生产服的是 Vue SPA）…"
+  if ( cd "$ROOT" && node web/e2e/vue_spa.mjs "$base" ); then
     log "金丝雀通过 ✅"
     changelog_add "canary@$base" "通过"
   else

@@ -122,6 +122,10 @@ def _day_to_dict(da: DailyAnalysis, today: bool) -> dict:
         "date": df.date.isoformat(),
         "week": df.weekday,
         "today": today,
+        # 可信度一等公民（tech.md）：浪高来源逐点带 source，此处聚合成当日口径。
+        # 正常为 "ecmwf_wam025"；WAM 该格点无数据而由 best_match 救回时会出现
+        # "best_match(fallback)" —— 必须让用户/站长看得见换过源，不能静默替换。
+        "dataSource": sorted({p.source for p in pts}) or ["unknown"],
         "best": False,
         "score": da.composite,
         "stars": int(round(da.composite / 2)),

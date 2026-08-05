@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { api } from '../api'
 import { swr } from '../swr'
 
@@ -7,6 +7,26 @@ import { swr } from '../swr'
 const st = ref(null)
 const error = ref('')
 const loading = ref(true)
+
+// R1.2：失败点带原因（上游格点无数据 / validate 不过 / 取数异常），
+// 光看 slug 列表判不出该找上游还是找代码。后端 failed_detail 缺失时降级为空（不编造）。
+const failedDetail = computed(() => {
+  const d = st.value && st.value.refresh && st.value.refresh.failed_detail
+  return d ? Object.keys(d).sort().map(k => ({ slug: k, why: d[k] })) : []
+})
+
+// R2：坏数据必须能在这个页面被看见（本项目无推送告警，/status 是唯一发现渠道）。
+// 后端未提供 data_issues 时返回 null → 整块不渲染（不编造"一切正常"）。
+const dataIssues = computed(() => {
+  const di = st.value && st.value.data_issues
+  if (!di) return null
+  return {
+    coordInvalid: di.coord_invalid || [],
+    coordDupes: di.coord_duplicates || [],
+    benignN: di.coord_duplicates_benign_n || 0,
+    compColl: di.coord_component_collisions || [],
+  }
+})
 
 onMounted(() => {
   const has = swr('status', () => api.status(), (v, fresh, err) => {
@@ -38,6 +58,49 @@ onMounted(() => {
         <p v-else class="bad">⚠️ 今日刷新尚未运行（最近记录：{{ st.refresh ? st.refresh.date : '无' }}）</p>
         <p v-if="st.refresh && st.refresh.failed && st.refresh.failed.length" class="warn">
           失败点：{{ st.refresh.failed.join('、') }}
+        </p>
+        <ul v-if="failedDetail.length" class="faillist">
+          <li v-for="f in failedDetail" :key="f.slug">
+            <b>{{ f.slug }}</b> — {{ f.why }}
+          </li>
+        </ul>
+      </section>
+
+      <section v-if="dataIssues" class="card">
+        <h2>数据治理待办</h2>
+        <p v-if="!dataIssues.coordInvalid.length && !dataIssues.coordDupes.length && !dataIssues.compColl.length" class="ok">
+          ✅ 未检出坐标非法或坐标重复
+        </p>
+        <template v-else>
+          <div v-if="dataIssues.coordInvalid.length">
+            <p class="warn">坐标非法（已隔离出刷新池，目录仍可见）：</p>
+            <ul class="faillist">
+              <li v-for="c in dataIssues.coordInvalid" :key="c.slug">
+                <b>{{ c.slug }}</b> {{ c.spot }} — {{ c.why }}
+              </li>
+            </ul>
+          </div>
+          <div v-if="dataIssues.coordDupes.length">
+            <p class="warn">坐标重复·可疑（跨海滩/跨区域同坐标，坐标→浪点解析有歧义）：</p>
+            <ul class="faillist">
+              <li v-for="d in dataIssues.coordDupes" :key="d.coord">
+                {{ d.coord }} — {{ d.slugs.join('、') }}（{{ d.spots.join('、') }}）
+                <span v-if="d.regions && d.regions.length > 1">· 跨区：{{ d.regions.join('/') }}</span>
+              </li>
+            </ul>
+          </div>
+          <div v-if="dataIssues.compColl.length">
+            <p class="warn">坐标分量串行·可疑（不同区域的浪点共用同一个高精度经/纬度值）：</p>
+            <ul class="faillist">
+              <li v-for="c in dataIssues.compColl" :key="c.component + c.value">
+                {{ c.component }}={{ c.value }} — {{ c.slugs.join('、') }}（{{ c.spots.join('、') }}）
+                · 跨区：{{ c.regions.join('/') }}
+              </li>
+            </ul>
+          </div>
+        </template>
+        <p v-if="dataIssues.benignN" class="hint">
+          另有 {{ dataIssues.benignN }} 组同海滩不同机位的同坐标浪点，属预期，不计为故障。
         </p>
       </section>
 
@@ -88,6 +151,8 @@ th, td { text-align: left; padding: 4px 8px; border-bottom: 1px solid #e2e8f0; }
 th { color: var(--ink2); font-weight: 600; }
 .ok { color: #15803d; }
 .warn { color: #b45309; font-size: 13px; }
+.hint { color: #6b7280; font-size: 12px; margin-top: 6px; }
+.faillist { margin: 4px 0 0; padding-left: 18px; color: #b45309; font-size: 12.5px; line-height: 1.6; }
 .bad { background: #fff7ed; border: 1px solid #fdba74; border-radius: 12px; padding: 10px; color: #9a3412; }
 .ts { font-size: 11px; color: var(--ink2); }
 </style>

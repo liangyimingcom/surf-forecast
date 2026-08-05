@@ -33,6 +33,10 @@ def build_status(registry_rows: list[dict], reader: Any,
         "expected": len(m.get("expected") or []),
         "succeeded": len(m.get("succeeded") or []),
         "failed": sorted((m.get("failed") or {}).keys()),
+        # R1.2：manifest 里 failed 本就是 {slug: 原因}，旧版只暴露 slug 列表 → 站长看不出
+        # "为什么失败"（是上游格点无数据、validate 不过、还是取数异常）。
+        # 保持 failed 为 slug 列表（前端/契约向后兼容），另加带原因的明细。
+        "failed_detail": {k: str(v) for k, v in sorted((m.get("failed") or {}).items())},
         "is_today": m_today,
     } if m else None
 
@@ -55,6 +59,8 @@ def build_status(registry_rows: list[dict], reader: Any,
             "degraded": rec["degraded"],
         })
 
+    _dupes = governance.coord_duplicate_groups(rows)
+    _comp = governance.coord_component_collisions(rows)
     return {
         "generated_at": n.strftime("%Y-%m-%d %H:%M GMT+8"),
         "refresh": refresh,
@@ -63,5 +69,16 @@ def build_status(registry_rows: list[dict], reader: Any,
             "fresh": sum(r["fresh"] for r in regions),
         },
         "regions": regions,
+        # R2：把「只能靠人肉翻库才看得见」的坏数据搬到唯一的故障发现渠道上。
+        # 探测集用 visible_rows（已剔 is_test）——测试点不外泄到公开接口（决策6）。
+        # 坐标重复只上报 severity=suspect（跨滩/跨区）——同滩不同机位是预期，
+        # 一并报会让 3 组里 2 组是误报，告警随即被无视（狼来了）。
+        "data_issues": {
+            "coord_invalid": governance.coord_invalid_rows(rows),
+            "coord_duplicates": [g for g in _dupes if g["severity"] == "suspect"],
+            "coord_duplicates_benign_n": sum(1 for g in _dupes if g["severity"] != "suspect"),
+            # 逐字段串行：只有一个分量被串时组合坐标仍唯一，上面那个探测器看不见。
+            "coord_component_collisions": [g for g in _comp if g["severity"] == "suspect"],
+        },
         "history": list((m.get("history") or []))[::-1],  # 最新在前
     }
