@@ -1,0 +1,73 @@
+{
+    "Item": {
+        "city": {
+            "S": "澳洲黄金海岸"
+        },
+        "created_at_gmt8": {
+            "S": "2026-07-11 21:03:05+0800"
+        },
+        "days": {
+            "N": "6"
+        },
+        "dedup_key": {
+            "S": "22.6017:114.9073:135"
+        },
+        "facing_calibrated": {
+            "BOOL": false
+        },
+        "last_refresh_at_gmt8": {
+            "S": "2026-08-05T22:18:55+08:00"
+        },
+        "last_viewed_at_gmt8": {
+            "S": "2026-07-11 21:03:05+0800"
+        },
+        "lat": {
+            "N": "22.60170665561334"
+        },
+        "live_src": {
+            "S": ""
+        },
+        "lon": {
+            "N": "114.90725208733366"
+        },
+        "post_url": {
+            "S": "/public/upimg/2024_10_5225517微信图片_20241005224205.jpg"
+        },
+        "ref_count": {
+            "N": "1"
+        },
+        "refresh_enabled": {
+            "BOOL": true
+        },
+        "region": {
+            "S": "uncalibrated"
+        },
+        "region_cn": {
+            "S": "国外"
+        },
+        "slug": {
+            "S": "sl84"
+        },
+        "source": {
+            "S": "shilaoren"
+        },
+        "spot": {
+            "S": "Kirra"
+        },
+        "spot_facing_deg": {
+            "N": "135"
+        },
+        "status": {
+            "S": "active"
+        },
+        "op_status": {
+            "S": "open"
+        },
+        "is_test": {
+            "BOOL": false
+        },
+        "beach_group": {
+            "NULL": true
+        }
+    }
+}
