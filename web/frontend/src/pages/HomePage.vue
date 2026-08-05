@@ -9,7 +9,8 @@
 import { ref, computed, onMounted } from 'vue'
 import { api } from '../api'
 import { swr } from '../swr'
-import { sparkline } from '../charts'
+import { sparkline, WIND_META } from '../charts'
+import { convertHeights } from '../units'
 import { useRegionStore } from '../stores/region'
 
 const region = useRegionStore()
@@ -42,6 +43,23 @@ function load() {
   loading.value = !(hasRegions || hasRec) && !rec.value
   if (hasRec) loading.value = false
 }
+
+// 后端 `_key_factors` 直接把 `dawnWind` 的**原始枚举**（off/cross/on）与 `Tp{n}s` 塞进 chips。
+// 零上下文用户评审实测：`off` 会被读成「关闭/没风」，而它其实是**最好**的风况（离岸=梳面）；
+// `Tp` 对非物理背景用户是纯噪音。这里只做**显示层翻译**，标签复用 charts.WIND_META
+// （与风质条/罗盘同一个标签来源，不新造口径）；认不出的 chip 一律原样透出，不猜。
+// 🔒 根治应在后端 `src/web/recommend.py` 出人话，本轮后端零改动故先在前端兜。
+const factorChips = computed(() => {
+  const kf = rec.value?.best?.key_factors
+  if (!Array.isArray(kf)) return []
+  return kf.map((f) => {
+    const s = String(f)
+    if (WIND_META[s]) return `晨风${WIND_META[s].label}·${WIND_META[s].desc}`
+    const m = s.match(/^Tp(\d+(?:\.\d+)?)s$/)
+    if (m) return `峰周期 ${m[1]}s`
+    return convertHeights(s)        // 「1.4m浪」随单位设置走
+  })
+})
 
 // 走势 = 最佳浪点 days[].score。recommend 只给一天，故要取该点 report；
 // 但**不让它阻塞首屏**：verdict 先渲染，走势卡等数据到了再出现（渐进增强）。
@@ -109,7 +127,7 @@ onMounted(load)
           <span class="score paper-num">{{ rec.best.score }}<small>/10</small></span>
           <span v-if="bestTag" class="tag">{{ bestTag }}</span>
           <div class="headline">「{{ rec.best.headline }}」</div>
-          <span v-for="f in rec.best.key_factors" :key="f" class="chip">{{ f }}</span>
+          <span v-for="f in factorChips" :key="f" class="chip">{{ f }}</span>
           <div class="entries">
             <router-link :to="`/spot/${rec.best.spot_slug}`">为什么是这天？</router-link>
             <router-link :to="`/spot/${rec.best.spot_slug}#review`">昨天报得准吗？</router-link>

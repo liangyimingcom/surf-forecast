@@ -211,7 +211,9 @@ onMounted(load)
         </div>
         <p class="verdict">{{ day.novice }}</p>
         <div class="kv">
-          <span v-if="day.window">🕐 {{ day.window }}</span>
+          <!-- 明写「下水」：引擎 window=最佳可冲时段，而通勤卡另有「出门」时刻，
+               不标注会被读成到达时间（零上下文评审实测：可能整整迟到一小时）。 -->
+          <span v-if="day.window">🕐 下水窗口 {{ day.window }}</span>
           <span v-if="day.board">🏄 {{ day.board }}</span>
         </div>
 
@@ -259,9 +261,9 @@ onMounted(load)
         </p>
         <p class="commuterow">
           车程
-          <button @click="setCommute(-5)" aria-label="车程减 5 分钟">−</button>
+          <button @click="setCommute(-5)" title="车程 −5 分钟" aria-label="车程减 5 分钟">−</button>
           <b>{{ commute }}min</b>
-          <button @click="setCommute(5)" aria-label="车程加 5 分钟">＋</button>
+          <button @click="setCommute(5)" title="车程 ＋5 分钟" aria-label="车程加 5 分钟">＋</button>
           ＋ 收拾装备 15min ＝ 提前 {{ depart.total }}min
         </p>
       </section>

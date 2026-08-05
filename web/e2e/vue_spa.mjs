@@ -39,7 +39,10 @@ page.on('pageerror', e => errors.push('PAGEERROR: ' + e.message))
 await page.route('**/api/regions', r => r.fulfill({ json: { regions: [{ region: '山东', count: 1 }, { region: '海南', count: 1 }] } }))
 await page.route('**/api/recommend*', r => r.fulfill({ json: {
   region: '山东', generated_at: '2026-07-27 10:00 GMT+8', fresh_count: 1, total_count: 1, degraded: false,
-  best: { spot_slug: 'sl74', spot_name: '石老人', day: '2026-07-27', week: '周一', score: 7.6, headline: '早7-9点到，带鱼板', key_factors: ['0.9m浪', '离岸风', 'Tp7s'] },
+  best: { spot_slug: 'sl74', spot_name: '石老人', day: '2026-07-27', week: '周一', score: 7.6, headline: '早7-9点到，带鱼板', // ⚠️ 忠实照抄后端 `_key_factors` 的真实输出：dawnWind 是**原始枚举**（off/cross/on）、
+  //    周期是 `Tp{n}s`。此前 fixture 写的是已经人话化的「离岸风」——比现实漂亮，
+  //    于是「off 直接示人」这个缺陷在 E2E 里永远暴露不了。别再把 fixture 美化。
+  key_factors: ['0.9m浪', 'off', 'Tp7s'] },
   alternatives: [] } }))
 await page.route('**/api/flags', r => r.fulfill({ json: { member_lock_enabled: false } }))
 await page.route('**/api/catalog/scores', r => r.fulfill({ json: { scores: { sl74: 7.6, sl50: 5.2 }, cached: true } }))
@@ -127,6 +130,23 @@ ok('状态页 数据治理区块存在', govTxt.length > 0)
 ok('状态页 报出坐标非法点', govTxt.includes('sl75') && govTxt.includes('超范围'))
 ok('状态页 报出可疑重复组', govTxt.includes('sl54') && govTxt.includes('Kirra'))
 ok('状态页 合理重复只计数不报故障', govTxt.includes('2 组同海滩'))
+
+// —— S5.4 零上下文评审折回：原始枚举/术语不得直接示人 ——
+// 后端 _key_factors 会把 dawnWind 的枚举(off/cross/on)与 Tp{n}s 原样塞进 chips。
+// 评审实测「off」被读成「关闭/没风」，而它其实是最好的风况 → 显示层必须翻译。
+await page.goto(BASE + '/', { waitUntil: 'networkidle', timeout: 30000 })
+await page.waitForTimeout(600)
+{
+  const chips = await page.locator('.answer .chip').evaluateAll(ns => ns.map(n => n.textContent.trim()))
+  ok(`首页 chips 无原始风向枚举（实得 ${JSON.stringify(chips)}）`,
+     !chips.some(c => c === 'off' || c === 'cross' || c === 'on'))
+  ok('首页 chips 无裸 Tp 术语', !chips.some(c => /^Tp\d/.test(c)))
+  ok('首页 晨风 off 已译成人话（含「离岸」）', chips.some(c => c.includes('离岸')))
+  ok('首页 Tp7s 已译成「峰周期」', chips.some(c => c.includes('峰周期')))
+}
+await page.goto(BASE + '/spot/sl74', { waitUntil: 'networkidle', timeout: 30000 })
+await page.waitForTimeout(600)
+ok('详情页窗口明写「下水」（消除到达/下水歧义）', (await page.locator('.kv').innerText()).includes('下水窗口'))
 
 // —— S4 高手模式：风向罗盘（口径必须与 windKind 一致）+ m/ft 单位切换 ——
 await page.goto(BASE + '/spot/sl74', { waitUntil: 'networkidle', timeout: 30000 })

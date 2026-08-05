@@ -51,10 +51,12 @@ async function doLogout() {
 <template>
   <router-view />
   <button class="nightbtn" :class="{ on: night }" @click="toggleNight"
+          :title="night ? '切回日读模式' : '切到夜读模式（暗色纸感，护眼）'"
           :aria-label="night ? '切回日读模式' : '切到夜读模式'" :aria-pressed="night">
     {{ night ? '☀️' : '🌙' }}
   </button>
   <button class="wxlogin" :class="{ authed: auth.authenticated }" @click="show = true"
+          :title="auth.authenticated ? '账号' : '登录（会员功能）'"
           :aria-label="auth.authenticated ? '账号' : '登录'">
     {{ auth.authenticated ? '🟢' : '👤' }}
   </button>
