@@ -37,3 +37,7 @@
 - 2026-08-05 22:09 GMT+8 · v0.4.0 · 12e4eb3 · rollback → v0.4.0 · 已切 task def+滚动
 - 2026-08-05 22:13 GMT+8 · v0.4.0 · 12e4eb3 · canary@https://d2hmhl7n8yga53.cloudfront.net · 通过
 - 2026-08-05 22:26 GMT+8 · (生产数据变更·无部署) · `afee8f6` · **sl84/sl85 标 pending 移出推荐池** — 两点坐标为分量串行（`sl84 Kirra` 整套借 `sl54 虹海湾山海里`；`sl85 Currumbin` lat 借 `sl60 南燕湾`、lon 借 `sl49 西涌`），落在南海/广东却报作澳洲浪点＝确信地给错数据。置 `op_status=pending`（剔出 `recommendable_rows`，目录页显「待开放」角标）+ 加 `coord_suspect` 溯源；旧值备份 `docs/ops-backup/registry-sl8{4,5}-before-20260805-pending.json`。`sl71`/`sl97` 本已 pending。实测生效：国外推荐池 7→5（首位 Canggu 9.6）、总 pool 37→35 全新鲜。
+- 2026-08-06 09:04 GMT+8 · v0.5.0 · 830458c · rollback → v0.5.0 · 已切 task def+滚动
+- 2026-08-06 09:12 GMT+8 · v0.5.0 · 830458c · canary@https://d2hmhl7n8yga53.cloudfront.net · 通过
+- 2026-08-06 09:15 GMT+8 · **v0.5.0 发布小结** · `27a5279`(合并) / `830458c`(VERSION) · **v4 三屏晨报 UI**（PR #44）—— 前端从蓝白 SPA 改为晨报纸感三屏：29+12 个设计令牌 + 夜读模式（`body.night` 只覆盖变量）· 首页 verdict 大标题/覆盖计数/本周走势 sparkline/最佳窗口倒计时/校准戳链 · 小白模式倒计时三态(双侧边界钉死)+通勤倒推 · 高手模式风向罗盘(判定复用 `windKind`)+m/ft 单位切换。**后端零改动**（合并的 27 文件未触碰 `src/`/`tests/`/`config/`，pytest 329→329 为机械证据）· 结果：taskdef **:24** / 容器 digest 与 ECR `v0.5.0` 一致 / canary **66/0** / smoke 6/6(含 `/api/cams` 匿名 401 合规红线) / 生产真数据三屏验收 0 JS 报错。
+  - 附带查实(未修，属后端范围)：`/api/report` 的 `spotFacingDeg` 对**全国每个浪点**都返回 157°（源 `config/thresholds.yaml`），注册表逐点 `facing` 未被引擎采用且 `facing_calibrated` 全 false → 罗盘已加诚实附注「分析口径，未逐点校准」；`_key_factors` 把 `dawnWind` 原始枚举(`off`)直接示人（前端已做显示层翻译兜底）；`_headline` 措辞 `{win}到` 与详情页「下水窗口」不一致。
