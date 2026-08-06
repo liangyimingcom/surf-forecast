@@ -92,10 +92,16 @@ def score_period(value_mean_s: float, thresholds: dict, peak_s: float | None = N
 
 
 def score_wind(speed_kn: float, wind_dir_deg: float, thresholds: dict,
-               context=None) -> ParamScore:
-    """风况评分，离岸/向岸感知；离岸放宽一档（需求 3.5/A6）。"""
+               context=None, facing: float | None = None) -> ParamScore:
+    """风况评分，离岸/向岸感知；离岸放宽一档（需求 3.5/A6）。
+
+    facing 为 None 时取 thresholds 的全站口径；传入则用该浪点的朝向
+    （由 analyze.resolve_facing 决定，见那里的取值口径说明）。
+    """
     wcfg = thresholds["wind"]
-    facing = float(wcfg["spot_facing_deg"])
+    if facing is None:
+        facing = float(wcfg["spot_facing_deg"])
+    facing = float(facing)
     bands = wcfg["onshore_bands"]
     kind = WindKind(physics.wind_kind(wind_dir_deg, facing))
 

@@ -135,6 +135,9 @@ class ReportContext(BaseModel):
     lat: float
     lon: float
     spot_facing_deg: float = 157.0
+    # 该朝向是否经过校准。False = 全站分析口径（未逐点实测）——前端据此如实标注，
+    # 不能让用户把一个未校准的度数当测量值读（离岸/向岸是一等参数）。
+    facing_calibrated: bool = False
     calibrated_at: datetime              # GMT+8 校准时间戳（需求 5.3）
     days: list[DailyAnalysis] = Field(default_factory=list)
     history: Optional[DailyAnalysis] = None   # 昨日回看（feedback spec）

@@ -216,6 +216,9 @@ def render_json(context: ReportContext) -> dict:
         "spot": context.spot,
         "coord": [context.lat, context.lon],
         "spotFacingDeg": context.spot_facing_deg,
+        # 朝向是否已校准：前端用它决定要不要加「分析口径，未逐点校准」附注。
+        # 此前前端靠比对 report 与 catalog 两个度数来猜，现在由后端如实告知。
+        "spotFacingCalibrated": context.facing_calibrated,
         "calibratedAt": context.calibrated_at.strftime("%Y-%m-%d %H:%M GMT+8"),
         "ranking": context.ranking,
         "days": days,
