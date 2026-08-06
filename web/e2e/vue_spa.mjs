@@ -39,7 +39,10 @@ page.on('pageerror', e => errors.push('PAGEERROR: ' + e.message))
 await page.route('**/api/regions', r => r.fulfill({ json: { regions: [{ region: '山东', count: 1 }, { region: '海南', count: 1 }] } }))
 await page.route('**/api/recommend*', r => r.fulfill({ json: {
   region: '山东', generated_at: '2026-07-27 10:00 GMT+8', fresh_count: 1, total_count: 1, degraded: false,
-  best: { spot_slug: 'sl74', spot_name: '石老人', day: '2026-07-27', week: '周一', score: 7.6, headline: '早7-9点到，带鱼板', key_factors: ['0.9m浪', '离岸风', 'Tp7s'] },
+  best: { spot_slug: 'sl74', spot_name: '石老人', day: '2026-07-27', week: '周一', score: 7.6, headline: '早7-9点到，带鱼板', // ⚠️ 忠实照抄后端 `_key_factors` 的真实输出：dawnWind 是**原始枚举**（off/cross/on）、
+  //    周期是 `Tp{n}s`。此前 fixture 写的是已经人话化的「离岸风」——比现实漂亮，
+  //    于是「off 直接示人」这个缺陷在 E2E 里永远暴露不了。别再把 fixture 美化。
+  key_factors: ['0.9m浪', 'off', 'Tp7s'] },
   alternatives: [] } }))
 await page.route('**/api/flags', r => r.fulfill({ json: { member_lock_enabled: false } }))
 await page.route('**/api/catalog/scores', r => r.fulfill({ json: { scores: { sl74: 7.6, sl50: 5.2 }, cached: true } }))
@@ -66,7 +69,7 @@ await page.route('**/api/status', r => r.fulfill({ json: {
 // —— 首页 ——
 await page.goto(BASE + '/', { waitUntil: 'networkidle', timeout: 30000 })
 await page.waitForTimeout(500)
-ok('首页 标题', (await page.locator('h1').first().innerText()).includes('决策助手'))
+ok('首页 报头品牌（S2 改版：标题从 h1 移入报头，h1 现为 verdict）', (await page.locator('.brand').innerText()).includes('SURF DAILY'))
 ok('首页 一屏答案 verdict', await page.locator('.verdict').count() === 1)
 ok('首页 headline 行动首句', (await page.locator('.headline').innerText()).includes('鱼板'))
 ok('首页 三渐进入口', await page.locator('.entries a').count() === 3)
@@ -127,6 +130,135 @@ ok('状态页 数据治理区块存在', govTxt.length > 0)
 ok('状态页 报出坐标非法点', govTxt.includes('sl75') && govTxt.includes('超范围'))
 ok('状态页 报出可疑重复组', govTxt.includes('sl54') && govTxt.includes('Kirra'))
 ok('状态页 合理重复只计数不报故障', govTxt.includes('2 组同海滩'))
+
+// —— S5.4 零上下文评审折回：原始枚举/术语不得直接示人 ——
+// 后端 _key_factors 会把 dawnWind 的枚举(off/cross/on)与 Tp{n}s 原样塞进 chips。
+// 评审实测「off」被读成「关闭/没风」，而它其实是最好的风况 → 显示层必须翻译。
+await page.goto(BASE + '/', { waitUntil: 'networkidle', timeout: 30000 })
+await page.waitForTimeout(600)
+{
+  const chips = await page.locator('.answer .chip').evaluateAll(ns => ns.map(n => n.textContent.trim()))
+  ok(`首页 chips 无原始风向枚举（实得 ${JSON.stringify(chips)}）`,
+     !chips.some(c => c === 'off' || c === 'cross' || c === 'on'))
+  ok('首页 chips 无裸 Tp 术语', !chips.some(c => /^Tp\d/.test(c)))
+  ok('首页 晨风 off 已译成人话（含「离岸」）', chips.some(c => c.includes('离岸')))
+  ok('首页 Tp7s 已译成「峰周期」', chips.some(c => c.includes('峰周期')))
+}
+await page.goto(BASE + '/spot/sl74', { waitUntil: 'networkidle', timeout: 30000 })
+await page.waitForTimeout(600)
+ok('详情页窗口明写「下水」（消除到达/下水歧义）', (await page.locator('.kv').innerText()).includes('下水窗口'))
+
+// —— S4 高手模式：风向罗盘（口径必须与 windKind 一致）+ m/ft 单位切换 ——
+await page.goto(BASE + '/spot/sl74', { waitUntil: 'networkidle', timeout: 30000 })
+await page.waitForTimeout(600)
+await page.click('.modes button:has-text("高手")'); await page.waitForTimeout(400)
+ok('罗盘出现（高手模式）', await page.locator('.compasscard svg').count() === 1)
+{
+  // 🔒 S4.3：逐支箭比对 data-kind 与前端 windKind(facing=canned spotFacingDeg) 的独立计算，
+  //    口径一旦分叉（有人在罗盘里另写阈值）这里立刻炸。
+  const facing = REPORT.spotFacingDeg
+  const arrows = await page.locator('.compasscard line[data-kind]').evaluateAll(ns =>
+    ns.map(n => [Number(n.getAttribute('data-hour')), n.getAttribute('data-kind')]))
+  ok('罗盘画出至少一支风矢量', arrows.length > 0)
+  const expect = (deg) => { const d = Math.abs((((deg - facing + 180) % 360) + 360) % 360 - 180); return d < 60 ? 'on' : (d > 120 ? 'off' : 'cross') }
+  const day0 = REPORT.days[(REPORT.ranking && REPORT.ranking[0]) || 0]
+  const bad = arrows.filter(([h, k]) => { const i = day0.times.indexOf(h); return i < 0 || k !== expect(day0.wdeg[i]) })
+  ok(`罗盘判定与 windKind 口径一致（${arrows.length} 支箭全对）`, bad.length === 0)
+}
+ok('罗盘说明含浪点朝向度数', /\d+°/.test(await page.locator('.compasscard .cmptext').innerText()))
+{
+  const axisM = await page.locator('.chart svg text').evaluateAll(ns => ns.map(n => n.textContent).filter(s => /\dm$/.test(s)))
+  ok(`浪高轴标签为米制（${axisM.slice(0, 2).join(',')}）`, axisM.length > 0)
+  await page.click('.modes .unitbtn'); await page.waitForTimeout(400)
+  const axisF = await page.locator('.chart svg text').evaluateAll(ns => ns.map(n => n.textContent).filter(s => /ft$/.test(s)))
+  ok(`切 ft：轴标签变英尺（${axisF.slice(0, 2).join(',')}）`, axisF.length > 0)
+  ok('切 ft：轴上已无米制标签（全同步，无混用单位）',
+     (await page.locator('.chart svg text').evaluateAll(ns => ns.map(n => n.textContent).filter(s => /\dm$/.test(s)))).length === 0)
+  ok('单位按钮文案翻转', (await page.locator('.modes .unitbtn').innerText()).includes('ft ⇄ m'))
+  await page.reload({ waitUntil: 'networkidle' }); await page.waitForTimeout(700)
+  await page.click('.modes button:has-text("高手")'); await page.waitForTimeout(350)
+  ok('单位刷新后保留（localStorage）', (await page.locator('.modes .unitbtn').innerText()).includes('ft ⇄ m'))
+  await page.click('.modes .unitbtn'); await page.waitForTimeout(300)   // 复位为米，避免污染后续断言
+}
+ok('单位按钮仅高手模式（小白不显）', await (async () => {
+  await page.click('.modes button:has-text("小白")'); await page.waitForTimeout(300)
+  return (await page.locator('.modes .unitbtn').count()) === 0
+})())
+
+// —— S3 小白模式：倒计时三态（假时钟钉双侧边界）+ 通勤倒推 ——
+// 独立 context 用假时钟，避免污染其余断言
+{
+  // 详情页默认显示 ranking[0] 指定的那天（不一定是 days[0]）——假时钟必须对着它设，
+  // 否则倒计时算的是另一天（本轮实测踩到：起点整那条误判为 before）。
+  const shown = REPORT.days[(REPORT.ranking && REPORT.ranking[0]) || 0]
+  const DAY = shown.date
+  const win = shown.windows && shown.windows[0]
+  if (win) {
+    const cases = [
+      [`${DAY}T${String(win[0]).padStart(2,'0')}:00:00+08:00`.replace('.0',''), 'during', /窗口进行中/, '起点整（含）'],
+      [`${DAY}T${String(win[1]).padStart(2,'0')}:00:00+08:00`.replace('.0',''), 'after', /窗口已过/, '终点整（不含）'],
+    ]
+    for (const [iso, st, re_, label] of cases) {
+      const ctx = await browser.newPage()
+      // 假时钟：冻结时间到 iso（用 JSON.stringify 传值，别在模板里再套一层引号——本轮踩过）
+      await ctx.addInitScript(`{ const F=new Date(${JSON.stringify(iso)}).getTime(); const RD=Date;
+        class D extends RD { constructor(...a){ if(!a.length) super(F); else super(...a) } static now(){ return F } }
+        globalThis.Date=D; }`)
+      await ctx.route('**/api/**', r => r.fulfill({ json: {} }))
+      await ctx.route('**/api/catalog*', r => r.fulfill({ json: CATALOG }))
+      await ctx.route('**/api/report/history*', r => r.fulfill({ json: { history: REPORT.history } }))
+      await ctx.route('**/api/report*', r => r.fulfill({ json: REPORT }))
+      await ctx.goto(BASE + '/spot/sl74', { waitUntil: 'networkidle', timeout: 30000 })
+      await ctx.waitForTimeout(700)
+      const cls = await ctx.locator('.cdown').getAttribute('class').catch(() => '')
+      const txt = await ctx.locator('.cdown').innerText().catch(() => '')
+      ok(`倒计时 ${label} → ${st}`, (cls || '').includes(st) && re_.test(txt))
+      await ctx.close()
+    }
+  }
+}
+// 通勤倒推（真实时钟即可，只验存在/推算/持久化/模式隔离）
+await page.goto(BASE + '/spot/sl74', { waitUntil: 'networkidle', timeout: 30000 })
+await page.waitForTimeout(500)
+await page.click('.modes button:has-text("小白")'); await page.waitForTimeout(250)
+ok('通勤倒推卡（小白模式）', await page.locator('.departcard').count() === 1)
+ok('通勤倒推 出门→下水两个时刻', /\d{2}:\d{2}[\s\S]*出门[\s\S]*\d{2}:\d{2}[\s\S]*下水/.test(await page.locator('.departcard .departline').innerText()))
+const before = await page.locator('.departcard .commuterow').innerText()
+await page.locator('.departcard .commuterow button').first().click(); await page.waitForTimeout(250)
+ok('通勤时长可调（−5min 生效）', (await page.locator('.departcard .commuterow').innerText()) !== before)
+await page.click('.modes button:has-text("高手")'); await page.waitForTimeout(250)
+ok('通勤卡仅小白模式（高手不显）', await page.locator('.departcard').count() === 0)
+
+// —— S2 晨报首页 ——
+await page.goto(BASE + '/', { waitUntil: 'networkidle', timeout: 30000 })
+await page.waitForTimeout(700)
+const homeTxt = await page.locator('body').innerText()
+ok('首页 报头 SURF DAILY', homeTxt.includes('SURF DAILY'))
+ok('首页 verdict「这周去…最值得」', /这周去[\s\S]{1,20}最值得/.test(homeTxt))
+ok('首页 覆盖计数 fresh/total', /\d+\/\d+ 浪点今日评分可用/.test(homeTxt))
+ok('首页 大评分数字', await page.locator('.score').count() === 1)
+ok('首页 三渐进入口', await page.locator('.entries a').count() === 3)
+ok('首页 校准戳 + 数据健康链接', /先验证过去，再相信未来/.test(homeTxt))
+ok('首页 报头不被悬浮按钮遮挡', await page.evaluate(() => {
+  const b = document.querySelector('.brand span').getBoundingClientRect()
+  const n = document.querySelector('.nightbtn').getBoundingClientRect()
+  return b.right <= n.left
+}))
+ok('首页 🚫 无数据源块未出现（告警/众报/车程）',
+   !homeTxt.includes('今日注意') && !homeTxt.includes('现场众报') && !homeTxt.includes('车程'))
+
+// —— S1 夜读模式（设计令牌切换 + localStorage 持久化）——
+await page.goto(BASE + '/', { waitUntil: 'networkidle', timeout: 30000 })
+await page.waitForTimeout(400)
+ok('夜读 开关存在', await page.locator('.nightbtn').count() === 1)
+const bgDay = await page.evaluate(() => getComputedStyle(document.body).backgroundColor)
+ok('夜读 日态背景取自 --bg', bgDay === 'rgb(250, 249, 245)')
+await page.locator('.nightbtn').click(); await page.waitForTimeout(500)
+ok('夜读 body.night 已挂', await page.evaluate(() => document.body.classList.contains('night')))
+const bgNight = await page.evaluate(() => getComputedStyle(document.body).backgroundColor)
+ok('夜读 夜态背景已切换（靠变量，非写死色）', bgNight === 'rgb(25, 23, 19)')
+await page.reload({ waitUntil: 'networkidle' }); await page.waitForTimeout(600)
+ok('夜读 刷新后仍生效（localStorage 持久化）', await page.evaluate(() => document.body.classList.contains('night')))
 
 ok('0 控制台/页面 JS 报错', errors.length === 0)
 if (errors.length) console.log('  JS errors:', errors.slice(0, 5))

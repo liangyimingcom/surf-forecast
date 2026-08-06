@@ -23,8 +23,8 @@ onMounted(async () => {
   pts.forEach(s => {
     const gold = props.favs.has(s.slug)
     const m = L.circleMarker([s.lat, s.lon], {
-      radius: 6, color: gold ? '#d97706' : '#0ea5e9',
-      fillColor: gold ? '#f59e0b' : '#38bdf8', fillOpacity: 0.9, weight: 2,
+      radius: 6, color: gold ? 'var(--warn)' : 'var(--sea2)',
+      fillColor: gold ? 'var(--hot)' : 'var(--sea2)', fillOpacity: 0.9, weight: 2,
     }).addTo(map)
     const btn = `<b>${s.name || s.slug}</b><br>${s.region || ''}<br><a href="#/spot/${s.slug}" data-slug="${s.slug}" class="mpop">看详情 ▸</a>`
     m.bindPopup(btn)
@@ -45,5 +45,5 @@ onBeforeUnmount(() => { if (map) map.remove() })
 <style scoped>
 .map { height: 360px; border-radius: 12px; overflow: hidden; }
 .legend { font-size: 11px; color: var(--ink2); margin-top: 4px; }
-.legend .g { color: #f59e0b; } .legend .b { color: #38bdf8; }
+.legend .g { color: var(--hot); } .legend .b { color: var(--sea2); }
 </style>

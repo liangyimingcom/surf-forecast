@@ -145,14 +145,14 @@ h1 { font-size: 20px; color: var(--sea1); }
 h2 { font-size: 14px; margin: 0 0 8px; }
 .back { font-size: 13px; }
 .sub { font-size: 12.5px; color: var(--ink2); }
-.card { background: #fff; border-radius: 16px; padding: 14px 16px; margin: 12px 0; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.card { background: var(--card); border-radius: 16px; padding: 14px 16px; margin: 12px 0; box-shadow: var(--shadow); }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
-th, td { text-align: left; padding: 4px 8px; border-bottom: 1px solid #e2e8f0; }
+th, td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--line); }
 th { color: var(--ink2); font-weight: 600; }
-.ok { color: #15803d; }
-.warn { color: #b45309; font-size: 13px; }
-.hint { color: #6b7280; font-size: 12px; margin-top: 6px; }
-.faillist { margin: 4px 0 0; padding-left: 18px; color: #b45309; font-size: 12.5px; line-height: 1.6; }
-.bad { background: #fff7ed; border: 1px solid #fdba74; border-radius: 12px; padding: 10px; color: #9a3412; }
+.ok { color: var(--ok); }
+.warn { color: var(--warn); font-size: 13px; }
+.hint { color: var(--ink2); font-size: 12px; margin-top: 6px; }
+.faillist { margin: 4px 0 0; padding-left: 18px; color: var(--warn); font-size: 12.5px; line-height: 1.6; }
+.bad { background: var(--warnbg); border: 1px solid var(--warnline); border-radius: 12px; padding: 10px; color: var(--bad); }
 .ts { font-size: 11px; color: var(--ink2); }
 </style>

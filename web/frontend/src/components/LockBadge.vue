@@ -10,5 +10,5 @@ const auth = useAuthStore()
 </template>
 
 <style scoped>
-.lock { display: inline-block; font-size: 11px; background: #fef3c7; color: #92400e; border-radius: 999px; padding: 2px 9px; margin-left: 6px; }
+.lock { display: inline-block; font-size: 11px; background: var(--warnbg); color: var(--warn); border-radius: 999px; padding: 2px 9px; margin-left: 6px; }
 </style>
