@@ -107,3 +107,46 @@ def test_render_markdown():
     assert "青岛山东头" in md
     assert "速查排名" in md
     assert "GMT+8" in md
+
+
+def test_score_precision_is_one_decimal():
+    """分数精度单一来源：`/api/report` 的 days[].score 必须已是 1 位小数。
+
+    根因回归：此前 render 输出 `da.composite` 原值（如 8.65），而 `/api/recommend`
+    自己 round(...,1) → 8.7，同一天同一浪点两个端点给出不同数字（首页 8.7 vs 详情 8.65）。
+    在输出层统一取整后，recommend 那次 round 变成幂等，两端必然一致。
+    """
+    rep = render.render_json(_ctx())
+    for d in rep["days"]:
+        s = d["score"]
+        assert isinstance(s, float), f"score 应为 float，实得 {type(s)}"
+        assert round(s, 1) == s, f"score 未取到 1 位小数：{s!r}"
+
+
+def test_recommend_score_matches_report_score():
+    """跨端点一致性：recommend 对同一份 report 取到的分数 == report 自己给的分数。"""
+    import web.recommend as R
+
+    rep = render.render_json(_ctx())
+    best_day = next((d for d in rep["days"] if d.get("best")), rep["days"][0])
+    # recommend 内部就是 round(float(bd["score"]), 1)；render 已取整 → 必须幂等
+    assert round(float(best_day["score"]), 1) == best_day["score"]
+    assert R._headline(best_day)  # 顺带确认 headline 对真实引擎输出不炸
+
+
+def test_engine_output_through_recommend_has_no_raw_enum():
+    """端到端（引擎真实输出 → recommend）：用户可见文案里不得出现内部枚举/术语。
+
+    比手搓 fixture 更硬 —— fixture 会被写得比现实漂亮（本轮在 E2E 与单测两层都踩过），
+    而引擎的 `dawnWind` 一定是 `WindKind.value`（off/cross/on）。
+    """
+    import web.recommend as R
+
+    rep = render.render_json(_ctx())
+    for d in rep["days"]:
+        visible = " ".join(R._key_factors(d)) + " " + R._headline(d)
+        assert d.get("dawnWind") in ("off", "cross", "on", "", None), \
+            f"引擎的 dawnWind 应是枚举值，实得 {d.get('dawnWind')!r}"
+        for raw in ("off", "cross", "on", "Tp"):
+            assert raw not in visible, f"{raw!r} 泄漏到用户可见文案: {visible!r}"
+        assert "到，" not in visible  # 窗口措辞必须是「下水」
