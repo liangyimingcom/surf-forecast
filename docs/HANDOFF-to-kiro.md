@@ -206,3 +206,27 @@ lon 取自 `sl49 西涌`(广东)——**两个分量来自不同的国内点**�
 **🔒 留给用户**：本轮 UI 上生产；合并 PR；让引擎按逐点 `facing` 计算并真正校准朝向；
 🟡 档后端补 `sunrise`/`sunset`/`sst`/`moonPhase`（引擎已有值、`render._day_to_dict` 未透出）
 → 可解锁首光标记 / 水温穿着 / 潮历月相。
+
+#### v0.5.0 已上生产（2026-08-06 09:04 GMT+8）
+
+PR #44 合并（`27a5279`）→ VERSION 0.5.0 → 镜像双 tag → taskdef **:23 → :24** → canary **66/0** → smoke 6/6。
+
+**核对链条**（不是看到 200 就宣布成功）：ECR `v0.5.0` digest `sha256:9a4b3cab…` ↔ 运行中容器 digest
+**逐字符相同**；生产 CSS 含 `--halo`/`--ch-facearc`（本轮最后一个提交才加的令牌）↔ 新前端确已换。
+
+**两个排查陷阱，下次直接避开**：
+1. **别用本地 dist 的 chunk hash 去猜生产资源路径** —— SPA 代码分割，页面文案在
+   `HomePage-*.js`/`SpotPage-*.js`/`countdown-*.js` 里，入口 chunk 本来就没有；而且镜像内
+   `npm install` 解析的依赖版本与本地锁定状态不同 → **同样的源码、不同的 chunk 名**
+   （生产 `HomePage-BEyfHnSx` vs 本地 `Dme5WaQE`）。我照本地 hash 请求得到 404，一度误判成
+   「线上服的是旧包」。正确做法：从生产入口 JS 里读真实分块名，或直接验 CSS 令牌。
+2. **金丝雀失败会自动回滚** —— 先手动对生产跑一遍 `vue_spa.mjs`（无副作用）确认绿了，
+   再执行 `deploy.sh canary`。否则脚手架问题会把一个健康版本回滚掉（v0.4.0 前踩过）。
+
+**`deploy.sh` 的一个隐含前提**：它没有 CloudFront 失效步骤。当前分发 `DefaultTTL=0`/`MinTTL=0`
+（实测首页 `X-Cache: Miss from cloudfront` 直接回源）所以无碍；**若将来给静态资源加长 TTL，
+必须补 `create-invalidation`**，否则切版后会继续服旧 HTML。
+
+**生产真数据实地验证了两条「缺值不编造」路径**（第一次在真缺数据的浪点上跑到）：
+Canggu 走 best_match 备用模型 → 首页 chips 只有 2 个（无 `峰周期`，Tp 按约定留空不估算）；
+罗盘只画 12/18 两支箭，06 时无风向数据就不画并明写「晨 06 时无风向数据，未作判定」。

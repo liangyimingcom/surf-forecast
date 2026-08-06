@@ -37,9 +37,27 @@
 
 - ✅ Kiro 文档体系完整（4 steering + 6 spec三件套(5产品+1工具) + 2 hooks）
 - ✅ `web/浪报MVP.html`：会员视图功能完整 MVP（双模式、三类 SVG 图表、离岸风质条、昨日回看、GMT+8）
-- 🚧 `web/frontend/`：**甲·Vite+Vue3 决策助手整体重建**（feature 分支 `feat/vue-rebuild`）——3 路由页(首页决策助手/详情/目录)+后端契约重塑(recommend/regions/动态报告/诚实分层鉴权/会员锁占位)+图表组件化(charts.js/ChartBox 零依赖)+新 E2E vue_spa.mjs 19/0；后端 `SF_SPA_DIST` 门控切换，单 HTML 作兜底；真部署 v0.2.0 待 G 门
+- ✅ `web/frontend/`：**Vite+Vue3 决策助手**已上生产（自 v0.2.0 起由后端 `SF_SPA_DIST` 直服，单 HTML 作兜底）——4 路由页(首页/详情/目录/数据健康)+图表组件化(charts.js/ChartBox 零依赖)+诚实分层鉴权+会员锁占位
+- ✅ **线上当前 v0.5.0**（taskdef :24）：v4 三屏晨报 UI，见下节。E2E `vue_spa.mjs` **66/0**，pytest **329**
 - ✅ `src/surf_forecast/physics.py` 已实现并通过校验（含风向判定）
 - ⬜ 引擎其余模块、Web 后端、校验持久化为脚手架，按各 spec 的 tasks 推进
+
+## v4 三屏晨报 UI（v0.5.0，2026-08-06 上线）
+
+按 `docs/design-v4-update1.html`（三屏收敛原型）把前端从普通蓝白 SPA 改为**晨报纸感**三屏。
+**后端零改动** —— 合并的 27 个文件未触碰 `src/`/`tests/`/`config/`，pytest 全程 **329 → 329**。
+
+| 屏 | 内容 |
+|---|---|
+| ① 首页 | 报头 `浪报 SURF DAILY · <GMT+8 日期>` · verdict 大标题 · `fresh/total` 覆盖计数 · **本周走势 sparkline** · **最佳窗口倒计时** · 校准戳链 `/status` |
+| ② 详情·小白 | 一屏答案 · **下水窗口**明写 · **倒计时三态**（`src/countdown.js` 纯函数，双侧边界钉死）· **通勤倒推**（窗口起点 − 车程 − 装备 15min，localStorage） |
+| ③ 详情·高手 | 五维 · 风质条 · 双周期图 · **风向罗盘**（`charts.compass`，判定复用 `windKind`，罗盘内零阈值代码）· 物理小课堂 · 昨日回看 · **m/ft 单位切换**（`src/units.js` 单一真源） |
+| 全局 | **29+12 个设计令牌** + **夜读模式**（`body.night` 只覆盖变量、不碰组件规则）；`src/` 下除 `style.css` 仅 `LiveCam` 的 `#000` 属产品例外 |
+
+- **数据诚实**：缺值不编造 —— best_match 回退浪点不显 Tp chip（Tp 仅主模型提供）、罗盘缺某时刻就不画那支箭并明写「未作判定」；浪点朝向标注「分析口径，未逐点校准」。
+- **测试**：pytest **329** · `vue_spa.mjs` **66/0** + 0 JS 报错（含假时钟钉死倒计时双侧边界、逐支箭比对 `windKind` 口径、切 ft 后无米制残留）。
+- **截图**：`docs/screenshots/50-prod-{home,novice,expert,expert-night-ft}.png`（生产真数据）。
+- **待办（后端）**：`_key_factors`/`_headline` 应在后端出人话；`/api/recommend` 与 `/api/report` 分数精度不一致；引擎应按注册表逐点 `facing` 计算并校准朝向。
 
 ## 数据源
 
