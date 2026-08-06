@@ -13,7 +13,11 @@ FRESH = "2026-07-27 02:00 GMT+8"
 STALE = "2026-07-25 02:00 GMT+8"  # 两天前
 
 
-def _rep(cal, score, *, window="早7-9点", board="鱼板", dawn="离岸风", hs=1.2, tp=9.0):
+# ⚠️ `dawn` 默认值必须是引擎真实产出的**枚举值**（render.py 写的是
+#    `da.dawn_wind_kind.value`，即 off/cross/on），不能填已经人话化的「离岸风」——
+#    fixture 一旦比现实漂亮，「原始枚举直接示人」这类缺陷就永远测不出来
+#    （2026-08-06 实测：E2E 与本单测两层 fixture 都犯了同一个错）。
+def _rep(cal, score, *, window="早7-9点", board="鱼板", dawn="off", hs=1.2, tp=9.0):
     return {
         "spot": "X", "calibratedAt": cal, "ranking": [0],
         "days": [{
@@ -86,10 +90,39 @@ def test_bad_cache_does_not_crash():
 
 
 def test_headline_and_key_factors():
-    reader = _Reader({"b": _rep(FRESH, 8.0, window="早7-9点", board="鱼板", dawn="离岸风", hs=1.2, tp=9.0)})
+    """人话化：枚举翻成中文、Tp 去术语、窗口明写「下水」。"""
+    reader = _Reader({"b": _rep(FRESH, 8.0, window="早7-9点", board="鱼板", dawn="off", hs=1.2, tp=9.0)})
     out = R.build_recommendation("广东", REG, reader, now=NOW)
-    assert out["best"]["headline"] == "早7-9点到，带鱼板"
-    assert out["best"]["key_factors"] == ["1.2m浪", "离岸风", "Tp9s"]
+    assert out["best"]["headline"] == "早7-9点 下水，带鱼板"
+    assert out["best"]["key_factors"] == ["1.2m浪", "晨风离岸·梳面", "峰周期 9s"]
+
+
+@pytest.mark.parametrize("enum_val,expect", [
+    ("off", "晨风离岸·梳面"),
+    ("cross", "晨风侧岸·尚可"),
+    ("on", "晨风向岸·吹乱"),
+])
+def test_dawn_wind_enum_never_leaks(enum_val, expect):
+    """三个枚举值都必须被翻译；原始 off/cross/on 一个都不许出现在用户可见字段里。"""
+    reader = _Reader({"b": _rep(FRESH, 8.0, dawn=enum_val)})
+    best = R.build_recommendation("广东", REG, reader, now=NOW)["best"]
+    assert expect in best["key_factors"]
+    visible = " ".join(best["key_factors"]) + " " + best["headline"]
+    for raw in ("off", "cross", "on", "Tp"):
+        assert raw not in visible, f"内部枚举/术语 {raw!r} 泄漏到用户可见文案: {visible!r}"
+
+
+def test_unknown_dawn_wind_passes_through():
+    """将来枚举扩了也不静默丢因子：认不出就原样透出，而不是吞掉。"""
+    reader = _Reader({"b": _rep(FRESH, 8.0, dawn="glassy")})
+    assert "glassy" in R.build_recommendation("广东", REG, reader, now=NOW)["best"]["key_factors"]
+
+
+def test_headline_says_in_water_not_arrival():
+    """窗口是「在水里」的时间，不是到达时间——措辞错会让人按窗口起点出门而迟到一个车程。"""
+    reader = _Reader({"b": _rep(FRESH, 8.0, window="07:00-10:00")})
+    h = R.build_recommendation("广东", REG, reader, now=NOW)["best"]["headline"]
+    assert "下水" in h and "到，" not in h and not h.startswith("07:00-10:00到")
 
 
 def test_empty_region_uses_all():

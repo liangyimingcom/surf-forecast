@@ -82,9 +82,14 @@ def find_spot(lat: float, lon: float, spots=None) -> dict | None:
 
 def default_report_fn(spot_cfg: dict, *, calibrated_at: datetime | None = None) -> dict:
     """默认：调引擎出含昨日回看的 REPORT（validate 在 build_context 内守门）。"""
+    # 逐点朝向：把注册表的值与**校准标记**一起传给引擎。
+    # 未校准时 analyze.resolve_facing 会忽略该值、退回全站口径 —— 所以这里传值是
+    # 无害的，且把「校准一个点即刻生效」这条路打通（详见 resolve_facing 的说明）。
     ctx = analyze.build_context(
         spot_cfg["lat"], spot_cfg["lon"], spot_cfg.get("days", 6), spot_cfg["spot"],
         include_history=True, calibrated_at=calibrated_at,
+        facing_deg=spot_cfg.get("spot_facing_deg"),
+        facing_calibrated=bool(spot_cfg.get("facing_calibrated", False)),
     )
     return render.render_json(ctx)
 

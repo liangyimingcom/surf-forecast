@@ -111,7 +111,12 @@ const facingDeg = computed(() => {
 //    且引擎并未采用它）。既然离岸/向岸是一等参数，就不能把这个度数说得像测量值。
 const facingNote = computed(() => {
   if (facingDeg.value == null) return null
-  if (facingMeta.value.calibrated) return null      // 真校准过 → 无需附注
+  // ✅ 优先信后端如实告知的 `spotFacingCalibrated`（2026-08-06 新增）；
+  //    旧缓存没这个字段时退回目录的 `facing_calibrated`。
+  //    此前这里靠比对 report 与 catalog 两个度数来猜「是不是没校准」——能用但是启发式。
+  const backendSays = report.value && report.value.spotFacingCalibrated
+  if (backendSays === true) return null
+  if (backendSays !== false && facingMeta.value.calibrated) return null   // 旧缓存路径
   const spot = facingMeta.value.spot
   const differs = typeof spot === 'number' && Math.abs(spot - facingDeg.value) >= 10
   return differs

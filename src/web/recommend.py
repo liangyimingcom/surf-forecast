@@ -43,13 +43,28 @@ def _best_day(report: dict) -> Optional[dict]:
     return days[0]
 
 
+# 晨风风质：`WindKind` 的**枚举值**（models.WindKind：off/cross/on）→ 人话。
+# 为什么必须在后端做：`dawnWind` 原样透出会让「off」被读成「关闭 / 没风」，
+# 而它其实是**最好**的风况（离岸风梳直浪面）——2026-08-06 零上下文可用性评审实测到这个误读。
+# 前端也有一层同样的翻译作兜底（读旧缓存时用），但根治必须在这里：否则任何新接入的
+# 客户端都会重踩。措辞与 `charts.WIND_META` 保持一致，避免两处口径分叉。
+_DAWN_CN = {
+    "off": "晨风离岸·梳面",
+    "cross": "晨风侧岸·尚可",
+    "on": "晨风向岸·吹乱",
+}
+
+
 def _headline(day: dict) -> str:
     """行动首句：窗口 + 板型（Fable5「早上7点到，带鱼板」），退回小白建议。"""
     win = (day.get("window") or "").strip()
     board = (day.get("board") or "").strip()
     parts = []
     if win:
-        parts.append(f"{win}到")
+        # 明写「下水」而非「到」：引擎的 window 是**最佳可冲时段**（人在水里的时间），
+        # 而详情页另有「几点出门」倒推。只说「到」会被理解成到达时间 → 按窗口起点出门
+        # 就会整整迟到一个车程（零上下文评审判定为最严重歧义）。
+        parts.append(f"{win} 下水")
     if board:
         parts.append(f"带{board}")
     if parts:
@@ -65,10 +80,12 @@ def _key_factors(day: dict) -> list[str]:
         kf.append(f"{max(hs):.1f}m浪")
     dw = (day.get("dawnWind") or "").strip()
     if dw:
-        kf.append(dw)
+        # 认得的枚举翻成人话；认不出的原样透出（不猜、不吞——将来枚举扩了也不会静默丢因子）
+        kf.append(_DAWN_CN.get(dw, dw))
     tp = [x for x in (day.get("tp2") or day.get("tp") or []) if isinstance(x, (int, float))]
     if tp:
-        kf.append(f"Tp{max(tp):.0f}s")
+        # 「Tp」对非物理背景用户是纯噪音；口径仍是谱峰周期，只是把名字说出来
+        kf.append(f"峰周期 {max(tp):.0f}s")
     return kf[:3]
 
 

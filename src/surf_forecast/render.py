@@ -127,7 +127,12 @@ def _day_to_dict(da: DailyAnalysis, today: bool) -> dict:
         # "best_match(fallback)" —— 必须让用户/站长看得见换过源，不能静默替换。
         "dataSource": sorted({p.source for p in pts}) or ["unknown"],
         "best": False,
-        "score": da.composite,
+        # 分数精度的**单一来源**：JSON 边界统一 1 位小数。
+        # 此前 `/api/report` 给 `da.composite` 原值（如 8.65）而 `/api/recommend` 自己
+        # round(...,1) → 8.7，同一天同一浪点两个端点给出不同数字，首页与详情页对不上
+        # （零上下文评审原话：「会让人犹豫是不是刷新后分变了」）。
+        # 只在输出层取整，**排序/ranking 仍用全精度**，不影响哪天最佳的判定。
+        "score": round(da.composite, 1),
         "stars": int(round(da.composite / 2)),
         "tag": _tag(da.composite),
         "phase": "",
@@ -211,6 +216,9 @@ def render_json(context: ReportContext) -> dict:
         "spot": context.spot,
         "coord": [context.lat, context.lon],
         "spotFacingDeg": context.spot_facing_deg,
+        # 朝向是否已校准：前端用它决定要不要加「分析口径，未逐点校准」附注。
+        # 此前前端靠比对 report 与 catalog 两个度数来猜，现在由后端如实告知。
+        "spotFacingCalibrated": context.facing_calibrated,
         "calibratedAt": context.calibrated_at.strftime("%Y-%m-%d %H:%M GMT+8"),
         "ranking": context.ranking,
         "days": days,
